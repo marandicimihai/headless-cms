@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HeadlessCms.Api/HeadlessCms.Api.csproj" />
+  </Folder>
+</Solution>
