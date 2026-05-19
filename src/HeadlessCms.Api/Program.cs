@@ -1,9 +1,16 @@
+using HeadlessCms.Api.Data;
+using Microsoft.EntityFrameworkCore;
+
 var bld = WebApplication.CreateBuilder(args);
 bld.Services
-   .AddAuthenticationJwtBearer(s => s.SigningKey = bld.Configuration["Auth:JwtKey"])
-   .AddAuthorization()
-   .AddFastEndpoints(o => o.SourceGeneratorDiscoveredTypes = DiscoveredTypes.All)
-   .SwaggerDocument();
+    .AddAuthorization()
+    .AddFastEndpoints(o => o.SourceGeneratorDiscoveredTypes = DiscoveredTypes.All);
+
+bld.Services
+    .AddDbContext<ApplicationDbContext>(options =>
+    {
+        options.UseNpgsql(bld.Configuration.GetConnectionString("DefaultConnection"));
+    });
 
 var app = bld.Build();
 app.UseAuthentication()
@@ -12,6 +19,5 @@ app.UseAuthentication()
        c =>
        {
            c.Errors.UseProblemDetails();
-       })
-   .UseSwaggerGen();
+       });
 app.Run();

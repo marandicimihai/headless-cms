@@ -1,0 +1,9 @@
+using HeadlessCms.Api.Auth.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace HeadlessCms.Api.Auth.Data;
+
+public abstract class AuthDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<User> Users { get; set; }
+}
