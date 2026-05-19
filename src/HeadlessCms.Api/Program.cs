@@ -6,13 +6,12 @@ bld.Services
     .AddAuthorization()
     .AddFastEndpoints(o => o.SourceGeneratorDiscoveredTypes = DiscoveredTypes.All);
 
-bld.Services
-    .AddDbContext<ApplicationDbContext>(options =>
-    {
-        options.UseNpgsql(bld.Configuration.GetConnectionString("DefaultConnection"));
-    });
+bld.Services.ConfigureDataServices(bld.Configuration);
 
 var app = bld.Build();
+
+await app.SeedData();
+
 app.UseAuthentication()
    .UseAuthorization()
    .UseFastEndpoints(
