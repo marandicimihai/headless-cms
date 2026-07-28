@@ -1,4 +1,3 @@
-using System.Data.Common;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
@@ -46,34 +45,60 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
             Expiry = response.RefreshExpiry
         };
         
-        await db.Tokens.AddAsync(refreshToken);
-        db.Tokens.RemoveRange(db.Tokens.Where(t => t.UserId == response.UserId));
+        var previousTokens = await db.Tokens
+            .Where(token => token.UserId == response.UserId)
+            .ToListAsync();
+
+        db.Tokens.RemoveRange(previousTokens);
+        db.Tokens.Add(refreshToken);
         
         try
         {
             await db.SaveChangesAsync();
         }
-        catch (DbException de)
+        catch (DbUpdateException exception)
         {
-            logger.LogError(de, "An error occurred while persisting token");
+            logger.LogError(exception, "An error occurred while persisting a refresh token");
             throw;
         }
     }
 
     public override async Task RefreshRequestValidationAsync(TokenRequest req)
     {
-        var token = await db.Tokens.FirstOrDefaultAsync(t => t.TokenHash == TokenHasher.Hash(req.RefreshToken));
-
-        if (token is null || DateTime.UtcNow > token.Expiry)
+        if (string.IsNullOrWhiteSpace(req.RefreshToken))
         {
-            AddError(r => r.RefreshToken, "Invalid Token");
+            AddError(r => r.RefreshToken, "Invalid token");
+            return;
         }
-        
-        req.UserId = token!.UserId;
+
+        var tokenHash = TokenHasher.Hash(req.RefreshToken);
+        var token = await db.Tokens
+            .SingleOrDefaultAsync(storedToken => storedToken.TokenHash == tokenHash);
+
+        if (token is null || DateTime.UtcNow >= token.Expiry)
+        {
+            AddError(r => r.RefreshToken, "Invalid token");
+            return;
+        }
+
+        if (!await db.Users.AnyAsync(user => user.Id == token.UserId))
+        {
+            AddError(r => r.RefreshToken, "Invalid token");
+            return;
+        }
+
+        req.UserId = token.UserId;
     }
 
-    public override Task SetRenewalPrivilegesAsync(TokenRequest request, UserPrivileges privileges)
+    public override async Task SetRenewalPrivilegesAsync(
+        TokenRequest request,
+        UserPrivileges privileges)
     {
-        return Task.CompletedTask;
+        var user = await db.Users
+            .AsNoTracking()
+            .SingleAsync(storedUser => storedUser.Id == request.UserId);
+
+        privileges["sub"] = user.Id;
+        privileges["username"] = user.Username;
     }
 }

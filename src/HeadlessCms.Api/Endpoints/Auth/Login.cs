@@ -42,7 +42,13 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenRespon
         
         if (valid)
         {
-            Response = await CreateTokenWith<Refresh>(user!.Id, _ => { });
+            Response = await CreateTokenWith<Refresh>(
+                user!.Id,
+                privileges =>
+                {
+                    privileges["sub"] = user.Id;
+                    privileges["username"] = user.Username;
+                });
         }
         else
         {

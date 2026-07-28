@@ -38,3 +38,5 @@ app.UseAuthentication()
            c.Errors.UseProblemDetails();
        });
 app.Run();
+
+public partial class Program;
