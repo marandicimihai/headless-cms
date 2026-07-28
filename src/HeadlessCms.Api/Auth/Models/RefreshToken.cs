@@ -1,20 +1,20 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Auth.Models;
 
-[Index(nameof(Username), IsUnique = true)]
-public class User
+public class RefreshToken
 {
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public string Id { get; set; } = default!;
-    
-    [Required]
-    [StringLength(64)]
-    public string Username { get; set; } = default!;
 
     [Required]
-    [StringLength(256)]
-    public string PasswordHash { get; set; } = default!;
+    [StringLength(64)]
+    public string UserId { get; set; } = default!;
+    
+    [Required]
+    public string TokenHash { get; set; } = default!;
+
+    [Required]
+    public DateTime Expiry { get; set; }
 }

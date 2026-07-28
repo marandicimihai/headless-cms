@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HeadlessCms.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260519173815_Initial")]
+    [Migration("20260727153513_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -26,13 +26,20 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Auth.Models.User", b =>
                 {
-                    b.Property<string>("Email")
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("text");
 
-                    b.HasKey("Email");
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
 
                     b.ToTable("Users");
                 });

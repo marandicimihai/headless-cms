@@ -62,6 +62,25 @@ Planned core capabilities:
 - publish/unpublish workflow,
 - filtering and pagination.
 
+## Build and Test
+
+Restore and build the solution:
+
+```bash
+dotnet restore headless-cms.slnx
+dotnet build headless-cms.slnx --no-restore
+```
+
+Run the integration tests:
+
+```bash
+dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
+```
+
+The authentication tests use the FastEndpoints-recommended xUnit,
+`FastEndpoints.Testing`, `AppFixture`, route-less HTTP helpers, and Shouldly
+setup. They boot the complete API pipeline with an isolated in-memory database.
+
 ## Status
 
 Initial project setup in progress.
@@ -69,4 +88,3 @@ Initial project setup in progress.
 ## License
 
 TBD
-
