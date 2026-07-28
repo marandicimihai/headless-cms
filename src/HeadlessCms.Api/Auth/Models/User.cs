@@ -1,13 +1,20 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Auth.Models;
 
-[PrimaryKey(nameof(Email))]
-[Index(nameof(Email), IsUnique = true)]
+[Index(nameof(Username), IsUnique = true)]
 public class User
 {
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public string Id { get; set; } = default!;
+    
     [Required]
-    [EmailAddress]
-    public string Email { get; set; } = default!;
+    [StringLength(64)]
+    public string Username { get; set; } = default!;
+
+    [Required]
+    [StringLength(256)]
+    public string PasswordHash { get; set; } = default!;
 }

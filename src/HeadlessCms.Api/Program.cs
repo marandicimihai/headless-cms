@@ -1,22 +1,40 @@
+using FastEndpoints.Security;
+using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-var bld = WebApplication.CreateBuilder(args);
-bld.Services
+var builder = WebApplication.CreateBuilder(args);
+
+var signingKey = builder.Configuration["Auth:SigningKey"] ??
+                 throw new InvalidOperationException("Missing configuration Auth:SigningKey");
+
+builder.Services
+    .AddAuthenticationJwtBearer(s => s.SigningKey = signingKey) 
     .AddAuthorization()
-    .AddFastEndpoints(o => o.SourceGeneratorDiscoveredTypes = DiscoveredTypes.All);
+    .AddFastEndpoints();
 
-bld.Services.ConfigureDataServices(bld.Configuration);
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
 
-var app = bld.Build();
+builder.Services.AddScoped<UserManager>();
 
-await app.SeedData();
+var app = builder.Build();
+
+await app.SeedAdminUser();
+
+app.UseHttpsRedirection();
 
 app.UseAuthentication()
    .UseAuthorization()
    .UseFastEndpoints(
        c =>
        {
+           c.Endpoints.RoutePrefix = "api";
            c.Errors.UseProblemDetails();
        });
 app.Run();

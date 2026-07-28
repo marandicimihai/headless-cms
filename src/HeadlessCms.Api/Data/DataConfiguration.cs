@@ -1,29 +1,33 @@
 using HeadlessCms.Api.Auth.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Data;
 
 public static class DataConfiguration
 {
-    public static void ConfigureDataServices(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddDbContext<ApplicationDbContext>(options =>
-            {
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
-            });
-    }
-
-    public static async Task SeedData(this WebApplication app)
+    public static async Task SeedAdminUser(this WebApplication app)
     {
         if (app.Environment.IsDevelopment())
         {
             using var scope = app.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var devUserEmail = "dev@headlesscms.local";
+            
+            var username = app.Configuration["Auth:AdminUsername"] ??
+                           throw new InvalidOperationException("Auth:AdminUsername not configured");
 
-            if (!await db.Users.AnyAsync(u => u.Email == devUserEmail))
+            if (!await db.Users.AnyAsync(u => u.Username == username))
             {
-                db.Users.Add(new User { Email = devUserEmail });
+                var password = app.Configuration["Auth:AdminPassword"] ??
+                               throw new InvalidOperationException("Auth:AdminPassword not configured");
+
+                var hasher = new PasswordHasher<User>();
+
+                var admin = new User { Username = username };
+                
+                admin.PasswordHash = hasher.HashPassword(admin, password);
+                    
+                db.Users.Add(admin);
                 await db.SaveChangesAsync();
             }
         }
