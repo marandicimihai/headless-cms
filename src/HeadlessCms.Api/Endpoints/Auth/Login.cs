@@ -1,5 +1,6 @@
 using FastEndpoints.Security;
 using FluentValidation;
+using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 
 namespace HeadlessCms.Api.Endpoints.Auth;
@@ -24,14 +25,11 @@ public class LoginRequest
     }
 }
 
-public class Login(
-    UserManager userManager,
-    IConfiguration config
-) : Endpoint<LoginRequest>
+public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenResponse>
 {
     public override void Configure()
     {
-        Post("login");
+        Post("auth/login");
         AllowAnonymous();
     }
 
@@ -40,24 +38,11 @@ public class Login(
         var username = req.Username;
         var password = req.Password;
 
-        if (await userManager.CredentialsAreValid(username, password, ct))
+        var (valid, user) = await userManager.CredentialsAreValidWithUser(username, password, ct);
+        
+        if (valid)
         {
-            var expirationMinutes =
-                config.GetValue<int?>("Auth:JwtExpirationMinutes")
-                ?? throw new InvalidOperationException(
-                    "Required configuration 'Auth:JwtExpirationMinutes' is missing.");
-
-            var jwt = JwtBearer.CreateToken(o =>
-            {
-                o.SigningKey = config["Auth:SigningKey"]!;
-                o.ExpireAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
-                o.User["Username"] = username;
-            });
-            
-            await Send.OkAsync(new
-            {
-                Token = jwt
-            }, ct);
+            Response = await CreateTokenWith<Refresh>(user!.Id, _ => { });
         }
         else
         {

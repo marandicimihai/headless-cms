@@ -18,4 +18,14 @@ public class UserManager(
         
         return hasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed;
     }
+    
+    public async Task<(bool, User?)> CredentialsAreValidWithUser(string username, string password, CancellationToken ct)
+    {
+        var user = await db.Users.SingleOrDefaultAsync(x => x.Username == username, ct);
+
+        if (user is null)
+            return (false, null);
+        
+        return (hasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed, user);
+    }
 }
