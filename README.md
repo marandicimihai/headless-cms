@@ -176,9 +176,19 @@ Run the integration tests:
 dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 ```
 
-The authentication tests use the FastEndpoints-recommended xUnit,
-`FastEndpoints.Testing`, `AppFixture`, route-less HTTP helpers, and Shouldly
-setup. They boot the complete API pipeline with an isolated in-memory database.
+Docker must be running because the standard test command includes PostgreSQL
+18 integration tests powered by Testcontainers. Override the default
+`postgres:18-alpine` image when matching another deployed PostgreSQL version:
+
+```bash
+TEST_POSTGRES_IMAGE=postgres:17-alpine \
+  dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
+```
+
+The test suite uses xUnit, `FastEndpoints.Testing`, `AppFixture`, and Shouldly
+to boot the complete API pipeline. Fast endpoint coverage uses an isolated
+in-memory database, while provider behavior and ownership migrations run
+against a disposable PostgreSQL container.
 
 ## Status
 
