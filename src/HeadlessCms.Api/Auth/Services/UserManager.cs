@@ -9,19 +9,24 @@ public class UserManager(
     ApplicationDbContext db,
     IPasswordHasher<User> hasher)
 {
-    public async Task<bool> CredentialsAreValid(string username, string password, CancellationToken ct)
+    public async Task<(bool, User?)> CredentialsAreValidWithUser(
+        string email,
+        string password,
+        CancellationToken ct)
     {
-        var user = await db.Users.SingleOrDefaultAsync(x => x.Username == username, ct);
+        string normalizedEmail;
+        try
+        {
+            normalizedEmail = EmailNormalizer.Normalize(email);
+        }
+        catch (ArgumentException)
+        {
+            return (false, null);
+        }
 
-        if (user is null)
-            return false;
-        
-        return hasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed;
-    }
-    
-    public async Task<(bool, User?)> CredentialsAreValidWithUser(string username, string password, CancellationToken ct)
-    {
-        var user = await db.Users.SingleOrDefaultAsync(x => x.Username == username, ct);
+        var user = await db.Users.SingleOrDefaultAsync(
+            candidate => candidate.Email == normalizedEmail,
+            ct);
 
         if (user is null)
             return (false, null);

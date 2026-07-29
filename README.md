@@ -35,11 +35,38 @@ A Postman collection will be included to make it easy to:
 - understand request/response shapes,
 - speed up local development and collaboration.
 
-Suggested location:
+Collection location:
 
 ```text
 postman/headless-cms.postman_collection.json
 ```
+
+### Authentication and tenant API
+
+Authentication is email-based and normal user registration is invitation-only.
+All authenticated routes require `Authorization: Bearer <access-token>`.
+
+| Method | Route | Access |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | Anonymous |
+| `POST` | `/api/auth/refresh` | Anonymous, valid refresh token |
+| `POST` | `/api/auth/invitations/preview` | Anonymous, masked invitation details |
+| `POST` | `/api/auth/invitations/register` | Anonymous, valid invitation |
+| `POST` | `/api/auth/invitations/accept` | Authenticated invited user |
+| `POST` | `/api/tenants` | `PlatformAdmin` |
+| `GET` | `/api/tenants` | `PlatformAdmin` |
+| `GET` | `/api/tenants/{tenantId}` | `PlatformAdmin` or tenant member |
+| `PATCH` | `/api/tenants/{tenantId}` | `PlatformAdmin` or tenant owner |
+| `GET` | `/api/me/tenants` | Authenticated user |
+| `DELETE` | `/api/me/tenants/{tenantId}` | Tenant editor/member |
+| `POST` | `/api/tenants/{tenantId}/invitations` | Tenant owner |
+| `GET` | `/api/tenants/{tenantId}/invitations` | Tenant owner |
+| `POST` | `/api/tenants/{tenantId}/invitations/{invitationId}/resend` | Tenant owner |
+| `DELETE` | `/api/tenants/{tenantId}/invitations/{invitationId}` | Tenant owner |
+| `GET` | `/api/tenants/{tenantId}/members` | Tenant owner |
+| `PATCH` | `/api/tenants/{tenantId}/members/{userId}` | Tenant owner |
+| `DELETE` | `/api/tenants/{tenantId}/members/{userId}` | Tenant owner |
+| `POST` | `/api/tenants/{tenantId}/ownership-transfer` | Tenant owner |
 
 ### Private project API
 
@@ -103,15 +130,30 @@ Authorization has separate platform and tenant scopes:
 - A user can belong to many tenants.
 - Each tenant membership has one tenant role: `Owner`, `Editor`, or `Member`.
 
-The development admin configured with `Auth:AdminUsername` is assigned
+The development admin configured with `Auth:AdminEmail` is assigned
 `PlatformAdmin`. Login and refresh access tokens include the platform role as a
 standard `role` claim. Tenant permissions must be resolved from the
 authenticated user's membership for the requested `TenantId`; platform roles
 must not be used as tenant permissions.
 
-The tenant invitation model stores an email, tenant role, hashed single-use
-token, expiration, inviter, and acceptance details. Registration and email
-delivery endpoints are not implemented yet.
+The tenant invitation model stores only a hash of each single-use token.
+Resending rotates the token, and accepted, expired, or revoked invitations
+cannot be reused. Development logs invitation URLs; production must register an
+`IInvitationEmailSender` implementation.
+
+Required production configuration:
+
+```text
+Auth__SigningKey
+Auth__AdminEmail
+Auth__AdminPassword
+ConnectionStrings__DefaultConnection
+Tenancy__InvitationUrl
+```
+
+Deployments upgrading from the previous username-based admin may temporarily
+set `Auth__LegacyAdminUsername` so startup can promote and re-key that account
+to `Auth__AdminEmail`.
 
 ## Build and Test
 

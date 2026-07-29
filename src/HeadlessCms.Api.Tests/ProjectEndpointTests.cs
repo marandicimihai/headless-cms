@@ -186,7 +186,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = AuthApp.AsEmail(username),
                     Password = password
                 });
 

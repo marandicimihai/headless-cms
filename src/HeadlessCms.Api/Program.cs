@@ -1,7 +1,9 @@
 using FastEndpoints.Security;
+using System.Text.Json.Serialization;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
+using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +17,8 @@ builder.Services
     .AddAuthenticationJwtBearer(s => s.SigningKey = signingKey) 
     .AddAuthorization()
     .AddFastEndpoints();
+builder.Services.ConfigureHttpJsonOptions(
+    options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -25,6 +29,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<UserManager>();
 builder.Services.AddScoped<TenantAccessService>();
 builder.Services.AddScoped<TenantInvitationService>();
+if (builder.Environment.IsDevelopment())
+    builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
+else
+    builder.Services.AddScoped<IInvitationEmailSender, UnconfiguredInvitationEmailSender>();
+builder.Services.AddScoped<Refresh>();
 
 var app = builder.Build();
 
@@ -39,6 +48,7 @@ app.UseAuthentication()
        {
            c.Endpoints.RoutePrefix = "api";
            c.Errors.UseProblemDetails();
+           c.Serializer.Options.Converters.Add(new JsonStringEnumConverter());
        });
 app.Run();
 

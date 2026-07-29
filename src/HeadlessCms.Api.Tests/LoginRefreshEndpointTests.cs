@@ -19,7 +19,7 @@ namespace HeadlessCms.Api.Tests;
 
 public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
 {
-    private const string Username = "admin";
+    private const string Username = "admin@example.test";
     private const string Password = "correct-password";
 
     protected override async ValueTask SetupAsync()
@@ -37,7 +37,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Username = Username,
+                    Email = Username.ToUpperInvariant(),
                     Password = Password
                 });
 
@@ -48,7 +48,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var (principal, jwt) = ValidateAccessToken(tokens.AccessToken);
         principal.FindFirstValue("sub").ShouldBe(user.Id);
-        principal.FindFirstValue("username").ShouldBe(user.Username);
+        principal.FindFirstValue("email").ShouldBe(user.Email);
         principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.User));
         jwt.ValidTo.ShouldBeGreaterThan(beforeLogin);
         jwt.ValidTo.ShouldBeLessThan(beforeLogin.AddMinutes(11));
@@ -66,7 +66,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
 
     [Theory]
     [InlineData(Username, "wrong-password")]
-    [InlineData("unknown-user", Password)]
+    [InlineData("unknown-user@example.test", Password)]
     public async Task Login_WithInvalidCredentials_ReturnsUnauthorizedWithoutPersistingToken(
         string username,
         string password)
@@ -77,7 +77,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, EmptyResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = username,
                     Password = password
                 });
 
@@ -105,7 +105,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, ErrorResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = username,
                     Password = password
                 });
 
@@ -133,7 +133,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var (principal, jwt) = ValidateAccessToken(renewedTokens.AccessToken);
         principal.FindFirstValue("sub").ShouldBe(user.Id);
-        principal.FindFirstValue("username").ShouldBe(user.Username);
+        principal.FindFirstValue("email").ShouldBe(user.Email);
         principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.User));
         jwt.ValidTo.ShouldBeGreaterThan(DateTime.UtcNow);
 
@@ -405,7 +405,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         unrelatedMembership.ShouldBeNull();
 
-        await Should.ThrowAsync<InvalidOperationException>(
+        await Should.ThrowAsync<InvitationFlowException>(
             () => app.WithServiceAsync<TenantInvitationService, TenantMembership>(
                 service => service.AcceptInvitationAsync(editor.Id, editorInvitation.Token)));
     }
@@ -415,7 +415,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
     {
         var user = await app.SeedUserAsync(Username, Password);
 
-        await Should.ThrowAsync<UnauthorizedAccessException>(
+        await Should.ThrowAsync<InvitationFlowException>(
             () => app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
                 service => service.CreateTenantWithOwnerInvitationAsync(
                     user.Id,
@@ -431,7 +431,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = AuthApp.AsEmail(username),
                     Password = password
                 });
 

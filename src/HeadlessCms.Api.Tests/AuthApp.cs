@@ -1,6 +1,9 @@
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
+using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +34,10 @@ public sealed class AuthApp : AppFixture<Program>
         services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
         services.AddDbContext<ApplicationDbContext>(
             options => options.UseInMemoryDatabase(databaseName));
+        services.RemoveAll<IInvitationEmailSender>();
+        services.AddSingleton<TestInvitationEmailSender>();
+        services.AddSingleton<IInvitationEmailSender>(
+            provider => provider.GetRequiredService<TestInvitationEmailSender>());
     }
 
     protected override ValueTask SetupAsync()
@@ -57,10 +64,11 @@ public sealed class AuthApp : AppFixture<Program>
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.EnsureDeletedAsync();
         await db.Database.EnsureCreatedAsync();
+        Services.GetRequiredService<TestInvitationEmailSender>().Clear();
     }
 
     public async Task<User> SeedUserAsync(
-        string username,
+        string identifier,
         string password,
         PlatformRole platformRole = PlatformRole.User,
         string? email = null)
@@ -71,8 +79,7 @@ public sealed class AuthApp : AppFixture<Program>
 
         var user = new User
         {
-            Username = username,
-            Email = email,
+            Email = EmailNormalizer.Normalize(email ?? AsEmail(identifier)),
             PlatformRole = platformRole
         };
         user.PasswordHash = hasher.HashPassword(user, password);
@@ -82,6 +89,11 @@ public sealed class AuthApp : AppFixture<Program>
 
         return user;
     }
+
+    public static string AsEmail(string value) =>
+        value.Contains('@', StringComparison.Ordinal)
+            ? value
+            : $"{value}@example.test";
 
     public async Task<TResult> WithDatabaseAsync<TResult>(
         Func<ApplicationDbContext, Task<TResult>> action)
@@ -98,5 +110,43 @@ public sealed class AuthApp : AppFixture<Program>
         using var scope = Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TService>();
         return await action(service);
+    }
+}
+
+public sealed record SentInvitation(
+    string Email,
+    string TenantName,
+    TenantRole Role,
+    string Token);
+
+public sealed class TestInvitationEmailSender : IInvitationEmailSender
+{
+    private readonly List<SentInvitation> sent = [];
+
+    public IReadOnlyList<SentInvitation> Sent
+    {
+        get
+        {
+            lock (sent)
+                return sent.ToList();
+        }
+    }
+
+    public Task SendAsync(
+        string email,
+        string tenantName,
+        TenantRole role,
+        string token,
+        CancellationToken ct = default)
+    {
+        lock (sent)
+            sent.Add(new SentInvitation(email, tenantName, role, token));
+        return Task.CompletedTask;
+    }
+
+    public void Clear()
+    {
+        lock (sent)
+            sent.Clear();
     }
 }

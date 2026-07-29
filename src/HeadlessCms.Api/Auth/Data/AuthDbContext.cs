@@ -25,7 +25,6 @@ public abstract class AuthDbContext(DbContextOptions options) : DbContext(option
 
         modelBuilder.Entity<User>()
             .HasIndex(user => user.Email)
-            .IsUnique()
-            .HasFilter("\"Email\" IS NOT NULL");
+            .IsUnique();
     }
 }

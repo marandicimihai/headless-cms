@@ -99,7 +99,18 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
             .SingleAsync(storedUser => storedUser.Id == request.UserId);
 
         privileges["sub"] = user.Id;
-        privileges["username"] = user.Username;
+        privileges["email"] = user.Email;
         privileges.Roles.Add(user.PlatformRole.ToString());
     }
+
+    public Task<TokenResponse> CreateInitialTokenAsync(
+        string userId,
+        Action<UserPrivileges> privileges,
+        object request) =>
+        CreateCustomToken(
+            userId,
+            privileges,
+            response => response,
+            false,
+            request);
 }
