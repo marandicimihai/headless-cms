@@ -5,10 +5,24 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
+public sealed class ListProjectsRequest
+{
+    public Guid TenantId { get; init; }
+}
+
+public sealed class ListProjectsItemResponse
+{
+    public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
+    public required string Name { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
 public sealed class ListProjects(
     ApplicationDbContext db,
     TenantAccessService tenantAccess)
-    : Endpoint<TenantProjectsRequest, IReadOnlyList<ProjectResponse>>
+    : Endpoint<ListProjectsRequest, IReadOnlyList<ListProjectsItemResponse>>
 {
     public override void Configure()
     {
@@ -16,7 +30,7 @@ public sealed class ListProjects(
         Claims("sub");
     }
 
-    public override async Task HandleAsync(TenantProjectsRequest request, CancellationToken ct)
+    public override async Task HandleAsync(ListProjectsRequest request, CancellationToken ct)
     {
         var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
 
@@ -30,7 +44,7 @@ public sealed class ListProjects(
             .AsNoTracking()
             .Where(project => project.TenantId == request.TenantId)
             .OrderBy(project => project.Name)
-            .Select(project => new ProjectResponse
+            .Select(project => new ListProjectsItemResponse
             {
                 Id = project.Id,
                 TenantId = project.TenantId,

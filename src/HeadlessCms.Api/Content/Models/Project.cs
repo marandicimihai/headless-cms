@@ -4,7 +4,7 @@ using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Models;
+namespace HeadlessCms.Api.Content.Models;
 
 [Index(nameof(TenantId))]
 public class Project

@@ -1,15 +1,42 @@
 using FastEndpoints;
+using FluentValidation;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using HeadlessCms.Api.Tenancy.Services;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
+public sealed class CreateProjectRequest
+{
+    public Guid TenantId { get; init; }
+    public required string Name { get; init; }
+}
+
+public sealed class CreateProjectResponse
+{
+    public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
+    public required string Name { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
+public sealed class CreateProjectRequestValidator : Validator<CreateProjectRequest>
+{
+    public CreateProjectRequestValidator()
+    {
+        RuleFor(request => request.Name)
+            .NotEmpty()
+            .Must(name => name is not null && name.Trim().Length is >= 3 and <= 100)
+            .WithMessage("Name must contain between 3 and 100 characters.");
+    }
+}
+
 public sealed class CreateProject(
     ApplicationDbContext db,
     TenantAccessService tenantAccess)
-    : Endpoint<CreateProjectRequest, ProjectResponse>
+    : Endpoint<CreateProjectRequest, CreateProjectResponse>
 {
     public override void Configure()
     {
@@ -47,7 +74,17 @@ public sealed class CreateProject(
 
         await Send.CreatedAtAsync<GetProject>(
             new { project.TenantId, project.Id },
-            project.ToResponse(),
+            ToResponse(project),
             cancellation: ct);
     }
+
+    private static CreateProjectResponse ToResponse(Project project) =>
+        new()
+        {
+            Id = project.Id,
+            TenantId = project.TenantId,
+            Name = project.Name,
+            CreatedAt = project.CreatedAt,
+            UpdatedAt = project.UpdatedAt
+        };
 }

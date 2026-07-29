@@ -1,6 +1,5 @@
 using HeadlessCms.Api.Auth.Data;
 using HeadlessCms.Api.Content.Models;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
