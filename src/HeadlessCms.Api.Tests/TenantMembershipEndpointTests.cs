@@ -44,7 +44,7 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
             "/api/me/tenants",
             setup.MemberToken);
         var tenants = await removedMemberTenants.Content
-            .ReadFromJsonAsync<IReadOnlyList<TenantResponse>>(JsonOptions, ct);
+            .ReadFromJsonAsync<IReadOnlyList<ListMyTenantsItemResponse>>(JsonOptions, ct);
         tenants.ShouldNotBeNull();
         tenants.ShouldBeEmpty();
     }
@@ -316,7 +316,7 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
         return (tenant.Id, await app.LoginAsync(owner.Email, password));
     }
 
-    private async Task<PagedResponse<MemberResponse>> GetMembersAsync(
+    private async Task<ListTenantMembersResponse> GetMembersAsync(
         Guid tenantId,
         string ownerToken,
         int page,
@@ -328,7 +328,7 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
             ownerToken);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var result = await response.Content
-            .ReadFromJsonAsync<PagedResponse<MemberResponse>>(
+            .ReadFromJsonAsync<ListTenantMembersResponse>(
                 JsonOptions,
                 TestContext.Current.CancellationToken);
         result.ShouldNotBeNull();

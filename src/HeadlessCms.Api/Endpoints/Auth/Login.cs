@@ -18,7 +18,7 @@ public class LoginRequest
                 .EmailAddress()
                 .MaximumLength(320)
                 .NotEmpty();
-            
+
             RuleFor(request => request.Password)
                 .MaximumLength(64)
                 .NotEmpty();
@@ -38,7 +38,7 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenRespon
     {
         var (valid, user) =
             await userManager.CredentialsAreValidWithUser(req.Email, req.Password, ct);
-        
+
         if (valid)
         {
             Response = await CreateTokenWith<Refresh>(

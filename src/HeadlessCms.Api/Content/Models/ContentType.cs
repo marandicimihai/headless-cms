@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 
 namespace HeadlessCms.Api.Content.Models;

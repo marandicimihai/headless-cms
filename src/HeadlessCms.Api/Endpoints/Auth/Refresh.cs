@@ -10,28 +10,28 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
 {
     private readonly ApplicationDbContext db;
     private readonly ILogger<Refresh> logger;
-    
+
     public Refresh(IConfiguration config, ILogger<Refresh> logger, ApplicationDbContext db)
     {
         this.db = db;
         this.logger = logger;
-        
+
         Setup(o =>
         {
             var accessTokenLifetime =
                 config.GetValue<int?>("Auth:AccessTokenExpirationMinutes")
                 ?? throw new InvalidOperationException(
                     "Required configuration 'Auth:AccessTokenExpirationMinutes' is missing.");
-            
+
             var refreshTokenLifetime =
                 config.GetValue<int?>("Auth:RefreshTokenExpirationDays")
                 ?? throw new InvalidOperationException(
                     "Required configuration 'Auth:RefreshTokenExpirationDays' is missing.");
-            
+
             o.TokenSigningKey = config.GetValue<string>("Auth:SigningKey");
             o.AccessTokenValidity = TimeSpan.FromMinutes(accessTokenLifetime);
             o.RefreshTokenValidity = TimeSpan.FromDays(refreshTokenLifetime);
-            
+
             o.Endpoint("auth/refresh", _ => { });
         });
     }
@@ -44,14 +44,14 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
             TokenHash = TokenHasher.Hash(response.RefreshToken),
             Expiry = response.RefreshExpiry
         };
-        
+
         var previousTokens = await db.Tokens
             .Where(token => token.UserId == response.UserId)
             .ToListAsync();
 
         db.Tokens.RemoveRange(previousTokens);
         db.Tokens.Add(refreshToken);
-        
+
         try
         {
             await db.SaveChangesAsync();
@@ -102,15 +102,4 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
         privileges["email"] = user.Email;
         privileges.Roles.Add(user.PlatformRole.ToString());
     }
-
-    public Task<TokenResponse> CreateInitialTokenAsync(
-        string userId,
-        Action<UserPrivileges> privileges,
-        object request) =>
-        CreateCustomToken(
-            userId,
-            privileges,
-            response => response,
-            false,
-            request);
 }

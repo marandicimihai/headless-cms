@@ -52,7 +52,7 @@ public sealed class TenantEndpointTests(TestApp app) : TestBase
             new { token = ownerMessage.Token },
             ct);
         previewResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var preview = await previewResponse.Content.ReadFromJsonAsync<InvitationPreviewResponse>(
+        var preview = await previewResponse.Content.ReadFromJsonAsync<PreviewInvitation.ResponseDto>(
             JsonOptions,
             cancellationToken: ct);
         preview.ShouldNotBeNull();
@@ -65,7 +65,7 @@ public sealed class TenantEndpointTests(TestApp app) : TestBase
             ct);
         registerResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var registration = await registerResponse.Content
-            .ReadFromJsonAsync<InvitationRegistrationResponse>(
+            .ReadFromJsonAsync<RegisterWithInvitation.ResponseDto>(
                 JsonOptions,
                 cancellationToken: ct);
         registration.ShouldNotBeNull();
@@ -94,7 +94,7 @@ public sealed class TenantEndpointTests(TestApp app) : TestBase
             registration.Tokens.AccessToken);
         listMembers.StatusCode.ShouldBe(HttpStatusCode.OK);
         var members = await listMembers.Content
-            .ReadFromJsonAsync<PagedResponse<MemberResponse>>(
+            .ReadFromJsonAsync<ListTenantMembersResponse>(
                 JsonOptions,
                 cancellationToken: ct);
         members.ShouldNotBeNull();
@@ -153,7 +153,9 @@ public sealed class TenantEndpointTests(TestApp app) : TestBase
             "/api/me/tenants",
             setup.EditorToken);
         var memberships = await tenants.Content
-            .ReadFromJsonAsync<List<TenantResponse>>(JsonOptions, cancellationToken: ct);
+            .ReadFromJsonAsync<List<ListMyTenantsItemResponse>>(
+                JsonOptions,
+                cancellationToken: ct);
         memberships.ShouldNotBeNull();
         memberships.Single().CurrentRole.ShouldBe(TenantRole.Owner);
     }
@@ -186,7 +188,7 @@ public sealed class TenantEndpointTests(TestApp app) : TestBase
             setup.OwnerToken,
             new { email = "member@example.test", role = "Member" });
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var invitation = await create.Content.ReadFromJsonAsync<InvitationResponse>(
+        var invitation = await create.Content.ReadFromJsonAsync<CreateTenantInvitationResponse>(
             JsonOptions,
             cancellationToken: ct);
         invitation.ShouldNotBeNull();

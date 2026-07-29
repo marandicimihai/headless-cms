@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -50,7 +50,7 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
             ownerToken,
             new { name = "PostgreSQL project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var project = await createResponse.Content.ReadFromJsonAsync<ProjectResponse>(
+        var project = await createResponse.Content.ReadFromJsonAsync<CreateProjectResponse>(
             cancellationToken: ct);
         project.ShouldNotBeNull();
 

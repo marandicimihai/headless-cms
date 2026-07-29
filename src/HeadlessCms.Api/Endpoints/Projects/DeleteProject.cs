@@ -6,10 +6,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
+public sealed class DeleteProjectRequest
+{
+    public Guid TenantId { get; init; }
+    public Guid Id { get; init; }
+}
+
 public sealed class DeleteProject(
     ApplicationDbContext db,
     TenantAccessService tenantAccess)
-    : Endpoint<ProjectIdRequest>
+    : Endpoint<DeleteProjectRequest>
 {
     public override void Configure()
     {
@@ -17,7 +23,7 @@ public sealed class DeleteProject(
         Claims("sub");
     }
 
-    public override async Task HandleAsync(ProjectIdRequest request, CancellationToken ct)
+    public override async Task HandleAsync(DeleteProjectRequest request, CancellationToken ct)
     {
         var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
 

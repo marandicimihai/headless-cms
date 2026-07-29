@@ -273,7 +273,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             adminToken);
         listBeforeOwner.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await listBeforeOwner.Content.ReadFromJsonAsync<
-            PagedResponse<InvitationResponse>>(
+            ListTenantInvitationsResponse>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         page.ShouldNotBeNull();
@@ -329,7 +329,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             token);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await response.Content.ReadFromJsonAsync<
-            PagedResponse<InvitationResponse>>(
+            ListTenantInvitationsResponse>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         page.ShouldNotBeNull();
@@ -483,7 +483,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             new { token = shortEmailInvitation.Token },
             TestContext.Current.CancellationToken);
         preview.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await preview.Content.ReadFromJsonAsync<InvitationPreviewResponse>(
+        var body = await preview.Content.ReadFromJsonAsync<PreviewInvitation.ResponseDto>(
             JsonOptions,
             cancellationToken: TestContext.Current.CancellationToken);
         body.ShouldNotBeNull();

@@ -5,9 +5,9 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
@@ -38,7 +38,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             new { name = "Website" });
 
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var created = await createResponse.Content.ReadFromJsonAsync<ProjectResponse>(
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateProjectResponse>(
             cancellationToken: ct);
         created.ShouldNotBeNull();
         created.TenantId.ShouldBe(tenant.Id);
@@ -60,7 +60,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             ProjectsPath(tenant.Id),
             accessToken);
         listResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var projects = await listResponse.Content.ReadFromJsonAsync<List<ProjectResponse>>(
+        var projects = await listResponse.Content.ReadFromJsonAsync<List<ListProjectsItemResponse>>(
             cancellationToken: ct);
         projects.ShouldNotBeNull();
         projects.Select(project => project.Id).ShouldBe([created.Id]);
@@ -77,7 +77,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             accessToken,
             new { name = "Updated website" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var updated = await updateResponse.Content.ReadFromJsonAsync<ProjectResponse>(
+        var updated = await updateResponse.Content.ReadFromJsonAsync<UpdateProjectResponse>(
             cancellationToken: ct);
         updated.ShouldNotBeNull();
         updated.Name.ShouldBe("Updated website");
@@ -107,7 +107,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             accessToken,
             new { name = "Editor project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var project = await createResponse.Content.ReadFromJsonAsync<ProjectResponse>(
+        var project = await createResponse.Content.ReadFromJsonAsync<CreateProjectResponse>(
             cancellationToken: ct);
         project.ShouldNotBeNull();
 
@@ -139,7 +139,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             ProjectsPath(tenant.Id),
             accessToken);
         listResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var projects = await listResponse.Content.ReadFromJsonAsync<List<ProjectResponse>>(
+        var projects = await listResponse.Content.ReadFromJsonAsync<List<ListProjectsItemResponse>>(
             cancellationToken: ct);
         projects.ShouldNotBeNull();
         projects.Select(candidate => candidate.Id).ShouldBe([project.Id]);
@@ -317,7 +317,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             new { name = " abc " });
         minimumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         var minimumProject = await minimumResponse.Content
-            .ReadFromJsonAsync<ProjectResponse>(cancellationToken: ct);
+            .ReadFromJsonAsync<CreateProjectResponse>(cancellationToken: ct);
         minimumProject.ShouldNotBeNull();
         minimumProject.Name.ShouldBe("abc");
 
@@ -328,7 +328,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             new { name = maximumLengthName });
         maximumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         var maximumProject = await maximumResponse.Content
-            .ReadFromJsonAsync<ProjectResponse>(cancellationToken: ct);
+            .ReadFromJsonAsync<CreateProjectResponse>(cancellationToken: ct);
         maximumProject.ShouldNotBeNull();
         maximumProject.Name.ShouldBe(maximumLengthName);
 
@@ -402,7 +402,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             accessToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var projects = await response.Content.ReadFromJsonAsync<List<ProjectResponse>>(
+        var projects = await response.Content.ReadFromJsonAsync<List<ListProjectsItemResponse>>(
             cancellationToken: ct);
         projects.ShouldNotBeNull();
         projects.Select(project => project.Name).ShouldBe(["Alpha", "Zulu"]);

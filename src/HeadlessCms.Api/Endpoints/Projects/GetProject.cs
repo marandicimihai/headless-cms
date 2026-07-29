@@ -5,10 +5,25 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
+public sealed class GetProjectRequest
+{
+    public Guid TenantId { get; init; }
+    public Guid Id { get; init; }
+}
+
+public sealed class GetProjectResponse
+{
+    public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
+    public required string Name { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
 public sealed class GetProject(
     ApplicationDbContext db,
     TenantAccessService tenantAccess)
-    : Endpoint<ProjectIdRequest, ProjectResponse>
+    : Endpoint<GetProjectRequest, GetProjectResponse>
 {
     public override void Configure()
     {
@@ -16,7 +31,7 @@ public sealed class GetProject(
         Claims("sub");
     }
 
-    public override async Task HandleAsync(ProjectIdRequest request, CancellationToken ct)
+    public override async Task HandleAsync(GetProjectRequest request, CancellationToken ct)
     {
         var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
 
@@ -40,6 +55,13 @@ public sealed class GetProject(
             return;
         }
 
-        Response = project.ToResponse();
+        Response = new GetProjectResponse
+        {
+            Id = project.Id,
+            TenantId = project.TenantId,
+            Name = project.Name,
+            CreatedAt = project.CreatedAt,
+            UpdatedAt = project.UpdatedAt
+        };
     }
 }

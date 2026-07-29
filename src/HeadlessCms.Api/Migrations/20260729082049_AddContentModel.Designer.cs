@@ -252,7 +252,7 @@ namespace HeadlessCms.Api.Migrations
                     b.ToTable("ContentTypeVersions");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -420,7 +420,7 @@ namespace HeadlessCms.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("HeadlessCms.Api.Models.Project", "Project")
+                    b.HasOne("HeadlessCms.Api.Content.Models.Project", "Project")
                         .WithMany("ContentTypes")
                         .HasForeignKey("TenantId", "ProjectId")
                         .HasPrincipalKey("TenantId", "Id")
@@ -452,7 +452,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Navigation("ContentType");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
                     b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
                         .WithMany("Projects")
@@ -527,7 +527,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Navigation("Fields");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
                     b.Navigation("ContentTypes");
                 });

@@ -89,7 +89,7 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
             "/api/me/tenants",
             token);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var tenants = await response.Content.ReadFromJsonAsync<List<TenantResponse>>(
+        var tenants = await response.Content.ReadFromJsonAsync<List<ListMyTenantsItemResponse>>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         tenants.ShouldNotBeNull();
@@ -117,7 +117,7 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
             token,
             new { name = " abc " });
         minimum.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var minimumResult = await minimum.Content.ReadFromJsonAsync<ProjectResponse>(
+        var minimumResult = await minimum.Content.ReadFromJsonAsync<UpdateProjectResponse>(
             cancellationToken: TestContext.Current.CancellationToken);
         minimumResult.ShouldNotBeNull();
         minimumResult.Name.ShouldBe("abc");
@@ -129,7 +129,7 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
             token,
             new { name = maximumName });
         maximum.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var maximumResult = await maximum.Content.ReadFromJsonAsync<ProjectResponse>(
+        var maximumResult = await maximum.Content.ReadFromJsonAsync<UpdateProjectResponse>(
             cancellationToken: TestContext.Current.CancellationToken);
         maximumResult.ShouldNotBeNull();
         maximumResult.Name.ShouldBe(maximumName);

@@ -22,10 +22,25 @@ This project focuses on a clean API-first approach so content can be managed onc
 ```text
 headless-cms/
 ├── headless-cms.slnx
+├── postman/
 └── src/
+    ├── HeadlessCms.Api/
+    │   ├── Auth/
+    │   ├── Content/
+    │   │   └── Models/
+    │   ├── Endpoints/
+    │   │   ├── Auth/
+    │   │   ├── Content/
+    │   │   ├── Projects/
+    │   │   └── Tenants/
+    │   └── Tenancy/
+    └── HeadlessCms.Api.Tests/
 ```
 
-> The `src/` folder is where the API project and related code will live.
+Endpoints use vertical slices: each endpoint has its own file containing its
+request, response, validation, mapping, and endpoint-specific helpers. An
+endpoint file never contains a second endpoint. Shared domain models and
+services remain in their owning feature modules.
 
 ## API and Postman
 

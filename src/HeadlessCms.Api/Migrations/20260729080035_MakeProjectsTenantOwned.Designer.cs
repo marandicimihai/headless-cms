@@ -89,7 +89,7 @@ namespace HeadlessCms.Api.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -210,7 +210,7 @@ namespace HeadlessCms.Api.Migrations
                     b.ToTable("TenantMemberships");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
                     b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
                         .WithMany("Projects")

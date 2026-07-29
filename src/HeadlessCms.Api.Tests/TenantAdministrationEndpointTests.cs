@@ -39,7 +39,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             accessToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var page = await response.Content.ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+        var page = await response.Content.ReadFromJsonAsync<ListTenantsResponse>(
             JsonOptions,
             cancellationToken: ct);
         page.ShouldNotBeNull();
@@ -68,7 +68,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             accessToken);
         minimumResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var minimumPage = await minimumResponse.Content
-            .ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            .ReadFromJsonAsync<ListTenantsResponse>(
                 JsonOptions,
                 cancellationToken: ct);
         minimumPage.ShouldNotBeNull();
@@ -83,7 +83,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             accessToken);
         maximumResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var maximumPage = await maximumResponse.Content
-            .ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            .ReadFromJsonAsync<ListTenantsResponse>(
                 JsonOptions,
                 cancellationToken: ct);
         maximumPage.ShouldNotBeNull();
@@ -98,7 +98,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             accessToken);
         outOfRangeResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var outOfRangePage = await outOfRangeResponse.Content
-            .ReadFromJsonAsync<PagedResponse<TenantResponse>>(
+            .ReadFromJsonAsync<ListTenantsResponse>(
                 JsonOptions,
                 cancellationToken: ct);
         outOfRangePage.ShouldNotBeNull();
@@ -164,7 +164,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
                 accessToken);
 
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var returnedTenant = await response.Content.ReadFromJsonAsync<TenantResponse>(
+            var returnedTenant = await response.Content.ReadFromJsonAsync<GetTenantResponse>(
                 JsonOptions,
                 cancellationToken: ct);
             returnedTenant.ShouldNotBeNull();
@@ -234,7 +234,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             adminToken,
             new { name = "  Admin renamed  " });
         adminResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var adminResult = await adminResponse.Content.ReadFromJsonAsync<TenantResponse>(
+        var adminResult = await adminResponse.Content.ReadFromJsonAsync<RenameTenantResponse>(
             JsonOptions,
             cancellationToken: ct);
         adminResult.ShouldNotBeNull();
@@ -247,7 +247,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             ownerToken,
             new { name = "  Owner renamed  " });
         ownerResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var ownerResult = await ownerResponse.Content.ReadFromJsonAsync<TenantResponse>(
+        var ownerResult = await ownerResponse.Content.ReadFromJsonAsync<RenameTenantResponse>(
             JsonOptions,
             cancellationToken: ct);
         ownerResult.ShouldNotBeNull();
@@ -364,7 +364,7 @@ public sealed class TenantAdministrationEndpointTests(TestApp app) : TestBase
             ownerToken,
             new { name = maximumLengthName });
         boundaryResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var boundaryResult = await boundaryResponse.Content.ReadFromJsonAsync<TenantResponse>(
+        var boundaryResult = await boundaryResponse.Content.ReadFromJsonAsync<RenameTenantResponse>(
             JsonOptions,
             cancellationToken: ct);
         boundaryResult.ShouldNotBeNull();

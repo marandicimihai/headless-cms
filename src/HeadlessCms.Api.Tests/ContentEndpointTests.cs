@@ -5,10 +5,10 @@ using System.Text.Json;
 using FastEndpoints;
 using FastEndpoints.Security;
 using FastEndpoints.Testing;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Endpoints.Content;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
@@ -40,7 +40,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             ArticleDefinition());
 
         createType.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var type = await createType.Content.ReadFromJsonAsync<ContentTypeResponse>(
+        var type = await createType.Content.ReadFromJsonAsync<CreateContentTypeResponse>(
             cancellationToken: ct);
         type.ShouldNotBeNull();
         type.Key.ShouldBe("article");
@@ -78,7 +78,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             "?filter[views][gte]=100&sort=-views",
             token);
         list.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var page = await list.Content.ReadFromJsonAsync<ContentEntryPageResponse>(
+        var page = await list.Content.ReadFromJsonAsync<ListContentEntriesResponse>(
             cancellationToken: ct);
         page.ShouldNotBeNull();
         page.Total.ShouldBe(1);
@@ -225,7 +225,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             });
 
         updateType.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var versionTwo = await updateType.Content.ReadFromJsonAsync<ContentTypeResponse>(
+        var versionTwo = await updateType.Content.ReadFromJsonAsync<UpdateContentTypeResponse>(
             cancellationToken: ct);
         versionTwo.ShouldNotBeNull();
         versionTwo.Version.ShouldBe(2);
@@ -249,7 +249,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                 data = new { title = "Still old", views = 3, published = true }
             });
         updateOldEntry.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var updated = await updateOldEntry.Content.ReadFromJsonAsync<ContentEntryResponse>(
+        var updated = await updateOldEntry.Content.ReadFromJsonAsync<UpdateContentEntryResponse>(
             cancellationToken: ct);
         updated.ShouldNotBeNull();
         updated.SchemaVersion.ShouldBe(1);
@@ -300,7 +300,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             }
         };
 
-    private async Task<ContentEntryResponse> CreateEntryAsync(
+    private async Task<CreateContentEntryResponse> CreateEntryAsync(
         Guid tenantId,
         Guid projectId,
         string token,
@@ -314,13 +314,13 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         var responseBody = await response.Content.ReadAsStringAsync(
             TestContext.Current.CancellationToken);
         response.StatusCode.ShouldBe(HttpStatusCode.Created, responseBody);
-        var entry = await response.Content.ReadFromJsonAsync<ContentEntryResponse>(
+        var entry = await response.Content.ReadFromJsonAsync<CreateContentEntryResponse>(
             cancellationToken: TestContext.Current.CancellationToken);
         entry.ShouldNotBeNull();
         return entry;
     }
 
-    private async Task<ProjectResponse> CreateProjectAsync(
+    private async Task<CreateProjectResponse> CreateProjectAsync(
         Guid tenantId,
         string token)
     {
@@ -330,7 +330,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new { name = "Website" });
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var project = await response.Content.ReadFromJsonAsync<ProjectResponse>(
+        var project = await response.Content.ReadFromJsonAsync<CreateProjectResponse>(
             cancellationToken: TestContext.Current.CancellationToken);
         project.ShouldNotBeNull();
         return project;
