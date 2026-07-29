@@ -16,7 +16,8 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
+[Collection<TestAppCollection>]
+public sealed class ContentEndpointTests(TestApp app) : TestBase
 {
     protected override async ValueTask SetupAsync()
     {

@@ -72,6 +72,15 @@ public sealed class ListTenantInvitations(ApplicationDbContext db)
 
         if (isAdmin && !isOwner)
         {
+            var tenantExists = await db.Tenants.AnyAsync(
+                tenant => tenant.Id == request.TenantId,
+                ct);
+            if (!tenantExists)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+
             var tenantHasOwner = await db.TenantMemberships.AnyAsync(
                 membership =>
                     membership.TenantId == request.TenantId &&

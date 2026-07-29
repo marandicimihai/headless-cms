@@ -15,7 +15,8 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
+[Collection<TestAppCollection>]
+public sealed class ProjectEndpointTests(TestApp app) : TestBase
 {
     protected override async ValueTask SetupAsync()
     {
@@ -311,7 +312,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var minimumResponse = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             accessToken,
             new { name = " abc " });
         minimumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -322,7 +323,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var maximumResponse = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             accessToken,
             new { name = maximumLengthName });
         maximumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -349,7 +350,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var response = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             accessToken,
             new { name = new string('x', 101) });
 
@@ -371,7 +372,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
         {
             var response = await app.SendAsync(
                 HttpMethod.Put,
-                ApiApp.ProjectPath(tenant.Id, project.Id),
+                TestApp.ProjectPath(tenant.Id, project.Id),
                 accessToken,
                 new { name = invalidName });
             response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -397,7 +398,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
 
         var response = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectsPath(firstTenant.Id),
+            TestApp.ProjectsPath(firstTenant.Id),
             accessToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -458,7 +459,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Email = AuthApp.AsEmail(username),
+                    Email = TestApp.AsEmail(username),
                     Password = password
                 });
 

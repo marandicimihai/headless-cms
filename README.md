@@ -282,10 +282,10 @@ TEST_POSTGRES_IMAGE=postgres:17-alpine \
   dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 ```
 
-The test suite uses xUnit, `FastEndpoints.Testing`, `AppFixture`, and Shouldly
-to boot the complete API pipeline. Fast endpoint coverage uses an isolated
-in-memory database, while provider behavior and ownership migrations run
-against a disposable PostgreSQL container.
+The test suite uses xUnit, `FastEndpoints.Testing`, one shared `TestApp`
+fixture, and Shouldly to boot the complete API pipeline. Every test runs
+against a disposable PostgreSQL Testcontainer; the database schema is reset
+and all migrations are reapplied before each test.
 
 Apply PostgreSQL migrations:
 

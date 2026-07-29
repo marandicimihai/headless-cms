@@ -15,7 +15,8 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class TenantEndpointTests(AuthApp app) : TestBase<AuthApp>
+[Collection<TestAppCollection>]
+public sealed class TenantEndpointTests(TestApp app) : TestBase
 {
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 

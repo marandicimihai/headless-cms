@@ -17,7 +17,8 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
+[Collection<TestAppCollection>]
+public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
 {
     private const string Username = "admin@example.test";
     private const string Password = "correct-password";
@@ -431,7 +432,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Email = AuthApp.AsEmail(username),
+                    Email = TestApp.AsEmail(username),
                     Password = password
                 });
 
@@ -451,7 +452,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
         {
             ClockSkew = TimeSpan.Zero,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(AuthApp.SigningKey)),
+                Encoding.UTF8.GetBytes(TestApp.SigningKey)),
             RequireExpirationTime = true,
             ValidateAudience = false,
             ValidateIssuer = false,

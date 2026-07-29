@@ -13,7 +13,8 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class PostgreSqlProjectTests(PostgreSqlApp app) : TestBase<PostgreSqlApp>
+[Collection<TestAppCollection>]
+public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
 {
     protected override async ValueTask SetupAsync()
     {
@@ -45,7 +46,7 @@ public sealed class PostgreSqlProjectTests(PostgreSqlApp app) : TestBase<Postgre
 
         var createResponse = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             ownerToken,
             new { name = "PostgreSQL project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -62,65 +63,65 @@ public sealed class PostgreSqlProjectTests(PostgreSqlApp app) : TestBase<Postgre
 
         var memberListResponse = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             memberToken);
         memberListResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var memberGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             memberToken);
         memberGetResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var memberCreateResponse = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             memberToken,
             new { name = "Forbidden create" });
         memberCreateResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var memberUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             memberToken,
             new { name = "Forbidden update" });
         memberUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var memberDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             memberToken);
         memberDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var outsiderListResponse = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             outsiderToken);
         outsiderListResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             outsiderToken);
         outsiderGetResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderCreateResponse = await app.SendAsync(
             HttpMethod.Post,
-            ApiApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(tenant.Id),
             outsiderToken,
             new { name = "Forbidden create" });
         outsiderCreateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             outsiderToken,
             new { name = "Forbidden update" });
         outsiderUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             outsiderToken);
         outsiderDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
@@ -137,33 +138,33 @@ public sealed class PostgreSqlProjectTests(PostgreSqlApp app) : TestBase<Postgre
             "Other tenant project");
         var crossTenantGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            ApiApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
             editorToken);
         crossTenantGetResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var crossTenantResponse = await app.SendAsync(
             HttpMethod.Put,
-            ApiApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
             editorToken,
             new { name = "Cross-tenant update" });
         crossTenantResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var crossTenantDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            ApiApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
             editorToken);
         crossTenantDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var editorUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             editorToken,
             new { name = "Editor update" });
         editorUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var editorDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            ApiApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(tenant.Id, project.Id),
             editorToken);
         editorDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 

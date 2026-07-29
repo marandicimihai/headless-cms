@@ -28,7 +28,12 @@ public sealed class ListTenantMembers(ApplicationDbContext db)
         var query = db.TenantMemberships
             .AsNoTracking()
             .Where(membership => membership.TenantId == request.TenantId)
-            .OrderByDescending(membership => membership.Role)
+            .OrderBy(
+                membership => membership.Role == TenantRole.Owner
+                    ? 0
+                    : membership.Role == TenantRole.Editor
+                        ? 1
+                        : 2)
             .ThenBy(membership => membership.User.Email);
         var total = await query.CountAsync(ct);
         var items = await query
