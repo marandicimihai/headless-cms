@@ -41,6 +41,31 @@ Suggested location:
 postman/headless-cms.postman_collection.json
 ```
 
+### Private project API
+
+Projects are private and owned by the user identified by the access token's
+`sub` claim. Every project route requires a bearer token. Collection and
+resource queries are scoped to that user, and attempts to read, update, or
+delete another user's project return `404 Not Found`.
+
+| Method | Route | Description |
+| --- | --- | --- |
+| `POST` | `/api/projects` | Create a project for the current user |
+| `GET` | `/api/projects` | List only the current user's projects |
+| `GET` | `/api/projects/{id}` | Get one owned project |
+| `PUT` | `/api/projects/{id}` | Rename one owned project |
+| `DELETE` | `/api/projects/{id}` | Delete one owned project |
+
+Create and update requests use this shape:
+
+```json
+{
+  "name": "My project"
+}
+```
+
+Project names are trimmed and must contain between 3 and 100 characters.
+
 ## Database
 
 This CMS uses PostgreSQL. Typical configuration will include:
@@ -53,6 +78,14 @@ This CMS uses PostgreSQL. Typical configuration will include:
 
 Connection details should be provided through environment variables or local configuration (for example, `appsettings.Development.json`).
 
+Apply the EF Core migrations:
+
+```bash
+dotnet ef database update \
+  --project src/HeadlessCms.Api/HeadlessCms.Api.csproj \
+  --startup-project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+```
+
 ## Development Notes
 
 Planned core capabilities:
@@ -61,6 +94,24 @@ Planned core capabilities:
 - content item CRUD,
 - publish/unpublish workflow,
 - filtering and pagination.
+
+## Authorization model
+
+Authorization has separate platform and tenant scopes:
+
+- A user has one platform role: `PlatformAdmin` or `User`.
+- A user can belong to many tenants.
+- Each tenant membership has one tenant role: `Owner`, `Editor`, or `Member`.
+
+The development admin configured with `Auth:AdminUsername` is assigned
+`PlatformAdmin`. Login and refresh access tokens include the platform role as a
+standard `role` claim. Tenant permissions must be resolved from the
+authenticated user's membership for the requested `TenantId`; platform roles
+must not be used as tenant permissions.
+
+The tenant invitation model stores an email, tenant role, hashed single-use
+token, expiration, inviter, and acceptance details. Registration and email
+delivery endpoints are not implemented yet.
 
 ## Build and Test
 

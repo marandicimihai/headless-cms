@@ -100,5 +100,6 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
 
         privileges["sub"] = user.Id;
         privileges["username"] = user.Username;
+        privileges.Roles.Add(user.PlatformRole.ToString());
     }
 }
