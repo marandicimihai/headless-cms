@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HeadlessCms.Api.Models;
 
 namespace HeadlessCms.Api.Tenancy.Models;
 
@@ -16,4 +17,5 @@ public class Tenant
 
     public List<TenantMembership> Memberships { get; set; } = [];
     public List<TenantInvitation> Invitations { get; set; } = [];
+    public List<Project> Projects { get; set; } = [];
 }

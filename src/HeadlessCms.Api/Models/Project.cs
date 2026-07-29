@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Models;
 
-[Index(nameof(OwnerId))]
+[Index(nameof(TenantId))]
 public class Project
 {
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -16,9 +16,9 @@ public class Project
     public string Name { get; set; } = default!;
 
     [Required]
-    public string OwnerId { get; set; } = default!;
+    public Guid TenantId { get; set; }
 
-    public User Owner { get; set; } = default!;
+    public Tenant Tenant { get; set; } = default!;
 
     public DateTime CreatedAt { get; set; }
 

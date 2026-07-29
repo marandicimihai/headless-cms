@@ -43,18 +43,24 @@ postman/headless-cms.postman_collection.json
 
 ### Private project API
 
-Projects are private and owned by the user identified by the access token's
-`sub` claim. Every project route requires a bearer token. Collection and
-resource queries are scoped to that user, and attempts to read, update, or
-delete another user's project return `404 Not Found`.
+Projects are private and owned by tenants. Every project route requires a
+bearer token and resolves the current user's membership for the tenant in the
+route:
+
+- tenant `Owner` and `Editor` roles can create, read, update, and delete
+  projects;
+- tenant `Member` roles can list and read projects, but write attempts return
+  `403 Forbidden`;
+- users without a tenant membership receive `404 Not Found`, so tenant and
+  project existence is not disclosed.
 
 | Method | Route | Description |
 | --- | --- | --- |
-| `POST` | `/api/projects` | Create a project for the current user |
-| `GET` | `/api/projects` | List only the current user's projects |
-| `GET` | `/api/projects/{id}` | Get one owned project |
-| `PUT` | `/api/projects/{id}` | Rename one owned project |
-| `DELETE` | `/api/projects/{id}` | Delete one owned project |
+| `POST` | `/api/tenants/{tenantId}/projects` | Create a tenant project |
+| `GET` | `/api/tenants/{tenantId}/projects` | List the tenant's projects |
+| `GET` | `/api/tenants/{tenantId}/projects/{id}` | Get one tenant project |
+| `PUT` | `/api/tenants/{tenantId}/projects/{id}` | Rename one tenant project |
+| `DELETE` | `/api/tenants/{tenantId}/projects/{id}` | Delete one tenant project |
 
 Create and update requests use this shape:
 

@@ -1,26 +1,37 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
+using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
-public sealed class GetProject(ApplicationDbContext db)
+public sealed class GetProject(
+    ApplicationDbContext db,
+    TenantAccessService tenantAccess)
     : Endpoint<ProjectIdRequest, ProjectResponse>
 {
     public override void Configure()
     {
-        Get("projects/{id:guid}");
+        Get("tenants/{tenantId:guid}/projects/{id:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(ProjectIdRequest request, CancellationToken ct)
     {
-        var ownerId = User.ClaimValue("sub")!;
+        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+
+        if (membership is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
         var project = await db.Projects
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.Id == request.Id && candidate.OwnerId == ownerId,
+                candidate =>
+                    candidate.Id == request.Id &&
+                    candidate.TenantId == request.TenantId,
                 ct);
 
         if (project is null)

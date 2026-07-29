@@ -4,23 +4,32 @@ namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class CreateProjectRequest
 {
+    public Guid TenantId { get; init; }
     public required string Name { get; init; }
+}
+
+public sealed class TenantProjectsRequest
+{
+    public Guid TenantId { get; init; }
 }
 
 public sealed class UpdateProjectRequest
 {
+    public Guid TenantId { get; init; }
     public Guid Id { get; init; }
     public required string Name { get; init; }
 }
 
 public sealed class ProjectIdRequest
 {
+    public Guid TenantId { get; init; }
     public Guid Id { get; init; }
 }
 
 public sealed class ProjectResponse
 {
     public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
     public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -54,6 +63,7 @@ internal static class ProjectMappings
         new()
         {
             Id = project.Id,
+            TenantId = project.TenantId,
             Name = project.Name,
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt
