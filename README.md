@@ -41,6 +41,31 @@ Suggested location:
 postman/headless-cms.postman_collection.json
 ```
 
+### Private project API
+
+Projects are private and owned by the user identified by the access token's
+`sub` claim. Every project route requires a bearer token. Collection and
+resource queries are scoped to that user, and attempts to read, update, or
+delete another user's project return `404 Not Found`.
+
+| Method | Route | Description |
+| --- | --- | --- |
+| `POST` | `/api/projects` | Create a project for the current user |
+| `GET` | `/api/projects` | List only the current user's projects |
+| `GET` | `/api/projects/{id}` | Get one owned project |
+| `PUT` | `/api/projects/{id}` | Rename one owned project |
+| `DELETE` | `/api/projects/{id}` | Delete one owned project |
+
+Create and update requests use this shape:
+
+```json
+{
+  "name": "My project"
+}
+```
+
+Project names are trimmed and must contain between 3 and 100 characters.
+
 ## Database
 
 This CMS uses PostgreSQL. Typical configuration will include:
@@ -52,6 +77,14 @@ This CMS uses PostgreSQL. Typical configuration will include:
 - password
 
 Connection details should be provided through environment variables or local configuration (for example, `appsettings.Development.json`).
+
+Apply the EF Core migrations:
+
+```bash
+dotnet ef database update \
+  --project src/HeadlessCms.Api/HeadlessCms.Api.csproj \
+  --startup-project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+```
 
 ## Development Notes
 

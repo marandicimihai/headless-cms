@@ -1,4 +1,5 @@
 using HeadlessCms.Api.Auth.Data;
+using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<TenantMembership> TenantMemberships { get; set; }
     public DbSet<TenantInvitation> TenantInvitations { get; set; }
+    public DbSet<Project> Projects { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

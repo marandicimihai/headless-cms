@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HeadlessCms.Api.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,4 +27,6 @@ public class User
     public PlatformRole PlatformRole { get; set; } = PlatformRole.User;
 
     public List<TenantMembership> TenantMemberships { get; set; } = [];
+
+    public List<Project> Projects { get; set; } = [];
 }

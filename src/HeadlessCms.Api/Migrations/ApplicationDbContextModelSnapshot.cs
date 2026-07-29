@@ -86,6 +86,34 @@ namespace HeadlessCms.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Projects");
+                });
+
             modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -225,8 +253,21 @@ namespace HeadlessCms.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
+                {
+                    b.HasOne("HeadlessCms.Api.Auth.Models.User", "Owner")
+                        .WithMany("Projects")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
             modelBuilder.Entity("HeadlessCms.Api.Auth.Models.User", b =>
                 {
+                    b.Navigation("Projects");
+
                     b.Navigation("TenantMemberships");
                 });
 
