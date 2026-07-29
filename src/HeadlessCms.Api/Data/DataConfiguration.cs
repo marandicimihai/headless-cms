@@ -1,4 +1,5 @@
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Auth.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,39 +9,45 @@ public static class DataConfiguration
 {
     public static async Task SeedPlatformAdminUser(this WebApplication app)
     {
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsEnvironment("Testing"))
+            return;
+
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var email = EmailNormalizer.Normalize(
+            app.Configuration["Auth:AdminEmail"] ??
+            throw new InvalidOperationException("Auth:AdminEmail not configured"));
+        var legacyUsername = app.Configuration["Auth:LegacyAdminUsername"];
+        var legacyEmail = legacyUsername is null
+            ? null
+            : $"{legacyUsername.Trim().ToLowerInvariant()}@legacy.invalid";
+
+        var admin = await db.Users.SingleOrDefaultAsync(
+            user =>
+                user.PlatformRole == PlatformRole.PlatformAdmin ||
+                user.Email == email ||
+                (legacyEmail != null && user.Email == legacyEmail));
+
+        if (admin is null)
         {
-            using var scope = app.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            
-            var username = app.Configuration["Auth:AdminUsername"] ??
-                           throw new InvalidOperationException("Auth:AdminUsername not configured");
+            var password = app.Configuration["Auth:AdminPassword"] ??
+                           throw new InvalidOperationException("Auth:AdminPassword not configured");
 
-            var admin = await db.Users.SingleOrDefaultAsync(user => user.Username == username);
-
-            if (admin is null)
+            var hasher = new PasswordHasher<User>();
+            admin = new User
             {
-                var password = app.Configuration["Auth:AdminPassword"] ??
-                               throw new InvalidOperationException("Auth:AdminPassword not configured");
-
-                var hasher = new PasswordHasher<User>();
-
-                admin = new User
-                {
-                    Username = username,
-                    PlatformRole = PlatformRole.PlatformAdmin
-                };
-                
-                admin.PasswordHash = hasher.HashPassword(admin, password);
-                    
-                db.Users.Add(admin);
-                await db.SaveChangesAsync();
-            }
-            else if (admin.PlatformRole != PlatformRole.PlatformAdmin)
-            {
-                admin.PlatformRole = PlatformRole.PlatformAdmin;
-                await db.SaveChangesAsync();
-            }
+                Email = email,
+                PlatformRole = PlatformRole.PlatformAdmin
+            };
+            admin.PasswordHash = hasher.HashPassword(admin, password);
+            db.Users.Add(admin);
         }
+        else
+        {
+            admin.Email = email;
+            admin.PlatformRole = PlatformRole.PlatformAdmin;
+        }
+
+        await db.SaveChangesAsync();
     }
 }

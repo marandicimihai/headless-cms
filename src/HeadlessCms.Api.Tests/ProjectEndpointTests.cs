@@ -182,7 +182,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
         var outsider = await app.SeedUserAsync("outsider", "outsider-password");
         var tenant = await SeedTenantAsync((owner, TenantRole.Owner));
         var project = await SeedProjectAsync(tenant.Id, "Private project");
-        var accessToken = await LoginAsync(outsider.Username, "outsider-password");
+        var accessToken = await LoginAsync(outsider.Email, "outsider-password");
 
         var listResponse = await SendAsync(
             HttpMethod.Get,
@@ -300,6 +300,114 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
         projectCount.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task Owner_CreateTrimsNameAndAcceptsLengthBoundaries()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var accessToken = await app.LoginAsync(owner.Email, "owner-password");
+        var maximumLengthName = new string('x', 100);
+
+        var minimumResponse = await app.SendAsync(
+            HttpMethod.Post,
+            ApiApp.ProjectsPath(tenant.Id),
+            accessToken,
+            new { name = " abc " });
+        minimumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var minimumProject = await minimumResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>(cancellationToken: ct);
+        minimumProject.ShouldNotBeNull();
+        minimumProject.Name.ShouldBe("abc");
+
+        var maximumResponse = await app.SendAsync(
+            HttpMethod.Post,
+            ApiApp.ProjectsPath(tenant.Id),
+            accessToken,
+            new { name = maximumLengthName });
+        maximumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var maximumProject = await maximumResponse.Content
+            .ReadFromJsonAsync<ProjectResponse>(cancellationToken: ct);
+        maximumProject.ShouldNotBeNull();
+        maximumProject.Name.ShouldBe(maximumLengthName);
+
+        var storedNames = await app.WithDatabaseAsync(
+            db => db.Projects
+                .OrderBy(project => project.Name)
+                .Select(project => project.Name)
+                .ToListAsync(ct));
+        storedNames.ShouldBe(["abc", maximumLengthName]);
+    }
+
+    [Fact]
+    public async Task Owner_CreateWithNameOverMaximum_ReturnsBadRequest()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var accessToken = await app.LoginAsync(owner.Email, "owner-password");
+
+        var response = await app.SendAsync(
+            HttpMethod.Post,
+            ApiApp.ProjectsPath(tenant.Id),
+            accessToken,
+            new { name = new string('x', 101) });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var projectCount = await app.WithDatabaseAsync(db => db.Projects.CountAsync(ct));
+        projectCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Editor_InvalidUpdateDoesNotChangePersistedProject()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var editor = await app.SeedUserAsync("editor", "editor-password");
+        var tenant = await app.SeedTenantAsync((editor, TenantRole.Editor));
+        var project = await app.SeedProjectAsync(tenant.Id, "Original project");
+        var accessToken = await app.LoginAsync(editor.Email, "editor-password");
+
+        foreach (var invalidName in new[] { " ab ", new string('x', 101) })
+        {
+            var response = await app.SendAsync(
+                HttpMethod.Put,
+                ApiApp.ProjectPath(tenant.Id, project.Id),
+                accessToken,
+                new { name = invalidName });
+            response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        }
+
+        var storedProject = await app.WithDatabaseAsync(
+            db => db.Projects.AsNoTracking().SingleAsync(ct));
+        storedProject.Name.ShouldBe("Original project");
+        storedProject.UpdatedAt.ShouldBe(project.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task List_ReturnsOnlyRequestedTenantsProjectsInNameOrder()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var member = await app.SeedUserAsync("member", "member-password");
+        var firstTenant = await app.SeedTenantAsync((member, TenantRole.Member));
+        var secondTenant = await app.SeedTenantAsync((member, TenantRole.Member));
+        await app.SeedProjectAsync(firstTenant.Id, "Zulu");
+        await app.SeedProjectAsync(firstTenant.Id, "Alpha");
+        await app.SeedProjectAsync(secondTenant.Id, "Other tenant");
+        var accessToken = await app.LoginAsync(member.Email, "member-password");
+
+        var response = await app.SendAsync(
+            HttpMethod.Get,
+            ApiApp.ProjectsPath(firstTenant.Id),
+            accessToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var projects = await response.Content.ReadFromJsonAsync<List<ProjectResponse>>(
+            cancellationToken: ct);
+        projects.ShouldNotBeNull();
+        projects.Select(project => project.Name).ShouldBe(["Alpha", "Zulu"]);
+        projects.ShouldAllBe(project => project.TenantId == firstTenant.Id);
+    }
+
     private async Task<Tenant> SeedTenantAsync(
         params (User User, TenantRole Role)[] members)
     {
@@ -350,7 +458,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = AuthApp.AsEmail(username),
                     Password = password
                 });
 

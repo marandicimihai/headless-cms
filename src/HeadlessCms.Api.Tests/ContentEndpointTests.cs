@@ -28,7 +28,7 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await app.SeedTenantMembershipAsync(owner.Id, TenantRole.Owner);
+        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
         var token = await LoginAsync("owner", "owner-password");
         var project = await CreateProjectAsync(tenant.Id, token);
 
@@ -99,9 +99,9 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
         HttpStatusCode expected)
     {
         var user = await app.SeedUserAsync(role.ToString().ToLowerInvariant(), "password");
-        var tenant = await app.SeedTenantMembershipAsync(user.Id, role);
+        var tenant = await app.SeedTenantAsync((user, role));
         var project = await SeedProjectAsync(tenant.Id);
-        var token = await LoginAsync(user.Username, "password");
+        var token = await LoginAsync(role.ToString().ToLowerInvariant(), "password");
 
         var response = await SendAsync(
             HttpMethod.Post,
@@ -116,7 +116,7 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
     public async Task Membership_DoesNotGrantAccessToAnotherTenant()
     {
         var user = await app.SeedUserAsync("editor", "password");
-        await app.SeedTenantMembershipAsync(user.Id, TenantRole.Editor, "Tenant A");
+        await app.SeedTenantAsync((user, TenantRole.Editor));
         var otherTenant = await app.WithDatabaseAsync(
             async db =>
             {
@@ -146,7 +146,7 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
     public async Task ContentTypesAndEntries_AreIsolatedBetweenProjects()
     {
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantMembershipAsync(owner.Id, TenantRole.Owner);
+        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
         var firstProject = await SeedProjectAsync(tenant.Id);
         var secondProject = await SeedProjectAsync(tenant.Id);
         var token = await LoginAsync("owner", "password");
@@ -192,7 +192,7 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "password");
-        var tenant = await app.SeedTenantMembershipAsync(editor.Id, TenantRole.Editor);
+        var tenant = await app.SeedTenantAsync((editor, TenantRole.Editor));
         var project = await SeedProjectAsync(tenant.Id);
         var token = await LoginAsync("editor", "password");
 
@@ -361,19 +361,8 @@ public sealed class ContentEndpointTests(AuthApp app) : TestBase<AuthApp>
     private static string EntriesPath(Guid tenantId, Guid projectId) =>
         $"{ContentTypePath(tenantId, projectId)}/entries";
 
-    private async Task<string> LoginAsync(string username, string password)
-    {
-        var (response, tokens) =
-            await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
-                new LoginRequest
-                {
-                    Username = username,
-                    Password = password
-                });
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return tokens.AccessToken;
-    }
+    private Task<string> LoginAsync(string identifier, string password) =>
+        app.LoginAsync(identifier, password);
 
     private async Task<HttpResponseMessage> SendAsync(
         HttpMethod method,

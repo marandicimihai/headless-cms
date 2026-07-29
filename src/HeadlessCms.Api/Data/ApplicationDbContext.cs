@@ -32,6 +32,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasConversion<string>()
             .HasMaxLength(16);
 
+        modelBuilder.Entity<TenantMembership>()
+            .HasIndex(membership => new { membership.TenantId, membership.Role })
+            .IsUnique()
+            .HasFilter("\"Role\" = 'Owner'");
+
         modelBuilder.Entity<TenantInvitation>()
             .Property(invitation => invitation.Role)
             .HasConversion<string>()

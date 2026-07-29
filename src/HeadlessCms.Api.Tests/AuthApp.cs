@@ -1,9 +1,6 @@
-using FastEndpoints.Testing;
-using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Tenancy.Models;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
+using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,19 +8,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HeadlessCms.Api.Tests;
 
-public sealed class AuthApp : AppFixture<Program>
+public sealed class AuthApp : ApiApp
 {
     public const string SigningKey =
         "test-only-signing-key-that-is-long-enough-for-hmac-sha256-validation";
 
     private readonly string databaseName = $"headless-cms-auth-tests-{Guid.NewGuid()}";
-
-    public HttpClient HttpsClient { get; private set; } = null!;
-
-    protected override void ConfigureApp(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-    }
 
     protected override void ConfigureServices(IServiceCollection services)
     {
@@ -32,94 +22,56 @@ public sealed class AuthApp : AppFixture<Program>
         services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
         services.AddDbContext<ApplicationDbContext>(
             options => options.UseInMemoryDatabase(databaseName));
+        services.RemoveAll<IInvitationEmailSender>();
+        services.AddSingleton<TestInvitationEmailSender>();
+        services.AddSingleton<IInvitationEmailSender>(
+            provider => provider.GetRequiredService<TestInvitationEmailSender>());
     }
 
-    protected override ValueTask SetupAsync()
-    {
-        HttpsClient = CreateClient(
-            new ClientOptions
-            {
-                AllowAutoRedirect = false,
-                BaseAddress = new Uri("https://localhost")
-            });
-
-        return ValueTask.CompletedTask;
-    }
-
-    protected override ValueTask TearDownAsync()
-    {
-        HttpsClient?.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    public async Task ResetDatabaseAsync()
+    public override async Task ResetDatabaseAsync()
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.EnsureDeletedAsync();
         await db.Database.EnsureCreatedAsync();
+        Services.GetRequiredService<TestInvitationEmailSender>().Clear();
     }
+}
 
-    public async Task<User> SeedUserAsync(
-        string username,
-        string password,
-        PlatformRole platformRole = PlatformRole.User,
-        string? email = null)
+public sealed record SentInvitation(
+    string Email,
+    string TenantName,
+    TenantRole Role,
+    string Token);
+
+public sealed class TestInvitationEmailSender : IInvitationEmailSender
+{
+    private readonly List<SentInvitation> sent = [];
+
+    public IReadOnlyList<SentInvitation> Sent
     {
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
-
-        var user = new User
+        get
         {
-            Username = username,
-            Email = email,
-            PlatformRole = platformRole
-        };
-        user.PasswordHash = hasher.HashPassword(user, password);
-
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
-
-        return user;
+            lock (sent)
+                return sent.ToList();
+        }
     }
 
-    public async Task<Tenant> SeedTenantMembershipAsync(
-        string userId,
+    public Task SendAsync(
+        string email,
+        string tenantName,
         TenantRole role,
-        string name = "Tenant")
+        string token,
+        CancellationToken ct = default)
     {
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var tenant = new Tenant
-        {
-            Name = name
-        };
-        tenant.Memberships.Add(new TenantMembership
-        {
-            UserId = userId,
-            Role = role
-        });
-
-        db.Tenants.Add(tenant);
-        await db.SaveChangesAsync();
-        return tenant;
+        lock (sent)
+            sent.Add(new SentInvitation(email, tenantName, role, token));
+        return Task.CompletedTask;
     }
 
-    public async Task<TResult> WithDatabaseAsync<TResult>(
-        Func<ApplicationDbContext, Task<TResult>> action)
+    public void Clear()
     {
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        return await action(db);
-    }
-
-    public async Task<TResult> WithServiceAsync<TService, TResult>(
-        Func<TService, Task<TResult>> action)
-        where TService : notnull
-    {
-        using var scope = Services.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<TService>();
-        return await action(service);
+        lock (sent)
+            sent.Clear();
     }
 }

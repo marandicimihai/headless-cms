@@ -12,6 +12,11 @@ public sealed record TenantAccessContext(
 
 public class TenantAccessService(ApplicationDbContext db)
 {
+    public static bool CanReadContent(TenantMembership membership) => true;
+
+    public static bool CanWriteContent(TenantMembership membership) =>
+        membership.Role is TenantRole.Owner or TenantRole.Editor;
+
     public Task<TenantMembership?> FindMembershipAsync(
         ClaimsPrincipal principal,
         Guid tenantId,
