@@ -119,6 +119,103 @@ The tenant invitation model stores an email, tenant role, hashed single-use
 token, expiration, inviter, and acceptance details. Registration and email
 delivery endpoints are not implemented yet.
 
+## Dynamic content
+
+Content types belong to projects, and projects belong to tenants. Entry data
+uses versioned relational definitions with PostgreSQL `jsonb` values. Creating
+a content type does not create a .NET class, PostgreSQL table, or migration.
+
+The workflow is:
+
+1. An `Owner` or `Editor` creates a project inside a tenant.
+2. They define content types inside that project.
+3. Entries are created and queried through the project-scoped content type.
+
+The initial field types are:
+
+- `text`
+- `number`
+- `boolean`
+
+Definitions and entries are available below the tenant boundary:
+
+```text
+GET  /api/tenants/{tenantId}/projects/{projectId}/content-types
+POST /api/tenants/{tenantId}/projects/{projectId}/content-types
+GET  /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}
+PUT  /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}
+
+GET    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries
+POST   /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries
+GET    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+PUT    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+DELETE /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+```
+
+`Owner` and `Editor` memberships can manage definitions and entries. `Member`
+memberships have read-only access. Platform administrators do not bypass tenant
+membership checks.
+
+Example content type:
+
+```json
+{
+  "key": "article",
+  "name": "Article",
+  "fields": [
+    {
+      "key": "title",
+      "name": "Title",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "views",
+      "name": "Views",
+      "type": "number",
+      "settings": { "default": 0 }
+    },
+    {
+      "key": "published",
+      "name": "Published",
+      "type": "boolean",
+      "required": true
+    }
+  ]
+}
+```
+
+Entry bodies use a generic JSON object:
+
+```json
+{
+  "data": {
+    "title": "PostgreSQL for CMS",
+    "views": 125,
+    "published": true
+  },
+  "status": "published"
+}
+```
+
+Entry lists support pagination, an optional `draft` or `published` status,
+typed sorting, and declared-field filters:
+
+```text
+?page=1&pageSize=25&status=published
+?sort=-views
+?filter[views][gte]=100&sort=-views
+```
+
+Text fields support `eq` and `contains`; number fields support `eq`, `gt`,
+`gte`, `lt`, and `lte`; boolean fields support `eq`.
+
+Updating a definition creates an immutable schema version. New entries use the
+latest version, while existing entries continue validating against the version
+with which they were created. Reusing a field key with a different type is
+rejected. Content type keys are unique within a project, so separate projects
+can independently define a content type with the same key.
+
 ## Build and Test
 
 Restore and build the solution:
@@ -137,6 +234,16 @@ dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 The authentication tests use the FastEndpoints-recommended xUnit,
 `FastEndpoints.Testing`, `AppFixture`, route-less HTTP helpers, and Shouldly
 setup. They boot the complete API pipeline with an isolated in-memory database.
+
+Apply PostgreSQL migrations:
+
+```bash
+dotnet tool restore
+dotnet ef database update --project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+```
+
+Configure PostgreSQL with `ConnectionStrings__DefaultConnection` or the
+equivalent `DefaultConnection` value in local configuration.
 
 ## Status
 

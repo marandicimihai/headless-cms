@@ -20,6 +20,8 @@ x86/
 bld/
 [Bb]in/
 [Oo]bj/
+# Older dotnet-ef versions can create a literal `bin\Debug` directory on Unix.
+[Bb]in\\[Dd]ebug/
 [Ll]og/
 [Ll]ogs/
 

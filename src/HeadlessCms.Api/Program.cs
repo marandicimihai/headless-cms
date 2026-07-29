@@ -1,6 +1,7 @@
 using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
+using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.AspNetCore.Identity;
@@ -25,6 +26,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<UserManager>();
 builder.Services.AddScoped<TenantAccessService>();
 builder.Services.AddScoped<TenantInvitationService>();
+builder.Services.AddScoped<ContentDocumentValidator>();
+builder.Services.AddScoped<ContentDefinitionService>();
+builder.Services.AddScoped<ContentEntryService>();
 
 var app = builder.Build();
 

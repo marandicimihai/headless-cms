@@ -1,6 +1,7 @@
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
+using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -81,6 +82,28 @@ public sealed class AuthApp : AppFixture<Program>
         await db.SaveChangesAsync();
 
         return user;
+    }
+
+    public async Task<Tenant> SeedTenantMembershipAsync(
+        string userId,
+        TenantRole role,
+        string name = "Tenant")
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tenant = new Tenant
+        {
+            Name = name
+        };
+        tenant.Memberships.Add(new TenantMembership
+        {
+            UserId = userId,
+            Role = role
+        });
+
+        db.Tenants.Add(tenant);
+        await db.SaveChangesAsync();
+        return tenant;
     }
 
     public async Task<TResult> WithDatabaseAsync<TResult>(

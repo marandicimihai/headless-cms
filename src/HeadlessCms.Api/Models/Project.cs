@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,4 +24,6 @@ public class Project
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    public List<ContentType> ContentTypes { get; set; } = [];
 }
