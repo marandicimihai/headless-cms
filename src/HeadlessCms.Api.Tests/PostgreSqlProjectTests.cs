@@ -6,8 +6,6 @@ using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Projects;
 using HeadlessCms.Api.Tenancy.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Shouldly;
 using Xunit;
 
@@ -213,109 +211,4 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
         projectCount.ShouldBe(0);
     }
 
-    [Fact]
-    public async Task PostgreSql_MigratesLegacyUserOwnedProjectToTenantOwnership()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var projectId = Guid.NewGuid();
-        var legacyOwnerId = $"legacy-owner-{Guid.NewGuid():N}";
-        var username = $"legacy-{Guid.NewGuid():N}";
-        var passwordHash = "legacy-password-hash";
-        var projectName = "Legacy project";
-        var createdAt = new DateTime(
-            DateTime.UtcNow.AddDays(-1).Ticks / TimeSpan.TicksPerSecond
-                * TimeSpan.TicksPerSecond,
-            DateTimeKind.Utc);
-        var updatedAt = createdAt.AddHours(2);
-
-        await app.WithDatabaseAsync(
-            async db =>
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    """
-                    DROP SCHEMA IF EXISTS public CASCADE;
-                    CREATE SCHEMA public;
-                    """,
-                    ct);
-                var migrator = db.GetService<IMigrator>();
-                await migrator.MigrateAsync(
-                    "20260729071632_AddTenantAuthorization",
-                    ct);
-
-                await db.Database.ExecuteSqlInterpolatedAsync(
-                    $"""
-                    INSERT INTO "Users"
-                        ("Id", "Username", "PasswordHash", "Email", "PlatformRole")
-                    VALUES
-                        ({legacyOwnerId}, {username}, {passwordHash}, {null}, {"User"});
-                    """,
-                    ct);
-
-                await db.Database.ExecuteSqlInterpolatedAsync(
-                    $"""
-                    INSERT INTO "Projects"
-                        ("Id", "Name", "OwnerId", "CreatedAt", "UpdatedAt")
-                    VALUES
-                        ({projectId}, {projectName}, {legacyOwnerId}, {createdAt}, {updatedAt});
-                    """,
-                    ct);
-
-                await migrator.MigrateAsync(
-                    "20260729080035_MakeProjectsTenantOwned",
-                    ct);
-                return true;
-            });
-
-        await app.WithDatabaseAsync(
-            async db =>
-            {
-                var migratedProject = await db.Projects
-                    .AsNoTracking()
-                    .SingleAsync(candidate => candidate.Id == projectId, ct);
-                migratedProject.Name.ShouldBe(projectName);
-                migratedProject.CreatedAt.ShouldBe(createdAt);
-                migratedProject.UpdatedAt.ShouldBe(updatedAt);
-                migratedProject.TenantId.ShouldNotBe(Guid.Empty);
-
-                var tenant = await db.Tenants
-                    .AsNoTracking()
-                    .SingleAsync(candidate => candidate.Id == migratedProject.TenantId, ct);
-                tenant.Name.ShouldBe(projectName);
-                tenant.CreatedAt.ShouldBe(createdAt);
-
-                var membership = await db.TenantMemberships
-                    .AsNoTracking()
-                    .SingleAsync(
-                        candidate =>
-                            candidate.TenantId == migratedProject.TenantId &&
-                            candidate.UserId == legacyOwnerId,
-                        ct);
-                membership.Role.ShouldBe(TenantRole.Owner);
-                membership.JoinedAt.ShouldBe(createdAt);
-
-                var projectColumns = await db.Database.SqlQueryRaw<string>(
-                        """
-                        SELECT column_name AS "Value"
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public'
-                          AND table_name = 'Projects'
-                        """)
-                    .ToListAsync(ct);
-                projectColumns.ShouldContain("TenantId");
-                projectColumns.ShouldNotContain("OwnerId");
-
-                var tenantIdNullable = await db.Database.SqlQueryRaw<string>(
-                        """
-                        SELECT is_nullable AS "Value"
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public'
-                          AND table_name = 'Projects'
-                          AND column_name = 'TenantId'
-                        """)
-                    .SingleAsync(ct);
-                tenantIdNullable.ShouldBe("NO");
-
-                return true;
-            });
-    }
 }

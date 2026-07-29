@@ -453,13 +453,13 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             });
     }
 
-    private async Task<string> LoginAsync(string username, string password)
+    private async Task<string> LoginAsync(string email, string password)
     {
         var (response, tokens) =
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Email = TestApp.AsEmail(username),
+                    Email = TestApp.AsEmail(email),
                     Password = password
                 });
 

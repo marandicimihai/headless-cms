@@ -172,10 +172,6 @@ ConnectionStrings__DefaultConnection
 Tenancy__InvitationUrl
 ```
 
-Deployments upgrading from the previous username-based admin may temporarily
-set `Auth__LegacyAdminUsername` so startup can promote and re-key that account
-to `Auth__AdminEmail`.
-
 ## Dynamic content
 
 Content types belong to projects, and projects belong to tenants. Entry data

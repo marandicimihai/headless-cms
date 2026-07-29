@@ -46,29 +46,17 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         verification.ShouldNotBe(PasswordVerificationResult.Failed);
     }
 
-    [Theory]
-    [InlineData(
-        "existing@example.test",
-        " Existing@Example.Test ",
-        null)]
-    [InlineData(
-        "legacy-admin@legacy.invalid",
-        "promoted@example.test",
-        " Legacy-Admin ")]
-    public async Task SeedPlatformAdminUser_InProduction_PromotesExistingOrLegacyUser(
-        string existingEmail,
-        string configuredAdminEmail,
-        string? legacyUsername)
+    [Fact]
+    public async Task SeedPlatformAdminUser_InProduction_PromotesExistingUser()
     {
         var ct = TestContext.Current.CancellationToken;
         var existing = await app.SeedUserAsync(
-            existingEmail,
+            "existing@example.test",
             "existing-password");
         var originalPasswordHash = existing.PasswordHash;
         await using var productionApp = CreateProductionSeedApp(
-            configuredAdminEmail,
-            "unused-admin-password",
-            legacyUsername);
+            " Existing@Example.Test ",
+            "unused-admin-password");
 
         await productionApp.SeedPlatformAdminUser();
 
@@ -76,7 +64,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             db => db.Users.AsNoTracking().ToListAsync(ct));
         var promoted = users.Single();
         promoted.Id.ShouldBe(existing.Id);
-        promoted.Email.ShouldBe(configuredAdminEmail.Trim().ToLowerInvariant());
+        promoted.Email.ShouldBe("existing@example.test");
         promoted.PlatformRole.ShouldBe(PlatformRole.PlatformAdmin);
         promoted.PasswordHash.ShouldBe(originalPasswordHash);
     }
@@ -566,8 +554,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
 
     private WebApplication CreateProductionSeedApp(
         string adminEmail,
-        string adminPassword,
-        string? legacyAdminUsername = null)
+        string adminPassword)
     {
         var builder = WebApplication.CreateBuilder(
             new WebApplicationOptions
@@ -579,12 +566,6 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             ["Auth:AdminEmail"] = adminEmail,
             ["Auth:AdminPassword"] = adminPassword
         };
-        if (legacyAdminUsername is not null)
-        {
-            configurationValues["Auth:LegacyAdminUsername"] =
-                legacyAdminUsername;
-        }
-
         builder.Configuration.AddInMemoryCollection(configurationValues);
         builder.Services.AddDbContext<ApplicationDbContext>(
             options => options.UseNpgsql(app.PostgreSqlConnectionString));

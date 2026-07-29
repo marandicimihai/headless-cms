@@ -20,7 +20,7 @@ namespace HeadlessCms.Api.Tests;
 [Collection<TestAppCollection>]
 public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
 {
-    private const string Username = "admin@example.test";
+    private const string EmailAddress = "admin@example.test";
     private const string Password = "correct-password";
 
     protected override async ValueTask SetupAsync()
@@ -31,14 +31,14 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Login_WithValidCredentials_ReturnsAndPersistsTokenPair()
     {
-        var user = await app.SeedUserAsync(Username, Password);
+        var user = await app.SeedUserAsync(EmailAddress, Password);
         var beforeLogin = DateTime.UtcNow;
 
         var (response, tokens) =
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Email = Username.ToUpperInvariant(),
+                    Email = EmailAddress.ToUpperInvariant(),
                     Password = Password
                 });
 
@@ -66,19 +66,19 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     }
 
     [Theory]
-    [InlineData(Username, "wrong-password")]
+    [InlineData(EmailAddress, "wrong-password")]
     [InlineData("unknown-user@example.test", Password)]
     public async Task Login_WithInvalidCredentials_ReturnsUnauthorizedWithoutPersistingToken(
-        string username,
+        string email,
         string password)
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
 
         var (response, _) =
             await app.HttpsClient.POSTAsync<Login, LoginRequest, EmptyResponse>(
                 new LoginRequest
                 {
-                    Email = username,
+                    Email = email,
                     Password = password
                 });
 
@@ -89,24 +89,24 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
 
     [Theory]
     [InlineData("", Password)]
-    [InlineData(Username, "")]
+    [InlineData(EmailAddress, "")]
     [InlineData(
-        "username-that-is-deliberately-longer-than-the-configured-sixty-four-character-limit",
+        "email-address-that-is-deliberately-longer-than-the-configured-sixty-four-character-limit",
         Password)]
     [InlineData(
-        Username,
+        EmailAddress,
         "password-that-is-deliberately-longer-than-the-configured-sixty-four-character-limit")]
     public async Task Login_WithInvalidBody_ReturnsBadRequestWithoutPersistingToken(
-        string username,
+        string email,
         string password)
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
 
         var (response, _) =
             await app.HttpsClient.POSTAsync<Login, LoginRequest, ErrorResponse>(
                 new LoginRequest
                 {
-                    Email = username,
+                    Email = email,
                     Password = password
                 });
 
@@ -118,7 +118,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WithValidTokenAndNoUserId_RotatesToken()
     {
-        var user = await app.SeedUserAsync(Username, Password);
+        var user = await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         var (response, renewedTokens) =
@@ -151,7 +151,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WithUnknownToken_ReturnsBadRequestAndKeepsCurrentToken()
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         var (response, _) =
@@ -173,7 +173,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WithExpiredToken_ReturnsBadRequestWithoutIssuingNewToken()
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         await app.WithDatabaseAsync(
@@ -200,7 +200,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WhenOldTokenIsReused_ReturnsBadRequest()
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         var (firstResponse, _) =
@@ -226,7 +226,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WithMissingToken_ReturnsBadRequest()
     {
-        await app.SeedUserAsync(Username, Password);
+        await app.SeedUserAsync(EmailAddress, Password);
 
         var (response, _) =
             await app.HttpsClient.POSTAsync<Refresh, TokenRequest, ErrorResponse>(
@@ -243,7 +243,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_WhenUserNoLongerExists_ReturnsBadRequest()
     {
-        var user = await app.SeedUserAsync(Username, Password);
+        var user = await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         await app.WithDatabaseAsync(
@@ -272,7 +272,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task RefreshingOneUser_DoesNotRevokeAnotherUsersToken()
     {
-        var firstUser = await app.SeedUserAsync(Username, Password);
+        var firstUser = await app.SeedUserAsync(EmailAddress, Password);
         var firstTokens = await LoginAsync();
         await app.SeedUserAsync("editor", "editor-password");
         var secondTokens = await LoginAsync("editor", "editor-password");
@@ -299,7 +299,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Login_AsPlatformAdmin_IncludesPlatformAdminRoleInAccessToken()
     {
-        await app.SeedUserAsync(Username, Password, PlatformRole.PlatformAdmin);
+        await app.SeedUserAsync(EmailAddress, Password, PlatformRole.PlatformAdmin);
 
         var tokens = await LoginAsync();
 
@@ -310,7 +310,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task Refresh_UsesUsersCurrentRole()
     {
-        var user = await app.SeedUserAsync(Username, Password);
+        var user = await app.SeedUserAsync(EmailAddress, Password);
         var originalTokens = await LoginAsync();
 
         await app.WithDatabaseAsync(
@@ -338,7 +338,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     public async Task TenantInvitations_CreateScopedMemberships_AndCanOnlyBeUsedOnce()
     {
         var platformAdmin = await app.SeedUserAsync(
-            Username,
+            EmailAddress,
             Password,
             PlatformRole.PlatformAdmin,
             "admin@example.com");
@@ -414,7 +414,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task RegularPlatformUser_CannotCreateTenant()
     {
-        var user = await app.SeedUserAsync(Username, Password);
+        var user = await app.SeedUserAsync(EmailAddress, Password);
 
         await Should.ThrowAsync<InvitationFlowException>(
             () => app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
@@ -425,14 +425,14 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     }
 
     private async Task<TokenResponse> LoginAsync(
-        string username = Username,
+        string email = EmailAddress,
         string password = Password)
     {
         var (response, tokens) =
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Email = TestApp.AsEmail(username),
+                    Email = TestApp.AsEmail(email),
                     Password = password
                 });
 

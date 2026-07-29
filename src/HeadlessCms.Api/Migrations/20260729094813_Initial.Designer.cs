@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HeadlessCms.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260729082049_AddContentModel")]
-    partial class AddContentModel
+    [Migration("20260729094813_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -56,6 +56,7 @@ namespace HeadlessCms.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
@@ -69,23 +70,14 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique()
-                        .HasFilter("\"Email\" IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("PlatformRole")
                         .IsUnique()
                         .HasFilter("\"PlatformRole\" = 'PlatformAdmin'");
-
-                    b.HasIndex("Username")
-                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -311,6 +303,9 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<string>("AcceptedByUserId")
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(320)
@@ -322,6 +317,12 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<string>("InvitedByUserId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -369,6 +370,10 @@ namespace HeadlessCms.Api.Migrations
                     b.HasKey("TenantId", "UserId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "Role")
+                        .IsUnique()
+                        .HasFilter("\"Role\" = 'Owner'");
 
                     b.ToTable("TenantMemberships");
                 });
