@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HeadlessCms.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Auth.Models;
@@ -17,4 +18,6 @@ public class User
     [Required]
     [StringLength(256)]
     public string PasswordHash { get; set; } = default!;
+
+    public List<Project> Projects { get; set; } = [];
 }
