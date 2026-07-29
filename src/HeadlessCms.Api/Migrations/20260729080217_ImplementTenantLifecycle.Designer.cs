@@ -3,6 +3,7 @@ using System;
 using HeadlessCms.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HeadlessCms.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729080217_ImplementTenantLifecycle")]
+    partial class ImplementTenantLifecycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,15 +95,16 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("Projects");
                 });
@@ -214,13 +218,13 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Models.Project", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
+                    b.HasOne("HeadlessCms.Api.Auth.Models.User", "Owner")
                         .WithMany("Projects")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.TenantInvitation", b =>
@@ -270,6 +274,8 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Auth.Models.User", b =>
                 {
+                    b.Navigation("Projects");
+
                     b.Navigation("TenantMemberships");
                 });
 
@@ -278,8 +284,6 @@ namespace HeadlessCms.Api.Migrations
                     b.Navigation("Invitations");
 
                     b.Navigation("Memberships");
-
-                    b.Navigation("Projects");
                 });
 #pragma warning restore 612, 618
         }

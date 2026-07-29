@@ -7,15 +7,16 @@ namespace HeadlessCms.Api.Endpoints.Auth;
 
 public class LoginRequest
 {
-    public required string Username { get; init; }
+    public required string Email { get; init; }
     public required string Password { get; init; }
 
     public class LoginRequestValidator : Validator<LoginRequest>
     {
         public LoginRequestValidator()
         {
-            RuleFor(request => request.Username)
-                .MaximumLength(64)
+            RuleFor(request => request.Email)
+                .EmailAddress()
+                .MaximumLength(320)
                 .NotEmpty();
             
             RuleFor(request => request.Password)
@@ -35,10 +36,8 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenRespon
 
     public override async Task HandleAsync(LoginRequest req, CancellationToken ct)
     {
-        var username = req.Username;
-        var password = req.Password;
-
-        var (valid, user) = await userManager.CredentialsAreValidWithUser(username, password, ct);
+        var (valid, user) =
+            await userManager.CredentialsAreValidWithUser(req.Email, req.Password, ct);
         
         if (valid)
         {
@@ -47,7 +46,7 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenRespon
                 privileges =>
                 {
                     privileges["sub"] = user.Id;
-                    privileges["username"] = user.Username;
+                    privileges["email"] = user.Email;
                     privileges.Roles.Add(user.PlatformRole.ToString());
                 });
         }

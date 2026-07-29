@@ -182,7 +182,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
         var outsider = await app.SeedUserAsync("outsider", "outsider-password");
         var tenant = await SeedTenantAsync((owner, TenantRole.Owner));
         var project = await SeedProjectAsync(tenant.Id, "Private project");
-        var accessToken = await LoginAsync(outsider.Username, "outsider-password");
+        var accessToken = await LoginAsync(outsider.Email, "outsider-password");
 
         var listResponse = await SendAsync(
             HttpMethod.Get,
@@ -350,7 +350,7 @@ public sealed class ProjectEndpointTests(AuthApp app) : TestBase<AuthApp>
             await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
                 new LoginRequest
                 {
-                    Username = username,
+                    Email = AuthApp.AsEmail(username),
                     Password = password
                 });
 
