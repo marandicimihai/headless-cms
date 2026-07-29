@@ -62,6 +62,24 @@ Planned core capabilities:
 - publish/unpublish workflow,
 - filtering and pagination.
 
+## Authorization model
+
+Authorization has separate platform and tenant scopes:
+
+- A user has one platform role: `PlatformAdmin` or `User`.
+- A user can belong to many tenants.
+- Each tenant membership has one tenant role: `Owner`, `Editor`, or `Member`.
+
+The development admin configured with `Auth:AdminUsername` is assigned
+`PlatformAdmin`. Login and refresh access tokens include the platform role as a
+standard `role` claim. Tenant permissions must be resolved from the
+authenticated user's membership for the requested `TenantId`; platform roles
+must not be used as tenant permissions.
+
+The tenant invitation model stores an email, tenant role, hashed single-use
+token, expiration, inviter, and acceptance details. Registration and email
+delivery endpoints are not implemented yet.
+
 ## Build and Test
 
 Restore and build the solution:

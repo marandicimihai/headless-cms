@@ -48,6 +48,7 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenRespon
                 {
                     privileges["sub"] = user.Id;
                     privileges["username"] = user.Username;
+                    privileges.Roles.Add(user.PlatformRole.ToString());
                 });
         }
         else

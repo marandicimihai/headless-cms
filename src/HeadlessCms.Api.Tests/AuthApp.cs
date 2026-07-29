@@ -59,13 +59,22 @@ public sealed class AuthApp : AppFixture<Program>
         await db.Database.EnsureCreatedAsync();
     }
 
-    public async Task<User> SeedUserAsync(string username, string password)
+    public async Task<User> SeedUserAsync(
+        string username,
+        string password,
+        PlatformRole platformRole = PlatformRole.User,
+        string? email = null)
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
 
-        var user = new User { Username = username };
+        var user = new User
+        {
+            Username = username,
+            Email = email,
+            PlatformRole = platformRole
+        };
         user.PasswordHash = hasher.HashPassword(user, password);
 
         db.Users.Add(user);
@@ -80,5 +89,14 @@ public sealed class AuthApp : AppFixture<Program>
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await action(db);
+    }
+
+    public async Task<TResult> WithServiceAsync<TService, TResult>(
+        Func<TService, Task<TResult>> action)
+        where TService : notnull
+    {
+        using var scope = Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<TService>();
+        return await action(service);
     }
 }

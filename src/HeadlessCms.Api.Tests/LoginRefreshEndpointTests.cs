@@ -5,8 +5,11 @@ using System.Text;
 using FastEndpoints;
 using FastEndpoints.Security;
 using FastEndpoints.Testing;
+using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Endpoints.Auth;
+using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Shouldly;
@@ -46,6 +49,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
         var (principal, jwt) = ValidateAccessToken(tokens.AccessToken);
         principal.FindFirstValue("sub").ShouldBe(user.Id);
         principal.FindFirstValue("username").ShouldBe(user.Username);
+        principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.User));
         jwt.ValidTo.ShouldBeGreaterThan(beforeLogin);
         jwt.ValidTo.ShouldBeLessThan(beforeLogin.AddMinutes(11));
 
@@ -130,6 +134,7 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
         var (principal, jwt) = ValidateAccessToken(renewedTokens.AccessToken);
         principal.FindFirstValue("sub").ShouldBe(user.Id);
         principal.FindFirstValue("username").ShouldBe(user.Username);
+        principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.User));
         jwt.ValidTo.ShouldBeGreaterThan(DateTime.UtcNow);
 
         var persistedTokens = await app.WithDatabaseAsync(
@@ -288,6 +293,134 @@ public sealed class LoginRefreshEndpointTests(AuthApp app) : TestBase<AuthApp>
         persistedHashes.ShouldContain(TokenHasher.Hash(renewedFirstTokens.RefreshToken));
         persistedHashes.ShouldContain(TokenHasher.Hash(secondTokens.RefreshToken));
         persistedHashes.ShouldNotContain(TokenHasher.Hash(firstTokens.RefreshToken));
+    }
+
+    [Fact]
+    public async Task Login_AsPlatformAdmin_IncludesPlatformAdminRoleInAccessToken()
+    {
+        await app.SeedUserAsync(Username, Password, PlatformRole.PlatformAdmin);
+
+        var tokens = await LoginAsync();
+
+        var (principal, _) = ValidateAccessToken(tokens.AccessToken);
+        principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.PlatformAdmin));
+    }
+
+    [Fact]
+    public async Task Refresh_UsesUsersCurrentRole()
+    {
+        var user = await app.SeedUserAsync(Username, Password);
+        var originalTokens = await LoginAsync();
+
+        await app.WithDatabaseAsync(
+            async db =>
+            {
+                var storedUser = await db.Users.SingleAsync(candidate => candidate.Id == user.Id);
+                storedUser.PlatformRole = PlatformRole.PlatformAdmin;
+                await db.SaveChangesAsync();
+                return true;
+            });
+
+        var (response, renewedTokens) =
+            await app.HttpsClient.POSTAsync<Refresh, TokenRequest, TokenResponse>(
+                new TokenRequest
+                {
+                    RefreshToken = originalTokens.RefreshToken
+                });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var (principal, _) = ValidateAccessToken(renewedTokens.AccessToken);
+        principal.FindFirstValue("role").ShouldBe(nameof(PlatformRole.PlatformAdmin));
+    }
+
+    [Fact]
+    public async Task TenantInvitations_CreateScopedMemberships_AndCanOnlyBeUsedOnce()
+    {
+        var platformAdmin = await app.SeedUserAsync(
+            Username,
+            Password,
+            PlatformRole.PlatformAdmin,
+            "admin@example.com");
+
+        var ownerInvitation =
+            await app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
+                service => service.CreateTenantWithOwnerInvitationAsync(
+                    platformAdmin.Id,
+                    "Tenant A",
+                    "owner@example.com"));
+
+        var persistedInvitation = await app.WithDatabaseAsync(
+            db => db.TenantInvitations.AsNoTracking().SingleAsync());
+
+        persistedInvitation.Role.ShouldBe(TenantRole.Owner);
+        persistedInvitation.Email.ShouldBe("owner@example.com");
+        persistedInvitation.TokenHash.ShouldBe(TokenHasher.Hash(ownerInvitation.Token));
+        persistedInvitation.TokenHash.ShouldNotBe(ownerInvitation.Token);
+        persistedInvitation.ExpiresAt.ShouldBeGreaterThan(DateTime.UtcNow.AddHours(71));
+
+        var owner = await app.SeedUserAsync(
+            "owner",
+            "owner-password",
+            email: "owner@example.com");
+
+        var ownerMembership =
+            await app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+                service => service.AcceptInvitationAsync(owner.Id, ownerInvitation.Token));
+
+        ownerMembership.TenantId.ShouldBe(ownerInvitation.TenantId);
+        ownerMembership.Role.ShouldBe(TenantRole.Owner);
+
+        var editorInvitation =
+            await app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
+                service => service.CreateInvitationAsync(
+                    owner.Id,
+                    ownerInvitation.TenantId,
+                    "editor@example.com",
+                    TenantRole.Editor));
+
+        var editor = await app.SeedUserAsync(
+            "editor",
+            "editor-password",
+            email: "editor@example.com");
+
+        await app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+            service => service.AcceptInvitationAsync(editor.Id, editorInvitation.Token));
+
+        var editorMembership =
+            await app.WithServiceAsync<TenantAccessService, TenantMembership?>(
+                service => service.FindMembershipAsync(
+                    new ClaimsPrincipal(
+                        new ClaimsIdentity([new Claim("sub", editor.Id)])),
+                    ownerInvitation.TenantId));
+
+        editorMembership.ShouldNotBeNull();
+        editorMembership.Role.ShouldBe(TenantRole.Editor);
+
+        var unrelatedMembership =
+            await app.WithServiceAsync<TenantAccessService, TenantMembership?>(
+                service => service.FindMembershipAsync(
+                    new ClaimsPrincipal(
+                        new ClaimsIdentity([new Claim("sub", editor.Id)])),
+                    Guid.NewGuid()));
+
+        unrelatedMembership.ShouldBeNull();
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+                service => service.AcceptInvitationAsync(editor.Id, editorInvitation.Token)));
+    }
+
+    [Fact]
+    public async Task RegularPlatformUser_CannotCreateTenant()
+    {
+        var user = await app.SeedUserAsync(Username, Password);
+
+        await Should.ThrowAsync<UnauthorizedAccessException>(
+            () => app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
+                service => service.CreateTenantWithOwnerInvitationAsync(
+                    user.Id,
+                    "Tenant A",
+                    "owner@example.com")));
     }
 
     private async Task<TokenResponse> LoginAsync(

@@ -2,6 +2,7 @@ using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
+using HeadlessCms.Api.Tenancy.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,10 +23,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 });
 
 builder.Services.AddScoped<UserManager>();
+builder.Services.AddScoped<TenantAccessService>();
+builder.Services.AddScoped<TenantInvitationService>();
 
 var app = builder.Build();
 
-await app.SeedAdminUser();
+await app.SeedPlatformAdminUser();
 
 app.UseHttpsRedirection();
 
