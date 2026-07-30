@@ -15,14 +15,13 @@ This project focuses on a clean API-first approach so content can be managed onc
 
 - **Backend:** .NET + FastEndpoints
 - **Database:** PostgreSQL (pgsql)
-- **API Testing:** Postman collection (planned in this repo)
+- **API Testing:** Hosted Postman collection
 
 ## Project Structure
 
 ```text
 headless-cms/
 ├── headless-cms.slnx
-├── postman/
 └── src/
     ├── HeadlessCms.Api/
     │   ├── Auth/
@@ -44,17 +43,13 @@ services remain in their owning feature modules.
 
 ## API and Postman
 
-A Postman collection will be included to make it easy to:
+The hosted Postman collection makes it easy to:
 
 - test endpoint behavior,
 - understand request/response shapes,
 - speed up local development and collaboration.
 
-Collection location:
-
-```text
-postman/headless-cms.postman_collection.json
-```
+[Open the Headless CMS collection in Postman](https://go.postman.co/collection/30832597-e019a46d-66de-4a93-90a3-53a14453bd92).
 
 ### Authentication and tenant API
 

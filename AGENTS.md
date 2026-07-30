@@ -9,7 +9,7 @@
 - Product intent: a simplicity-first, API-first headless CMS (`README.md`).
 - Planned backend boundary: `.NET` API using **FastEndpoints** (`README.md`).
 - Planned persistence boundary: **PostgreSQL** as primary store (`README.md`).
-- Planned external client boundary: Postman collection for API exploration (`README.md`, suggested path `postman/headless-cms.postman_collection.json`).
+- External client boundary: hosted Postman collection for API exploration (linked from `README.md`).
 
 ## Practical Working Conventions for Agents
 - Keep new implementation under `src/` unless a different structure is explicitly introduced.
@@ -28,10 +28,9 @@
 
 ## Integration Points to Preserve
 - Database config should come from environment or local config (example noted in `README.md`: `appsettings.Development.json`).
-- Keep API contract discoverable for non-.NET clients; maintain/update Postman artifacts when endpoints are introduced.
+- Keep API contract discoverable for non-.NET clients; maintain the hosted Postman collection when endpoints are introduced.
 
 ## High-Value Next Structural Milestones
 - Add at least one API project under `src/` and include it in `headless-cms.slnx`.
 - Add a concrete configuration example for PostgreSQL connection settings.
 - Add initial endpoint + persistence slice that demonstrates the intended FastEndpoints + PostgreSQL flow.
-
