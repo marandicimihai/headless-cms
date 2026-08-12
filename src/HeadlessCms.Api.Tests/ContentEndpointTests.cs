@@ -9,7 +9,7 @@ using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Endpoints.Content;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -29,13 +29,13 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var token = await LoginAsync("owner", "owner-password");
-        var project = await CreateProjectAsync(tenant.Id, token);
+        var project = await CreateProjectAsync(workspace.Id, token);
 
         var createType = await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(tenant.Id, project.Id),
+            ContentTypesPath(workspace.Id, project.Id),
             token,
             ArticleDefinition());
 
@@ -49,12 +49,12 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         type.Fields.Count.ShouldBe(3);
 
         var first = await CreateEntryAsync(
-            tenant.Id,
+            workspace.Id,
             project.Id,
             token,
             new { title = "First", views = 10, published = false });
         var second = await CreateEntryAsync(
-            tenant.Id,
+            workspace.Id,
             project.Id,
             token,
             new { title = "Second", views = 125, published = true });
@@ -64,7 +64,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         var invalid = await SendAsync(
             HttpMethod.Post,
-            EntriesPath(tenant.Id, project.Id),
+            EntriesPath(workspace.Id, project.Id),
             token,
             new
             {
@@ -74,7 +74,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         var list = await SendAsync(
             HttpMethod.Get,
-            EntriesPath(tenant.Id, project.Id) +
+            EntriesPath(workspace.Id, project.Id) +
             "?filter[views][gte]=100&sort=-views",
             token);
         list.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -87,26 +87,26 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         var stored = await app.WithDatabaseAsync(
             db => db.ContentEntries.AsNoTracking().ToListAsync(ct));
         stored.Count.ShouldBe(2);
-        stored.ShouldAllBe(entry => entry.TenantId == tenant.Id);
+        stored.ShouldAllBe(entry => entry.WorkspaceId == workspace.Id);
         stored.ShouldAllBe(entry => entry.ProjectId == project.Id);
     }
 
     [Theory]
-    [InlineData(TenantRole.Owner, HttpStatusCode.Created)]
-    [InlineData(TenantRole.Editor, HttpStatusCode.Created)]
-    [InlineData(TenantRole.Member, HttpStatusCode.Forbidden)]
-    public async Task ContentWrites_UseTenantMembershipRole(
-        TenantRole role,
+    [InlineData(WorkspaceRole.Owner, HttpStatusCode.Created)]
+    [InlineData(WorkspaceRole.Editor, HttpStatusCode.Created)]
+    [InlineData(WorkspaceRole.Member, HttpStatusCode.Forbidden)]
+    public async Task ContentWrites_UseWorkspaceMembershipRole(
+        WorkspaceRole role,
         HttpStatusCode expected)
     {
         var user = await app.SeedUserAsync(role.ToString().ToLowerInvariant(), "password");
-        var tenant = await app.SeedTenantAsync((user, role));
-        var project = await SeedProjectAsync(tenant.Id);
+        var workspace = await app.SeedWorkspaceAsync((user, role));
+        var project = await SeedProjectAsync(workspace.Id);
         var token = await LoginAsync(role.ToString().ToLowerInvariant(), "password");
 
         var response = await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(tenant.Id, project.Id),
+            ContentTypesPath(workspace.Id, project.Id),
             token,
             ArticleDefinition());
 
@@ -114,31 +114,31 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task Membership_DoesNotGrantAccessToAnotherTenant()
+    public async Task Membership_DoesNotGrantAccessToAnotherWorkspace()
     {
         var user = await app.SeedUserAsync("editor", "password");
-        await app.SeedTenantAsync((user, TenantRole.Editor));
-        var otherTenant = await app.WithDatabaseAsync(
+        await app.SeedWorkspaceAsync((user, WorkspaceRole.Editor));
+        var otherWorkspace = await app.WithDatabaseAsync(
             async db =>
             {
-                var tenant = new Tenant { Name = "Tenant B" };
-                db.Tenants.Add(tenant);
+                var workspace = new Workspace { Name = "Workspace B" };
+                db.Workspaces.Add(workspace);
                 await db.SaveChangesAsync();
-                return tenant;
+                return workspace;
             });
-        var otherProject = await SeedProjectAsync(otherTenant.Id);
+        var otherProject = await SeedProjectAsync(otherWorkspace.Id);
         var token = await LoginAsync("editor", "password");
 
         var create = await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(otherTenant.Id, otherProject.Id),
+            ContentTypesPath(otherWorkspace.Id, otherProject.Id),
             token,
             ArticleDefinition());
         create.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var list = await SendAsync(
             HttpMethod.Get,
-            ContentTypesPath(otherTenant.Id, otherProject.Id),
+            ContentTypesPath(otherWorkspace.Id, otherProject.Id),
             token);
         list.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
@@ -147,19 +147,19 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     public async Task ContentTypesAndEntries_AreIsolatedBetweenProjects()
     {
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
-        var firstProject = await SeedProjectAsync(tenant.Id);
-        var secondProject = await SeedProjectAsync(tenant.Id);
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var firstProject = await SeedProjectAsync(workspace.Id);
+        var secondProject = await SeedProjectAsync(workspace.Id);
         var token = await LoginAsync("owner", "password");
 
         var firstType = await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(tenant.Id, firstProject.Id),
+            ContentTypesPath(workspace.Id, firstProject.Id),
             token,
             ArticleDefinition());
         var secondType = await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(tenant.Id, secondProject.Id),
+            ContentTypesPath(workspace.Id, secondProject.Id),
             token,
             ArticleDefinition());
 
@@ -167,21 +167,21 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         secondType.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         var entry = await CreateEntryAsync(
-            tenant.Id,
+            workspace.Id,
             firstProject.Id,
             token,
             new { title = "First project", views = 1, published = false });
 
         var crossProjectRead = await SendAsync(
             HttpMethod.Get,
-            $"{EntriesPath(tenant.Id, secondProject.Id)}/{entry.Id}",
+            $"{EntriesPath(workspace.Id, secondProject.Id)}/{entry.Id}",
             token);
         crossProjectRead.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var storedTypes = await app.WithDatabaseAsync(
             db => db.ContentTypes
                 .AsNoTracking()
-                .Where(type => type.TenantId == tenant.Id)
+                .Where(type => type.WorkspaceId == workspace.Id)
                 .ToListAsync());
         storedTypes.Count.ShouldBe(2);
         storedTypes.Select(type => type.ProjectId)
@@ -193,24 +193,24 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "password");
-        var tenant = await app.SeedTenantAsync((editor, TenantRole.Editor));
-        var project = await SeedProjectAsync(tenant.Id);
+        var workspace = await app.SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var project = await SeedProjectAsync(workspace.Id);
         var token = await LoginAsync("editor", "password");
 
         await SendAsync(
             HttpMethod.Post,
-            ContentTypesPath(tenant.Id, project.Id),
+            ContentTypesPath(workspace.Id, project.Id),
             token,
             ArticleDefinition());
         var oldEntry = await CreateEntryAsync(
-            tenant.Id,
+            workspace.Id,
             project.Id,
             token,
             new { title = "Old", views = 1, published = false });
 
         var updateType = await SendAsync(
             HttpMethod.Put,
-            ContentTypePath(tenant.Id, project.Id),
+            ContentTypePath(workspace.Id, project.Id),
             token,
             new
             {
@@ -232,7 +232,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         var invalidNewEntry = await SendAsync(
             HttpMethod.Post,
-            EntriesPath(tenant.Id, project.Id),
+            EntriesPath(workspace.Id, project.Id),
             token,
             new
             {
@@ -242,7 +242,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         var updateOldEntry = await SendAsync(
             HttpMethod.Put,
-            $"{EntriesPath(tenant.Id, project.Id)}/{oldEntry.Id}",
+            $"{EntriesPath(workspace.Id, project.Id)}/{oldEntry.Id}",
             token,
             new
             {
@@ -256,7 +256,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         var incompatible = await SendAsync(
             HttpMethod.Put,
-            ContentTypePath(tenant.Id, project.Id),
+            ContentTypePath(workspace.Id, project.Id),
             token,
             new
             {
@@ -301,14 +301,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         };
 
     private async Task<CreateContentEntryResponse> CreateEntryAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string token,
         object data)
     {
         var response = await SendAsync(
             HttpMethod.Post,
-            EntriesPath(tenantId, projectId),
+            EntriesPath(workspaceId, projectId),
             token,
             new { data });
         var responseBody = await response.Content.ReadAsStringAsync(
@@ -321,12 +321,12 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     private async Task<CreateProjectResponse> CreateProjectAsync(
-        Guid tenantId,
+        Guid workspaceId,
         string token)
     {
         var response = await SendAsync(
             HttpMethod.Post,
-            $"/api/tenants/{tenantId}/projects",
+            $"/api/workspaces/{workspaceId}/projects",
             token,
             new { name = "Website" });
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -336,14 +336,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         return project;
     }
 
-    private Task<Project> SeedProjectAsync(Guid tenantId) =>
+    private Task<Project> SeedProjectAsync(Guid workspaceId) =>
         app.WithDatabaseAsync(
             async db =>
             {
                 var now = DateTime.UtcNow;
                 var project = new Project
                 {
-                    TenantId = tenantId,
+                    WorkspaceId = workspaceId,
                     Name = $"Project {Guid.NewGuid():N}",
                     CreatedAt = now,
                     UpdatedAt = now
@@ -353,14 +353,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                 return project;
             });
 
-    private static string ContentTypesPath(Guid tenantId, Guid projectId) =>
-        $"/api/tenants/{tenantId}/projects/{projectId}/content-types";
+    private static string ContentTypesPath(Guid workspaceId, Guid projectId) =>
+        $"/api/workspaces/{workspaceId}/projects/{projectId}/content-types";
 
-    private static string ContentTypePath(Guid tenantId, Guid projectId) =>
-        $"{ContentTypesPath(tenantId, projectId)}/article";
+    private static string ContentTypePath(Guid workspaceId, Guid projectId) =>
+        $"{ContentTypesPath(workspaceId, projectId)}/article";
 
-    private static string EntriesPath(Guid tenantId, Guid projectId) =>
-        $"{ContentTypePath(tenantId, projectId)}/entries";
+    private static string EntriesPath(Guid workspaceId, Guid projectId) =>
+        $"{ContentTypePath(workspaceId, projectId)}/entries";
 
     private Task<string> LoginAsync(string identifier, string password) =>
         app.LoginAsync(identifier, password);

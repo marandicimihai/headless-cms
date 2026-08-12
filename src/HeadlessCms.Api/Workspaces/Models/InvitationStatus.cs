@@ -1,4 +1,4 @@
-namespace HeadlessCms.Api.Tenancy.Models;
+namespace HeadlessCms.Api.Workspaces.Models;
 
 public enum InvitationStatus
 {

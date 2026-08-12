@@ -1,43 +1,43 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class TransferTenantOwnership(ApplicationDbContext db)
+public sealed class TransferWorkspaceOwnership(ApplicationDbContext db)
     : Endpoint<
-        TransferTenantOwnershipRequest,
-        IReadOnlyList<TransferTenantOwnershipMemberResponse>>
+        TransferWorkspaceOwnershipRequest,
+        IReadOnlyList<TransferWorkspaceOwnershipMemberResponse>>
 {
     public override void Configure()
     {
-        Post("tenants/{tenantId:guid}/ownership-transfer");
+        Post("workspaces/{workspaceId:guid}/ownership-transfer");
         Claims("sub");
     }
 
     public override async Task HandleAsync(
-        TransferTenantOwnershipRequest request,
+        TransferWorkspaceOwnershipRequest request,
         CancellationToken ct)
     {
         var ownerId = User.ClaimValue("sub")!;
-        var owner = await db.TenantMemberships
+        var owner = await db.WorkspaceMemberships
             .Include(membership => membership.User)
             .SingleOrDefaultAsync(
                 membership =>
-                    membership.TenantId == request.TenantId &&
+                    membership.WorkspaceId == request.WorkspaceId &&
                     membership.UserId == ownerId &&
-                    membership.Role == TenantRole.Owner,
+                    membership.Role == WorkspaceRole.Owner,
                 ct);
-        var nextOwner = await db.TenantMemberships
+        var nextOwner = await db.WorkspaceMemberships
             .Include(membership => membership.User)
             .SingleOrDefaultAsync(
                 membership =>
-                    membership.TenantId == request.TenantId &&
+                    membership.WorkspaceId == request.WorkspaceId &&
                     membership.UserId == request.NewOwnerUserId &&
-                    membership.Role != TenantRole.Owner,
+                    membership.Role != WorkspaceRole.Owner,
                 ct);
 
         if (owner is null || nextOwner is null)
@@ -52,9 +52,9 @@ public sealed class TransferTenantOwnership(ApplicationDbContext db)
 
         try
         {
-            owner.Role = TenantRole.Editor;
+            owner.Role = WorkspaceRole.Editor;
             await db.SaveChangesAsync(ct);
-            nextOwner.Role = TenantRole.Owner;
+            nextOwner.Role = WorkspaceRole.Owner;
             await db.SaveChangesAsync(ct);
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
@@ -73,12 +73,12 @@ public sealed class TransferTenantOwnership(ApplicationDbContext db)
 
         Response =
         [
-            new TransferTenantOwnershipMemberResponse(
+            new TransferWorkspaceOwnershipMemberResponse(
                 owner.UserId,
                 owner.User.Email,
                 owner.Role,
                 owner.JoinedAt),
-            new TransferTenantOwnershipMemberResponse(
+            new TransferWorkspaceOwnershipMemberResponse(
                 nextOwner.UserId,
                 nextOwner.User.Email,
                 nextOwner.Role,
@@ -87,14 +87,14 @@ public sealed class TransferTenantOwnership(ApplicationDbContext db)
     }
 }
 
-public sealed class TransferTenantOwnershipRequest
+public sealed class TransferWorkspaceOwnershipRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string NewOwnerUserId { get; init; }
 }
 
-public sealed record TransferTenantOwnershipMemberResponse(
+public sealed record TransferWorkspaceOwnershipMemberResponse(
     string UserId,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     DateTime JoinedAt);

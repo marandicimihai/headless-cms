@@ -1,27 +1,27 @@
 using System.Text.Json;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class ListContentTypes(
     ContentDefinitionService definitions,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListContentTypesRequest, IReadOnlyList<ListContentTypesItemResponse>>
 {
-    private static readonly IReadOnlySet<TenantRole> Readers =
-        new HashSet<TenantRole>([TenantRole.Owner, TenantRole.Editor, TenantRole.Member]);
+    private static readonly IReadOnlySet<WorkspaceRole> Readers =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
 
     public override void Configure()
     {
-        Get("tenants/{tenantId:guid}/projects/{projectId:guid}/content-types");
+        Get("workspaces/{workspaceId:guid}/projects/{projectId:guid}/content-types");
         Claims("sub");
     }
 
     public override async Task HandleAsync(ListContentTypesRequest request, CancellationToken ct)
     {
-        if (await tenantAccess.ResolveAsync(User, request.TenantId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -30,7 +30,7 @@ public sealed class ListContentTypes(
         try
         {
             Response = (await definitions.ListCurrentAsync(
-                    request.TenantId,
+                    request.WorkspaceId,
                     request.ProjectId,
                     ct))
                 .Select(ToResponse)
@@ -71,7 +71,7 @@ public sealed class ListContentTypes(
 
 public sealed class ListContentTypesRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
 }
 

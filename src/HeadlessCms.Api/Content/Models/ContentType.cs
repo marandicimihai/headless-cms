@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 
 namespace HeadlessCms.Api.Content.Models;
 
@@ -9,8 +9,8 @@ public class ContentType
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
 
-    public Guid TenantId { get; set; }
-    public Tenant Tenant { get; set; } = default!;
+    public Guid WorkspaceId { get; set; }
+    public Workspace Workspace { get; set; } = default!;
 
     public Guid ProjectId { get; set; }
     public Project Project { get; set; } = default!;

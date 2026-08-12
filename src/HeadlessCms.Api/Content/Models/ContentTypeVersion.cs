@@ -7,7 +7,7 @@ public class ContentTypeVersion
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
 
-    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public Guid ProjectId { get; set; }
 
     public Guid ContentTypeId { get; set; }

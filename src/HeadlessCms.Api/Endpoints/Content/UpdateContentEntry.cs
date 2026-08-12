@@ -3,8 +3,8 @@ using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Content;
@@ -12,23 +12,23 @@ namespace HeadlessCms.Api.Endpoints.Content;
 public sealed class UpdateContentEntry(
     ContentEntryService entries,
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<UpdateContentEntryRequest, UpdateContentEntryResponse>
 {
-    private static readonly IReadOnlySet<TenantRole> Writers =
-        new HashSet<TenantRole>([TenantRole.Owner, TenantRole.Editor]);
+    private static readonly IReadOnlySet<WorkspaceRole> Writers =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor]);
 
     public override void Configure()
     {
         Put(
-            "tenants/{tenantId:guid}/projects/{projectId:guid}/" +
+            "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
             "content-types/{contentTypeKey}/entries/{entryId:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(UpdateContentEntryRequest request, CancellationToken ct)
     {
-        if (await tenantAccess.ResolveAsync(User, request.TenantId, Writers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Writers, ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -37,7 +37,7 @@ public sealed class UpdateContentEntry(
         try
         {
             var entry = await entries.UpdateAsync(
-                request.TenantId,
+                request.WorkspaceId,
                 request.ProjectId,
                 request.ContentTypeKey,
                 request.EntryId,
@@ -53,7 +53,7 @@ public sealed class UpdateContentEntry(
 
             var schemaVersion = await db.ContentTypeVersions
                 .Where(version =>
-                    version.TenantId == request.TenantId &&
+                    version.WorkspaceId == request.WorkspaceId &&
                     version.ProjectId == request.ProjectId &&
                     version.Id == entry.ContentTypeVersionId)
                 .Select(version => version.Version)
@@ -92,7 +92,7 @@ public sealed class UpdateContentEntry(
 
 public sealed class UpdateContentEntryRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
     public Guid EntryId { get; init; }

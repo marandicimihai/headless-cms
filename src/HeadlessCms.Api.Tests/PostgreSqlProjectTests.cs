@@ -4,7 +4,7 @@ using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -20,7 +20,7 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task PostgreSql_EnforcesTenantProjectRoleMatrix()
+    public async Task PostgreSql_EnforcesWorkspaceProjectRoleMatrix()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
@@ -30,10 +30,10 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
             "platform-admin",
             "platform-admin-password",
             PlatformRole.PlatformAdmin);
-        var tenant = await app.SeedTenantAsync(
-            (owner, TenantRole.Owner),
-            (editor, TenantRole.Editor),
-            (member, TenantRole.Member));
+        var workspace = await app.SeedWorkspaceAsync(
+            (owner, WorkspaceRole.Owner),
+            (editor, WorkspaceRole.Editor),
+            (member, WorkspaceRole.Member));
 
         var ownerToken = await app.LoginAsync(owner.Email, "owner-password");
         var editorToken = await app.LoginAsync(editor.Email, "editor-password");
@@ -44,7 +44,7 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
 
         var createResponse = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             ownerToken,
             new { name = "PostgreSQL project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -52,74 +52,74 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
             cancellationToken: ct);
         project.ShouldNotBeNull();
 
-        var persistedTenantId = await app.WithDatabaseAsync(
+        var persistedWorkspaceId = await app.WithDatabaseAsync(
             db => db.Projects
                 .Where(candidate => candidate.Id == project.Id)
-                .Select(candidate => candidate.TenantId)
+                .Select(candidate => candidate.WorkspaceId)
                 .SingleAsync(ct));
-        persistedTenantId.ShouldBe(tenant.Id);
+        persistedWorkspaceId.ShouldBe(workspace.Id);
 
         var memberListResponse = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             memberToken);
         memberListResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var memberGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             memberToken);
         memberGetResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var memberCreateResponse = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             memberToken,
             new { name = "Forbidden create" });
         memberCreateResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var memberUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             memberToken,
             new { name = "Forbidden update" });
         memberUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var memberDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             memberToken);
         memberDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var outsiderListResponse = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             outsiderToken);
         outsiderListResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             outsiderToken);
         outsiderGetResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderCreateResponse = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             outsiderToken,
             new { name = "Forbidden create" });
         outsiderCreateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             outsiderToken,
             new { name = "Forbidden update" });
         outsiderUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var outsiderDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             outsiderToken);
         outsiderDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
@@ -130,55 +130,55 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
                 .SingleAsync(ct));
         protectedProjectName.ShouldBe("PostgreSQL project");
 
-        var secondTenant = await app.SeedTenantAsync((editor, TenantRole.Editor));
-        var secondTenantProject = await app.SeedProjectAsync(
-            secondTenant.Id,
-            "Other tenant project");
-        var crossTenantGetResponse = await app.SendAsync(
+        var secondWorkspace = await app.SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var secondWorkspaceProject = await app.SeedProjectAsync(
+            secondWorkspace.Id,
+            "Other workspace project");
+        var crossWorkspaceGetResponse = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(workspace.Id, secondWorkspaceProject.Id),
             editorToken);
-        crossTenantGetResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        crossWorkspaceGetResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        var crossTenantResponse = await app.SendAsync(
+        var crossWorkspaceResponse = await app.SendAsync(
             HttpMethod.Put,
-            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(workspace.Id, secondWorkspaceProject.Id),
             editorToken,
-            new { name = "Cross-tenant update" });
-        crossTenantResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+            new { name = "Cross-workspace update" });
+        crossWorkspaceResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        var crossTenantDeleteResponse = await app.SendAsync(
+        var crossWorkspaceDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            TestApp.ProjectPath(tenant.Id, secondTenantProject.Id),
+            TestApp.ProjectPath(workspace.Id, secondWorkspaceProject.Id),
             editorToken);
-        crossTenantDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        crossWorkspaceDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var editorUpdateResponse = await app.SendAsync(
             HttpMethod.Put,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             editorToken,
             new { name = "Editor update" });
         editorUpdateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var editorDeleteResponse = await app.SendAsync(
             HttpMethod.Delete,
-            TestApp.ProjectPath(tenant.Id, project.Id),
+            TestApp.ProjectPath(workspace.Id, project.Id),
             editorToken);
         editorDeleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         var remainingProject = await app.WithDatabaseAsync(
             db => db.Projects.AsNoTracking().SingleAsync(ct));
-        remainingProject.Id.ShouldBe(secondTenantProject.Id);
-        remainingProject.Name.ShouldBe("Other tenant project");
+        remainingProject.Id.ShouldBe(secondWorkspaceProject.Id);
+        remainingProject.Name.ShouldBe("Other workspace project");
     }
 
     [Fact]
-    public async Task PostgreSql_EnforcesTenantForeignKeyAndCascadeDelete()
+    public async Task PostgreSql_EnforcesWorkspaceForeignKeyAndCascadeDelete()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
-        await app.SeedProjectAsync(tenant.Id, "Cascade project");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        await app.SeedProjectAsync(workspace.Id, "Cascade project");
 
         await Should.ThrowAsync<DbUpdateException>(
             () => app.WithDatabaseAsync(
@@ -187,7 +187,7 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
                     db.Projects.Add(
                         new Project
                         {
-                            TenantId = Guid.NewGuid(),
+                            WorkspaceId = Guid.NewGuid(),
                             Name = "Orphan project",
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
@@ -199,10 +199,10 @@ public sealed class PostgreSqlProjectTests(TestApp app) : TestBase
         await app.WithDatabaseAsync(
             async db =>
             {
-                var storedTenant = await db.Tenants.SingleAsync(
-                    candidate => candidate.Id == tenant.Id,
+                var storedWorkspace = await db.Workspaces.SingleAsync(
+                    candidate => candidate.Id == workspace.Id,
                     ct);
-                db.Tenants.Remove(storedTenant);
+                db.Workspaces.Remove(storedWorkspace);
                 await db.SaveChangesAsync(ct);
                 return true;
             });

@@ -1,13 +1,13 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using FluentValidation;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Auth;
 
 public sealed class RegisterWithInvitation(
-    TenantInvitationService invitations,
+    WorkspaceInvitationService invitations,
     Refresh tokenService)
     : Endpoint<RegisterWithInvitation.Request, RegisterWithInvitation.ResponseDto>
 {
@@ -40,8 +40,8 @@ public sealed class RegisterWithInvitation(
                 user.Id,
                 user.Email,
                 new Membership(
-                    registration.Tenant.Id,
-                    registration.Tenant.Name,
+                    registration.Workspace.Id,
+                    registration.Workspace.Name,
                     registration.Membership.Role,
                     registration.Membership.JoinedAt),
                 tokens);
@@ -59,9 +59,9 @@ public sealed class RegisterWithInvitation(
     }
 
     public sealed record Membership(
-        Guid TenantId,
-        string TenantName,
-        TenantRole Role,
+        Guid WorkspaceId,
+        string WorkspaceName,
+        WorkspaceRole Role,
         DateTime JoinedAt);
 
     public sealed record ResponseDto(

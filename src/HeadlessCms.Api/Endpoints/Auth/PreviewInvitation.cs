@@ -1,11 +1,11 @@
 using FastEndpoints;
 using FluentValidation;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Auth;
 
-public sealed class PreviewInvitation(TenantInvitationService invitations)
+public sealed class PreviewInvitation(WorkspaceInvitationService invitations)
     : Endpoint<PreviewInvitation.Request, PreviewInvitation.ResponseDto>
 {
     public override void Configure()
@@ -20,7 +20,7 @@ public sealed class PreviewInvitation(TenantInvitationService invitations)
         {
             var invitation = await invitations.PreviewAsync(request.Token, ct);
             Response = new ResponseDto(
-                invitation.TenantName,
+                invitation.WorkspaceName,
                 Mask(invitation.Email),
                 invitation.Role,
                 invitation.ExpiresAt);
@@ -47,9 +47,9 @@ public sealed class PreviewInvitation(TenantInvitationService invitations)
     }
 
     public sealed record ResponseDto(
-        string TenantName,
+        string WorkspaceName,
         string MaskedEmail,
-        TenantRole Role,
+        WorkspaceRole Role,
         DateTime ExpiresAt);
 
     public sealed class RequestValidator : Validator<Request>

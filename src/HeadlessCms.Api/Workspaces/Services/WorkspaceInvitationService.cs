@@ -2,29 +2,29 @@ using System.Security.Cryptography;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Tenancy.Services;
+namespace HeadlessCms.Api.Workspaces.Services;
 
-public sealed record CreatedTenantInvitation(
-    Guid TenantId,
+public sealed record CreatedWorkspaceInvitation(
+    Guid WorkspaceId,
     Guid InvitationId,
     string Token,
     DateTime ExpiresAt);
 
 public sealed record InvitationPreview(
     Guid InvitationId,
-    Guid TenantId,
-    string TenantName,
+    Guid WorkspaceId,
+    string WorkspaceName,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     DateTime ExpiresAt,
     InvitationStatus Status);
 
-public sealed record InvitationRegistration(User User, TenantMembership Membership, Tenant Tenant);
+public sealed record InvitationRegistration(User User, WorkspaceMembership Membership, Workspace Workspace);
 
 public sealed class InvitationFlowException(
     int statusCode,
@@ -35,15 +35,15 @@ public sealed class InvitationFlowException(
     public string Code { get; } = code;
 }
 
-public class TenantInvitationService(
+public class WorkspaceInvitationService(
     ApplicationDbContext db,
     IConfiguration configuration,
     IPasswordHasher<User> passwordHasher,
     IInvitationEmailSender emailSender)
 {
-    public async Task<CreatedTenantInvitation> CreateTenantWithOwnerInvitationAsync(
+    public async Task<CreatedWorkspaceInvitation> CreateWorkspaceWithOwnerInvitationAsync(
         string platformAdminUserId,
-        string tenantName,
+        string workspaceName,
         string ownerEmail,
         CancellationToken ct = default)
     {
@@ -54,63 +54,63 @@ public class TenantInvitationService(
             ct);
 
         if (!isPlatformAdmin)
-            throw Forbidden("Only a platform administrator can create tenants.");
+            throw Forbidden("Only a platform administrator can create workspaces.");
 
-        var normalizedName = NormalizeTenantName(tenantName);
-        var tenant = new Tenant { Name = normalizedName };
+        var normalizedName = NormalizeWorkspaceName(workspaceName);
+        var workspace = new Workspace { Name = normalizedName };
         var (invitation, token) = CreateInvitationEntity(
             ownerEmail,
-            TenantRole.Owner,
+            WorkspaceRole.Owner,
             platformAdminUserId);
 
-        tenant.Invitations.Add(invitation);
-        db.Tenants.Add(tenant);
+        workspace.Invitations.Add(invitation);
+        db.Workspaces.Add(workspace);
         await db.SaveChangesAsync(ct);
-        await SendInvitationAsync(invitation, tenant.Name, token, ct);
+        await SendInvitationAsync(invitation, workspace.Name, token, ct);
 
-        return new CreatedTenantInvitation(
-            tenant.Id,
+        return new CreatedWorkspaceInvitation(
+            workspace.Id,
             invitation.Id,
             token,
             invitation.ExpiresAt);
     }
 
-    public async Task<CreatedTenantInvitation> CreateInvitationAsync(
+    public async Task<CreatedWorkspaceInvitation> CreateInvitationAsync(
         string ownerUserId,
-        Guid tenantId,
+        Guid workspaceId,
         string email,
-        TenantRole role,
+        WorkspaceRole role,
         CancellationToken ct = default)
     {
-        if (role == TenantRole.Owner)
-            throw BadRequest("Tenant owners can invite editors or members.");
+        if (role == WorkspaceRole.Owner)
+            throw BadRequest("Workspace owners can invite editors or members.");
 
-        var tenant = await db.Tenants.SingleOrDefaultAsync(candidate => candidate.Id == tenantId, ct)
-                     ?? throw NotFound("Tenant not found.");
+        var workspace = await db.Workspaces.SingleOrDefaultAsync(candidate => candidate.Id == workspaceId, ct)
+                     ?? throw NotFound("Workspace not found.");
 
-        var ownerMembership = await db.TenantMemberships.AnyAsync(
+        var ownerMembership = await db.WorkspaceMemberships.AnyAsync(
             membership =>
                 membership.UserId == ownerUserId &&
-                membership.TenantId == tenantId &&
-                membership.Role == TenantRole.Owner,
+                membership.WorkspaceId == workspaceId &&
+                membership.Role == WorkspaceRole.Owner,
             ct);
 
         if (!ownerMembership)
-            throw Forbidden("Only a tenant owner can invite users.");
+            throw Forbidden("Only a workspace owner can invite users.");
 
         var normalizedEmail = EmailNormalizer.Normalize(email);
-        var alreadyMember = await db.TenantMemberships.AnyAsync(
+        var alreadyMember = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == tenantId &&
+                membership.WorkspaceId == workspaceId &&
                 membership.User.Email == normalizedEmail,
             ct);
 
         if (alreadyMember)
-            throw Conflict("The user is already a member of this tenant.");
+            throw Conflict("The user is already a member of this workspace.");
 
-        var pendingInvitation = await db.TenantInvitations.AnyAsync(
+        var pendingInvitation = await db.WorkspaceInvitations.AnyAsync(
             invitation =>
-                invitation.TenantId == tenantId &&
+                invitation.WorkspaceId == workspaceId &&
                 invitation.Email == normalizedEmail &&
                 invitation.AcceptedAt == null &&
                 invitation.RevokedAt == null,
@@ -123,14 +123,14 @@ public class TenantInvitationService(
             normalizedEmail,
             role,
             ownerUserId);
-        invitation.TenantId = tenantId;
+        invitation.WorkspaceId = workspaceId;
 
-        db.TenantInvitations.Add(invitation);
+        db.WorkspaceInvitations.Add(invitation);
         await db.SaveChangesAsync(ct);
-        await SendInvitationAsync(invitation, tenant.Name, token, ct);
+        await SendInvitationAsync(invitation, workspace.Name, token, ct);
 
-        return new CreatedTenantInvitation(
-            tenantId,
+        return new CreatedWorkspaceInvitation(
+            workspaceId,
             invitation.Id,
             token,
             invitation.ExpiresAt);
@@ -151,8 +151,8 @@ public class TenantInvitationService(
 
         return new InvitationPreview(
             invitation.Id,
-            invitation.TenantId,
-            invitation.Tenant.Name,
+            invitation.WorkspaceId,
+            invitation.Workspace.Name,
             invitation.Email,
             invitation.Role,
             invitation.ExpiresAt,
@@ -176,9 +176,9 @@ public class TenantInvitationService(
         };
         user.PasswordHash = passwordHasher.HashPassword(user, password);
 
-        var membership = new TenantMembership
+        var membership = new WorkspaceMembership
         {
-            TenantId = invitation.TenantId,
+            WorkspaceId = invitation.WorkspaceId,
             User = user,
             Role = invitation.Role
         };
@@ -186,13 +186,13 @@ public class TenantInvitationService(
         invitation.AcceptedAt = DateTime.UtcNow;
         invitation.AcceptedByUser = user;
         db.Users.Add(user);
-        db.TenantMemberships.Add(membership);
+        db.WorkspaceMemberships.Add(membership);
         await db.SaveChangesAsync(ct);
 
-        return new InvitationRegistration(user, membership, invitation.Tenant);
+        return new InvitationRegistration(user, membership, invitation.Workspace);
     }
 
-    public async Task<TenantMembership> AcceptInvitationAsync(
+    public async Task<WorkspaceMembership> AcceptInvitationAsync(
         string userId,
         string token,
         CancellationToken ct = default)
@@ -204,33 +204,33 @@ public class TenantInvitationService(
         if (!string.Equals(user.Email, invitation.Email, StringComparison.Ordinal))
             throw Forbidden("The invitation belongs to a different email address.");
 
-        if (await db.TenantMemberships.AnyAsync(
+        if (await db.WorkspaceMemberships.AnyAsync(
                 membership =>
-                    membership.TenantId == invitation.TenantId &&
+                    membership.WorkspaceId == invitation.WorkspaceId &&
                     membership.UserId == userId,
                 ct))
         {
-            throw Conflict("The user is already a member of this tenant.");
+            throw Conflict("The user is already a member of this workspace.");
         }
 
-        var membership = new TenantMembership
+        var membership = new WorkspaceMembership
         {
-            TenantId = invitation.TenantId,
-            Tenant = invitation.Tenant,
+            WorkspaceId = invitation.WorkspaceId,
+            Workspace = invitation.Workspace,
             UserId = userId,
             Role = invitation.Role
         };
 
         invitation.AcceptedAt = DateTime.UtcNow;
         invitation.AcceptedByUserId = userId;
-        db.TenantMemberships.Add(membership);
+        db.WorkspaceMemberships.Add(membership);
         await db.SaveChangesAsync(ct);
 
         return membership;
     }
 
-    public async Task<CreatedTenantInvitation> ResendAsync(
-        TenantInvitation invitation,
+    public async Task<CreatedWorkspaceInvitation> ResendAsync(
+        WorkspaceInvitation invitation,
         CancellationToken ct = default)
     {
         var status = GetStatus(invitation);
@@ -244,20 +244,20 @@ public class TenantInvitationService(
         invitation.ExpiresAt = DateTime.UtcNow.AddHours(GetValidityHours());
         await db.SaveChangesAsync(ct);
 
-        var tenantName = await db.Tenants
-            .Where(tenant => tenant.Id == invitation.TenantId)
-            .Select(tenant => tenant.Name)
+        var workspaceName = await db.Workspaces
+            .Where(workspace => workspace.Id == invitation.WorkspaceId)
+            .Select(workspace => workspace.Name)
             .SingleAsync(ct);
-        await SendInvitationAsync(invitation, tenantName, token, ct);
+        await SendInvitationAsync(invitation, workspaceName, token, ct);
 
-        return new CreatedTenantInvitation(
-            invitation.TenantId,
+        return new CreatedWorkspaceInvitation(
+            invitation.WorkspaceId,
             invitation.Id,
             token,
             invitation.ExpiresAt);
     }
 
-    public async Task RevokeAsync(TenantInvitation invitation, CancellationToken ct = default)
+    public async Task RevokeAsync(WorkspaceInvitation invitation, CancellationToken ct = default)
     {
         if (invitation.AcceptedAt is not null)
             throw Conflict("Accepted invitations cannot be revoked.");
@@ -266,7 +266,7 @@ public class TenantInvitationService(
         await db.SaveChangesAsync(ct);
     }
 
-    public static InvitationStatus GetStatus(TenantInvitation invitation)
+    public static InvitationStatus GetStatus(WorkspaceInvitation invitation)
     {
         if (invitation.AcceptedAt is not null)
             return InvitationStatus.Accepted;
@@ -277,7 +277,7 @@ public class TenantInvitationService(
             : InvitationStatus.Pending;
     }
 
-    private async Task<TenantInvitation> FindByTokenAsync(
+    private async Task<WorkspaceInvitation> FindByTokenAsync(
         string token,
         CancellationToken ct)
     {
@@ -285,13 +285,13 @@ public class TenantInvitationService(
             throw NotFound("Invitation not found.");
 
         var hash = TokenHasher.Hash(token);
-        return await db.TenantInvitations
-                   .Include(invitation => invitation.Tenant)
+        return await db.WorkspaceInvitations
+                   .Include(invitation => invitation.Workspace)
                    .SingleOrDefaultAsync(invitation => invitation.TokenHash == hash, ct)
                ?? throw NotFound("Invitation not found.");
     }
 
-    private async Task<TenantInvitation> FindActiveByTokenAsync(
+    private async Task<WorkspaceInvitation> FindActiveByTokenAsync(
         string token,
         CancellationToken ct)
     {
@@ -306,13 +306,13 @@ public class TenantInvitationService(
         };
     }
 
-    private (TenantInvitation Invitation, string Token) CreateInvitationEntity(
+    private (WorkspaceInvitation Invitation, string Token) CreateInvitationEntity(
         string email,
-        TenantRole role,
+        WorkspaceRole role,
         string invitedByUserId)
     {
         var token = CreateToken();
-        var invitation = new TenantInvitation
+        var invitation = new WorkspaceInvitation
         {
             Email = EmailNormalizer.Normalize(email),
             Role = role,
@@ -325,14 +325,14 @@ public class TenantInvitationService(
     }
 
     private async Task SendInvitationAsync(
-        TenantInvitation invitation,
-        string tenantName,
+        WorkspaceInvitation invitation,
+        string workspaceName,
         string token,
         CancellationToken ct)
     {
         await emailSender.SendAsync(
             invitation.Email,
-            tenantName,
+            workspaceName,
             invitation.Role,
             token,
             ct);
@@ -342,23 +342,23 @@ public class TenantInvitationService(
 
     private int GetValidityHours()
     {
-        var hours = configuration.GetValue<int?>("Tenancy:InvitationExpirationHours")
+        var hours = configuration.GetValue<int?>("Workspaces:InvitationExpirationHours")
                     ?? throw new InvalidOperationException(
-                        "Required configuration 'Tenancy:InvitationExpirationHours' is missing.");
+                        "Required configuration 'Workspaces:InvitationExpirationHours' is missing.");
 
         return hours > 0
             ? hours
             : throw new InvalidOperationException(
-                "Tenancy invitation expiration must be greater than zero.");
+                "Workspaces invitation expiration must be greater than zero.");
     }
 
     private static string CreateToken() =>
         WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
-    private static string NormalizeTenantName(string name)
+    private static string NormalizeWorkspaceName(string name)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 100)
-            throw BadRequest("A tenant name between 1 and 100 characters is required.");
+            throw BadRequest("A workspace name between 1 and 100 characters is required.");
 
         return name.Trim();
     }

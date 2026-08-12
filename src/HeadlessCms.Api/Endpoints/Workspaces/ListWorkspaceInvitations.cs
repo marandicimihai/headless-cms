@@ -2,32 +2,32 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class ListTenantInvitations(ApplicationDbContext db)
-    : Endpoint<ListTenantInvitationsRequest, ListTenantInvitationsResponse>
+public sealed class ListWorkspaceInvitations(ApplicationDbContext db)
+    : Endpoint<ListWorkspaceInvitationsRequest, ListWorkspaceInvitationsResponse>
 {
     public override void Configure()
     {
-        Get("tenants/{tenantId:guid}/invitations");
+        Get("workspaces/{workspaceId:guid}/invitations");
         Claims("sub");
     }
 
     public override async Task HandleAsync(
-        ListTenantInvitationsRequest request,
+        ListWorkspaceInvitationsRequest request,
         CancellationToken ct)
     {
         var isAdmin = User.IsInRole(nameof(PlatformRole.PlatformAdmin));
         var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.TenantMemberships.AnyAsync(
+        var isOwner = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == request.TenantId &&
+                membership.WorkspaceId == request.WorkspaceId &&
                 membership.UserId == userId &&
-                membership.Role == TenantRole.Owner,
+                membership.Role == WorkspaceRole.Owner,
             ct);
 
         if (!isAdmin && !isOwner)
@@ -38,21 +38,21 @@ public sealed class ListTenantInvitations(ApplicationDbContext db)
 
         if (isAdmin && !isOwner)
         {
-            var tenantExists = await db.Tenants.AnyAsync(
-                tenant => tenant.Id == request.TenantId,
+            var workspaceExists = await db.Workspaces.AnyAsync(
+                workspace => workspace.Id == request.WorkspaceId,
                 ct);
-            if (!tenantExists)
+            if (!workspaceExists)
             {
                 await Send.NotFoundAsync(ct);
                 return;
             }
 
-            var tenantHasOwner = await db.TenantMemberships.AnyAsync(
+            var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
                 membership =>
-                    membership.TenantId == request.TenantId &&
-                    membership.Role == TenantRole.Owner,
+                    membership.WorkspaceId == request.WorkspaceId &&
+                    membership.Role == WorkspaceRole.Owner,
                 ct);
-            if (tenantHasOwner)
+            if (workspaceHasOwner)
             {
                 await Send.NotFoundAsync(ct);
                 return;
@@ -60,22 +60,22 @@ public sealed class ListTenantInvitations(ApplicationDbContext db)
         }
 
         var (page, size) = NormalizePage(request.Page, request.PageSize);
-        var query = db.TenantInvitations
+        var query = db.WorkspaceInvitations
             .AsNoTracking()
-            .Where(invitation => invitation.TenantId == request.TenantId);
+            .Where(invitation => invitation.WorkspaceId == request.WorkspaceId);
 
         if (isAdmin && !isOwner)
-            query = query.Where(invitation => invitation.Role == TenantRole.Owner);
+            query = query.Where(invitation => invitation.Role == WorkspaceRole.Owner);
 
         var all = await query.OrderByDescending(invitation => invitation.CreatedAt).ToListAsync(ct);
         if (request.Status is not null)
         {
             all = all.Where(invitation =>
-                    TenantInvitationService.GetStatus(invitation) == request.Status)
+                    WorkspaceInvitationService.GetStatus(invitation) == request.Status)
                 .ToList();
         }
 
-        Response = new ListTenantInvitationsResponse(
+        Response = new ListWorkspaceInvitationsResponse(
             all.Skip((page - 1) * size).Take(size).Select(ToResponse).ToList(),
             page,
             size,
@@ -85,14 +85,14 @@ public sealed class ListTenantInvitations(ApplicationDbContext db)
     private static (int Page, int Size) NormalizePage(int page, int size) =>
         (Math.Max(page, 1), Math.Clamp(size, 1, 100));
 
-    private static ListTenantInvitationsItemResponse ToResponse(
-        TenantInvitation invitation) =>
+    private static ListWorkspaceInvitationsItemResponse ToResponse(
+        WorkspaceInvitation invitation) =>
         new(
             invitation.Id,
-            invitation.TenantId,
+            invitation.WorkspaceId,
             invitation.Email,
             invitation.Role,
-            TenantInvitationService.GetStatus(invitation),
+            WorkspaceInvitationService.GetStatus(invitation),
             invitation.CreatedAt,
             invitation.ExpiresAt,
             invitation.LastSentAt,
@@ -100,19 +100,19 @@ public sealed class ListTenantInvitations(ApplicationDbContext db)
             invitation.RevokedAt);
 }
 
-public sealed class ListTenantInvitationsRequest
+public sealed class ListWorkspaceInvitationsRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;
     public InvitationStatus? Status { get; init; }
 }
 
-public sealed record ListTenantInvitationsItemResponse(
+public sealed record ListWorkspaceInvitationsItemResponse(
     Guid Id,
-    Guid TenantId,
+    Guid WorkspaceId,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     InvitationStatus Status,
     DateTime CreatedAt,
     DateTime ExpiresAt,
@@ -120,8 +120,8 @@ public sealed record ListTenantInvitationsItemResponse(
     DateTime? AcceptedAt,
     DateTime? RevokedAt);
 
-public sealed record ListTenantInvitationsResponse(
-    IReadOnlyList<ListTenantInvitationsItemResponse> Items,
+public sealed record ListWorkspaceInvitationsResponse(
+    IReadOnlyList<ListWorkspaceInvitationsItemResponse> Items,
     int Page,
     int PageSize,
     int Total);

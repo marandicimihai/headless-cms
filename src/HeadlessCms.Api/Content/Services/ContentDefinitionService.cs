@@ -26,7 +26,7 @@ public class ContentDefinitionService(
         JsonSerializer.SerializeToElement(new Dictionary<string, object?>());
 
     public async Task<ContentTypeDefinition> CreateAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string key,
         string name,
@@ -34,7 +34,7 @@ public class ContentDefinitionService(
         CancellationToken ct = default)
     {
         if (!await db.Projects.AnyAsync(
-                project => project.TenantId == tenantId && project.Id == projectId,
+                project => project.WorkspaceId == workspaceId && project.Id == projectId,
                 ct))
         {
             throw new ContentNotFoundException("Project not found.");
@@ -42,7 +42,7 @@ public class ContentDefinitionService(
 
         if (await db.ContentTypes.AnyAsync(
                 candidate =>
-                    candidate.TenantId == tenantId &&
+                    candidate.WorkspaceId == workspaceId &&
                     candidate.ProjectId == projectId &&
                     candidate.Key == key,
                 ct))
@@ -58,7 +58,7 @@ public class ContentDefinitionService(
         var contentType = new ContentType
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
+            WorkspaceId = workspaceId,
             ProjectId = projectId,
             Key = key,
             Name = name,
@@ -83,7 +83,7 @@ public class ContentDefinitionService(
     }
 
     public async Task<ContentTypeDefinition?> UpdateAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string key,
         string name,
@@ -94,7 +94,7 @@ public class ContentDefinitionService(
 
         var contentType = await db.ContentTypes.SingleOrDefaultAsync(
             candidate =>
-                candidate.TenantId == tenantId &&
+                candidate.WorkspaceId == workspaceId &&
                 candidate.ProjectId == projectId &&
                 candidate.Key == key,
             ct);
@@ -104,7 +104,7 @@ public class ContentDefinitionService(
 
         var historicalTypes = await db.ContentFields
             .Where(field =>
-                field.TenantId == tenantId &&
+                field.WorkspaceId == workspaceId &&
                 field.ProjectId == projectId &&
                 field.ContentTypeVersion.ContentTypeId == contentType.Id)
             .Select(field => new { field.Key, field.Type })
@@ -130,7 +130,7 @@ public class ContentDefinitionService(
         await using var transaction = await BeginTransactionIfSupportedAsync(ct);
         var nextVersion = await db.ContentTypeVersions
             .Where(version =>
-                version.TenantId == tenantId &&
+                version.WorkspaceId == workspaceId &&
                 version.ProjectId == projectId &&
                 version.ContentTypeId == contentType.Id)
             .MaxAsync(version => version.Version, ct) + 1;
@@ -152,7 +152,7 @@ public class ContentDefinitionService(
     }
 
     public async Task<ContentTypeDefinition?> GetCurrentAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string key,
         CancellationToken ct = default)
@@ -161,7 +161,7 @@ public class ContentDefinitionService(
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 candidate =>
-                    candidate.TenantId == tenantId &&
+                    candidate.WorkspaceId == workspaceId &&
                     candidate.ProjectId == projectId &&
                     candidate.Key == key,
                 ct);
@@ -174,7 +174,7 @@ public class ContentDefinitionService(
             .Include(candidate => candidate.Fields.OrderBy(field => field.Position))
             .SingleAsync(
                 candidate =>
-                    candidate.TenantId == tenantId &&
+                    candidate.WorkspaceId == workspaceId &&
                     candidate.ProjectId == projectId &&
                     candidate.ContentTypeId == contentType.Id &&
                     candidate.Id == contentType.CurrentVersionId,
@@ -184,12 +184,12 @@ public class ContentDefinitionService(
     }
 
     public async Task<IReadOnlyList<ContentTypeDefinition>> ListCurrentAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         CancellationToken ct = default)
     {
         if (!await db.Projects.AnyAsync(
-                project => project.TenantId == tenantId && project.Id == projectId,
+                project => project.WorkspaceId == workspaceId && project.Id == projectId,
                 ct))
         {
             throw new ContentNotFoundException("Project not found.");
@@ -198,7 +198,7 @@ public class ContentDefinitionService(
         var contentTypes = await db.ContentTypes
             .AsNoTracking()
             .Where(contentType =>
-                contentType.TenantId == tenantId &&
+                contentType.WorkspaceId == workspaceId &&
                 contentType.ProjectId == projectId)
             .OrderBy(contentType => contentType.Name)
             .ToListAsync(ct);
@@ -215,7 +215,7 @@ public class ContentDefinitionService(
             .AsNoTracking()
             .Include(version => version.Fields.OrderBy(field => field.Position))
             .Where(version =>
-                version.TenantId == tenantId &&
+                version.WorkspaceId == workspaceId &&
                 version.ProjectId == projectId &&
                 currentVersionIds.Contains(version.Id))
             .ToDictionaryAsync(version => version.Id, ct);
@@ -262,7 +262,7 @@ public class ContentDefinitionService(
         var version = new ContentTypeVersion
         {
             Id = Guid.NewGuid(),
-            TenantId = contentType.TenantId,
+            WorkspaceId = contentType.WorkspaceId,
             ProjectId = contentType.ProjectId,
             ContentTypeId = contentType.Id,
             Version = versionNumber,
@@ -273,7 +273,7 @@ public class ContentDefinitionService(
             .Select((field, position) => new ContentField
             {
                 Id = Guid.NewGuid(),
-                TenantId = contentType.TenantId,
+                WorkspaceId = contentType.WorkspaceId,
                 ProjectId = contentType.ProjectId,
                 ContentTypeVersionId = version.Id,
                 Key = field.Key,

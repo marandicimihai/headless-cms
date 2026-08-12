@@ -27,7 +27,7 @@ public class ContentEntryService(
     ContentDocumentValidator documentValidator)
 {
     public async Task<ContentEntry?> CreateAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string contentTypeKey,
         JsonElement data,
@@ -35,7 +35,7 @@ public class ContentEntryService(
         CancellationToken ct = default)
     {
         var definition = await definitions.GetCurrentAsync(
-            tenantId,
+            workspaceId,
             projectId,
             contentTypeKey,
             ct);
@@ -47,7 +47,7 @@ public class ContentEntryService(
         var entry = new ContentEntry
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
+            WorkspaceId = workspaceId,
             ProjectId = projectId,
             ContentTypeId = definition.ContentType.Id,
             ContentTypeVersionId = definition.Version.Id,
@@ -63,7 +63,7 @@ public class ContentEntryService(
     }
 
     public Task<ContentEntry?> GetAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string contentTypeKey,
         Guid entryId,
@@ -73,7 +73,7 @@ public class ContentEntryService(
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 entry =>
-                    entry.TenantId == tenantId &&
+                    entry.WorkspaceId == workspaceId &&
                     entry.ProjectId == projectId &&
                     entry.ContentType.Key == contentTypeKey &&
                     entry.Id == entryId,
@@ -81,7 +81,7 @@ public class ContentEntryService(
     }
 
     public async Task<ContentEntry?> UpdateAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string contentTypeKey,
         Guid entryId,
@@ -91,7 +91,7 @@ public class ContentEntryService(
     {
         var entry = await db.ContentEntries.SingleOrDefaultAsync(
             candidate =>
-                candidate.TenantId == tenantId &&
+                candidate.WorkspaceId == workspaceId &&
                 candidate.ProjectId == projectId &&
                 candidate.ContentType.Key == contentTypeKey &&
                 candidate.Id == entryId,
@@ -103,7 +103,7 @@ public class ContentEntryService(
         var fields = await db.ContentFields
             .AsNoTracking()
             .Where(field =>
-                field.TenantId == tenantId &&
+                field.WorkspaceId == workspaceId &&
                 field.ProjectId == projectId &&
                 field.ContentTypeVersionId == entry.ContentTypeVersionId)
             .OrderBy(field => field.Position)
@@ -120,7 +120,7 @@ public class ContentEntryService(
     }
 
     public async Task<bool> DeleteAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string contentTypeKey,
         Guid entryId,
@@ -128,7 +128,7 @@ public class ContentEntryService(
     {
         var entry = await db.ContentEntries.SingleOrDefaultAsync(
             candidate =>
-                candidate.TenantId == tenantId &&
+                candidate.WorkspaceId == workspaceId &&
                 candidate.ProjectId == projectId &&
                 candidate.ContentType.Key == contentTypeKey &&
                 candidate.Id == entryId,
@@ -144,14 +144,14 @@ public class ContentEntryService(
     }
 
     public async Task<ContentEntryPage?> QueryAsync(
-        Guid tenantId,
+        Guid workspaceId,
         Guid projectId,
         string contentTypeKey,
         ContentEntryQuery options,
         CancellationToken ct = default)
     {
         var definition = await definitions.GetCurrentAsync(
-            tenantId,
+            workspaceId,
             projectId,
             contentTypeKey,
             ct);
@@ -165,7 +165,7 @@ public class ContentEntryService(
         IQueryable<ContentEntry> query = db.ContentEntries
             .AsNoTracking()
             .Where(entry =>
-                entry.TenantId == tenantId &&
+                entry.WorkspaceId == workspaceId &&
                 entry.ProjectId == projectId &&
                 entry.ContentTypeId == definition.ContentType.Id);
 

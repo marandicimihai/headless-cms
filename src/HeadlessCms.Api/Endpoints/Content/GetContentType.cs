@@ -1,36 +1,36 @@
 using System.Text.Json;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class GetContentType(
     ContentDefinitionService definitions,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<GetContentTypeRequest, GetContentTypeResponse>
 {
-    private static readonly IReadOnlySet<TenantRole> Readers =
-        new HashSet<TenantRole>([TenantRole.Owner, TenantRole.Editor, TenantRole.Member]);
+    private static readonly IReadOnlySet<WorkspaceRole> Readers =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
 
     public override void Configure()
     {
         Get(
-            "tenants/{tenantId:guid}/projects/{projectId:guid}/" +
+            "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
             "content-types/{contentTypeKey}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(GetContentTypeRequest request, CancellationToken ct)
     {
-        if (await tenantAccess.ResolveAsync(User, request.TenantId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
         }
 
         var definition = await definitions.GetCurrentAsync(
-            request.TenantId,
+            request.WorkspaceId,
             request.ProjectId,
             request.ContentTypeKey,
             ct);
@@ -72,7 +72,7 @@ public sealed class GetContentType(
 
 public sealed class GetContentTypeRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
 }

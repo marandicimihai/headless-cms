@@ -1,5 +1,5 @@
 using FastEndpoints;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace HeadlessCms.Api.Endpoints;

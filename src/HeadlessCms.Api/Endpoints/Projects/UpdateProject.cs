@@ -1,15 +1,15 @@
 using FastEndpoints;
 using FluentValidation;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class UpdateProjectRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid Id { get; init; }
     public required string Name { get; init; }
 }
@@ -17,7 +17,7 @@ public sealed class UpdateProjectRequest
 public sealed class UpdateProjectResponse
 {
     public Guid Id { get; init; }
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -36,18 +36,18 @@ public sealed class UpdateProjectRequestValidator : Validator<UpdateProjectReque
 
 public sealed class UpdateProject(
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<UpdateProjectRequest, UpdateProjectResponse>
 {
     public override void Configure()
     {
-        Put("tenants/{tenantId:guid}/projects/{id:guid}");
+        Put("workspaces/{workspaceId:guid}/projects/{id:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(UpdateProjectRequest request, CancellationToken ct)
     {
-        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
 
         if (membership is null)
         {
@@ -55,7 +55,7 @@ public sealed class UpdateProject(
             return;
         }
 
-        if (membership.Role is not (TenantRole.Owner or TenantRole.Editor))
+        if (membership.Role is not (WorkspaceRole.Owner or WorkspaceRole.Editor))
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -64,7 +64,7 @@ public sealed class UpdateProject(
         var project = await db.Projects.SingleOrDefaultAsync(
             candidate =>
                 candidate.Id == request.Id &&
-                candidate.TenantId == request.TenantId,
+                candidate.WorkspaceId == request.WorkspaceId,
             ct);
 
         if (project is null)
@@ -80,7 +80,7 @@ public sealed class UpdateProject(
         Response = new UpdateProjectResponse
         {
             Id = project.Id,
-            TenantId = project.TenantId,
+            WorkspaceId = project.WorkspaceId,
             Name = project.Name,
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt

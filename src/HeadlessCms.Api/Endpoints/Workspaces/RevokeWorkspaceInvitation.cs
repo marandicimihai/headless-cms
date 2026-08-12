@@ -2,25 +2,25 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class RevokeTenantInvitation(
+public sealed class RevokeWorkspaceInvitation(
     ApplicationDbContext db,
-    TenantInvitationService invitations)
-    : Endpoint<RevokeTenantInvitationRequest>
+    WorkspaceInvitationService invitations)
+    : Endpoint<RevokeWorkspaceInvitationRequest>
 {
     public override void Configure()
     {
-        Delete("tenants/{tenantId:guid}/invitations/{invitationId:guid}");
+        Delete("workspaces/{workspaceId:guid}/invitations/{invitationId:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(
-        RevokeTenantInvitationRequest request,
+        RevokeWorkspaceInvitationRequest request,
         CancellationToken ct)
     {
         var invitation = await FindManageableAsync(request, ct);
@@ -41,45 +41,45 @@ public sealed class RevokeTenantInvitation(
         }
     }
 
-    private async Task<TenantInvitation?> FindManageableAsync(
-        RevokeTenantInvitationRequest request,
+    private async Task<WorkspaceInvitation?> FindManageableAsync(
+        RevokeWorkspaceInvitationRequest request,
         CancellationToken ct)
     {
-        var invitation = await db.TenantInvitations.SingleOrDefaultAsync(
+        var invitation = await db.WorkspaceInvitations.SingleOrDefaultAsync(
             candidate =>
                 candidate.Id == request.InvitationId &&
-                candidate.TenantId == request.TenantId,
+                candidate.WorkspaceId == request.WorkspaceId,
             ct);
         if (invitation is null)
             return null;
 
         var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.TenantMemberships.AnyAsync(
+        var isOwner = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == request.TenantId &&
+                membership.WorkspaceId == request.WorkspaceId &&
                 membership.UserId == userId &&
-                membership.Role == TenantRole.Owner,
+                membership.Role == WorkspaceRole.Owner,
             ct);
         if (isOwner)
             return invitation;
 
         if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)) ||
-            invitation.Role != TenantRole.Owner)
+            invitation.Role != WorkspaceRole.Owner)
         {
             return null;
         }
 
-        var tenantHasOwner = await db.TenantMemberships.AnyAsync(
+        var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == request.TenantId &&
-                membership.Role == TenantRole.Owner,
+                membership.WorkspaceId == request.WorkspaceId &&
+                membership.Role == WorkspaceRole.Owner,
             ct);
-        return tenantHasOwner ? null : invitation;
+        return workspaceHasOwner ? null : invitation;
     }
 }
 
-public sealed class RevokeTenantInvitationRequest
+public sealed class RevokeWorkspaceInvitationRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid InvitationId { get; init; }
 }

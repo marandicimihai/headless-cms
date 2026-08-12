@@ -2,21 +2,21 @@ using FastEndpoints;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class CreateProjectRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Name { get; init; }
 }
 
 public sealed class CreateProjectResponse
 {
     public Guid Id { get; init; }
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -35,18 +35,18 @@ public sealed class CreateProjectRequestValidator : Validator<CreateProjectReque
 
 public sealed class CreateProject(
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<CreateProjectRequest, CreateProjectResponse>
 {
     public override void Configure()
     {
-        Post("tenants/{tenantId:guid}/projects");
+        Post("workspaces/{workspaceId:guid}/projects");
         Claims("sub");
     }
 
     public override async Task HandleAsync(CreateProjectRequest request, CancellationToken ct)
     {
-        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
 
         if (membership is null)
         {
@@ -54,7 +54,7 @@ public sealed class CreateProject(
             return;
         }
 
-        if (membership.Role is not (TenantRole.Owner or TenantRole.Editor))
+        if (membership.Role is not (WorkspaceRole.Owner or WorkspaceRole.Editor))
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -64,7 +64,7 @@ public sealed class CreateProject(
         var project = new Project
         {
             Name = request.Name.Trim(),
-            TenantId = request.TenantId,
+            WorkspaceId = request.WorkspaceId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -73,7 +73,7 @@ public sealed class CreateProject(
         await db.SaveChangesAsync(ct);
 
         await Send.CreatedAtAsync<GetProject>(
-            new { project.TenantId, project.Id },
+            new { project.WorkspaceId, project.Id },
             ToResponse(project),
             cancellation: ct);
     }
@@ -82,7 +82,7 @@ public sealed class CreateProject(
         new()
         {
             Id = project.Id,
-            TenantId = project.TenantId,
+            WorkspaceId = project.WorkspaceId,
             Name = project.Name,
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt

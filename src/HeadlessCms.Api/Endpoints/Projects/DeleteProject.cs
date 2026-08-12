@@ -1,31 +1,31 @@
 using FastEndpoints;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class DeleteProjectRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid Id { get; init; }
 }
 
 public sealed class DeleteProject(
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<DeleteProjectRequest>
 {
     public override void Configure()
     {
-        Delete("tenants/{tenantId:guid}/projects/{id:guid}");
+        Delete("workspaces/{workspaceId:guid}/projects/{id:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(DeleteProjectRequest request, CancellationToken ct)
     {
-        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
 
         if (membership is null)
         {
@@ -33,7 +33,7 @@ public sealed class DeleteProject(
             return;
         }
 
-        if (membership.Role is not (TenantRole.Owner or TenantRole.Editor))
+        if (membership.Role is not (WorkspaceRole.Owner or WorkspaceRole.Editor))
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -42,7 +42,7 @@ public sealed class DeleteProject(
         var project = await db.Projects.SingleOrDefaultAsync(
             candidate =>
                 candidate.Id == request.Id &&
-                candidate.TenantId == request.TenantId,
+                candidate.WorkspaceId == request.WorkspaceId,
             ct);
 
         if (project is null)

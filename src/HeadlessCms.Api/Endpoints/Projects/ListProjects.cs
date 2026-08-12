@@ -1,19 +1,19 @@
 using FastEndpoints;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class ListProjectsRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
 }
 
 public sealed class ListProjectsItemResponse
 {
     public Guid Id { get; init; }
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -21,18 +21,18 @@ public sealed class ListProjectsItemResponse
 
 public sealed class ListProjects(
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListProjectsRequest, IReadOnlyList<ListProjectsItemResponse>>
 {
     public override void Configure()
     {
-        Get("tenants/{tenantId:guid}/projects");
+        Get("workspaces/{workspaceId:guid}/projects");
         Claims("sub");
     }
 
     public override async Task HandleAsync(ListProjectsRequest request, CancellationToken ct)
     {
-        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
 
         if (membership is null)
         {
@@ -42,12 +42,12 @@ public sealed class ListProjects(
 
         Response = await db.Projects
             .AsNoTracking()
-            .Where(project => project.TenantId == request.TenantId)
+            .Where(project => project.WorkspaceId == request.WorkspaceId)
             .OrderBy(project => project.Name)
             .Select(project => new ListProjectsItemResponse
             {
                 Id = project.Id,
-                TenantId = project.TenantId,
+                WorkspaceId = project.WorkspaceId,
                 Name = project.Name,
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt

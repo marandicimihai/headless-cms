@@ -7,9 +7,9 @@ using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Endpoints.Auth;
-using HeadlessCms.Api.Endpoints.Tenants;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Endpoints.Workspaces;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,59 +30,59 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     {
         var owner = await app.SeedUserAsync("owner", "password");
         var member = await app.SeedUserAsync("member", "password");
-        var tenant = await app.SeedTenantAsync(
-            (owner, TenantRole.Owner),
-            (member, TenantRole.Member));
+        var workspace = await app.SeedWorkspaceAsync(
+            (owner, WorkspaceRole.Owner),
+            (member, WorkspaceRole.Member));
 
         var ownerRole = await Should.ThrowAsync<InvitationFlowException>(
             () => CreateInvitationAsync(
                 owner.Id,
-                tenant.Id,
+                workspace.Id,
                 "new@example.test",
-                TenantRole.Owner));
+                WorkspaceRole.Owner));
         ownerRole.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
 
-        var missingTenant = await Should.ThrowAsync<InvitationFlowException>(
+        var missingWorkspace = await Should.ThrowAsync<InvitationFlowException>(
             () => CreateInvitationAsync(
                 owner.Id,
                 Guid.NewGuid(),
                 "new@example.test",
-                TenantRole.Editor));
-        missingTenant.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
+                WorkspaceRole.Editor));
+        missingWorkspace.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
 
         var nonOwner = await Should.ThrowAsync<InvitationFlowException>(
             () => CreateInvitationAsync(
                 member.Id,
-                tenant.Id,
+                workspace.Id,
                 "new@example.test",
-                TenantRole.Editor));
+                WorkspaceRole.Editor));
         nonOwner.StatusCode.ShouldBe(StatusCodes.Status403Forbidden);
 
         var existingMember = await Should.ThrowAsync<InvitationFlowException>(
             () => CreateInvitationAsync(
                 owner.Id,
-                tenant.Id,
+                workspace.Id,
                 member.Email,
-                TenantRole.Editor));
+                WorkspaceRole.Editor));
         existingMember.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
 
         await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "pending@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         var duplicate = await Should.ThrowAsync<InvitationFlowException>(
             () => CreateInvitationAsync(
                 owner.Id,
-                tenant.Id,
+                workspace.Id,
                 "PENDING@example.test",
-                TenantRole.Editor));
+                WorkspaceRole.Editor));
         duplicate.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
 
         var ownerToken = await app.LoginAsync(owner.Email, "password");
         using var duplicateEndpoint = await app.SendAsync(
             HttpMethod.Post,
-            $"/api/tenants/{tenant.Id}/invitations",
+            $"/api/workspaces/{workspace.Id}/invitations",
             ownerToken,
             new { email = "pending@example.test", role = "Member" });
         duplicateEndpoint.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -92,12 +92,12 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     public async Task AcceptInvitation_RejectsMissingWrongAndExistingUsers()
     {
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var invitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "invited@example.test",
-            TenantRole.Editor);
+            WorkspaceRole.Editor);
         var wrongUser = await app.SeedUserAsync("wrong", "password");
 
         var wrongEmail = await Should.ThrowAsync<InvitationFlowException>(
@@ -112,12 +112,12 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
         await app.WithDatabaseAsync(
             async db =>
             {
-                db.TenantMemberships.Add(
-                    new TenantMembership
+                db.WorkspaceMemberships.Add(
+                    new WorkspaceMembership
                     {
-                        TenantId = tenant.Id,
+                        WorkspaceId = workspace.Id,
                         UserId = invitedUser.Id,
-                        Role = TenantRole.Member
+                        Role = WorkspaceRole.Member
                     });
                 await db.SaveChangesAsync();
                 return true;
@@ -132,13 +132,13 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     public async Task RegistrationAndPreview_RejectExistingExpiredAndAcceptedInvitations()
     {
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
 
         var existingAccountInvitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "existing@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         await app.SeedUserAsync("existing@example.test", "password");
         var existingAccount = await Should.ThrowAsync<InvitationFlowException>(
             () => RegisterAsync(existingAccountInvitation.Token, "new-password"));
@@ -155,9 +155,9 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
 
         var expiredInvitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "expired@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         await SetInvitationExpiryAsync(expiredInvitation.InvitationId, DateTime.UtcNow.AddMinutes(-1));
 
         var expiredPreview = await Should.ThrowAsync<InvitationFlowException>(
@@ -169,9 +169,9 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
 
         var acceptedInvitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "accepted@example.test",
-            TenantRole.Editor);
+            WorkspaceRole.Editor);
         var acceptedUser = await app.SeedUserAsync("accepted@example.test", "password");
         await AcceptInvitationAsync(acceptedUser.Id, acceptedInvitation.Token);
 
@@ -184,75 +184,75 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task InvitationManagement_HandlesExpiredRevokedAcceptedAndCrossTenantTargets()
+    public async Task InvitationManagement_HandlesExpiredRevokedAcceptedAndCrossWorkspaceTargets()
     {
         var owner = await app.SeedUserAsync("owner", "password");
         var otherOwner = await app.SeedUserAsync("other-owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
-        var otherTenant = await app.SeedTenantAsync((otherOwner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var otherWorkspace = await app.SeedWorkspaceAsync((otherOwner, WorkspaceRole.Owner));
         var ownerToken = await app.LoginAsync(owner.Email, "password");
         var otherOwnerToken = await app.LoginAsync(otherOwner.Email, "password");
 
         var expired = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "expired@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         await SetInvitationExpiryAsync(expired.InvitationId, DateTime.UtcNow.AddMinutes(-1));
         using var resendExpired = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(tenant.Id, expired.InvitationId, "resend"),
+            InvitationPath(workspace.Id, expired.InvitationId, "resend"),
             ownerToken);
         resendExpired.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var revoked = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "revoked@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         using var revoke = await app.SendAsync(
             HttpMethod.Delete,
-            InvitationPath(tenant.Id, revoked.InvitationId),
+            InvitationPath(workspace.Id, revoked.InvitationId),
             ownerToken);
         revoke.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         using var resendRevoked = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(tenant.Id, revoked.InvitationId, "resend"),
+            InvitationPath(workspace.Id, revoked.InvitationId, "resend"),
             ownerToken);
         resendRevoked.StatusCode.ShouldBe(HttpStatusCode.Gone);
 
         var accepted = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "accepted@example.test",
-            TenantRole.Editor);
+            WorkspaceRole.Editor);
         var acceptedUser = await app.SeedUserAsync("accepted@example.test", "password");
         await AcceptInvitationAsync(acceptedUser.Id, accepted.Token);
         using var resendAccepted = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(tenant.Id, accepted.InvitationId, "resend"),
+            InvitationPath(workspace.Id, accepted.InvitationId, "resend"),
             ownerToken);
         resendAccepted.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         using var revokeAccepted = await app.SendAsync(
             HttpMethod.Delete,
-            InvitationPath(tenant.Id, accepted.InvitationId),
+            InvitationPath(workspace.Id, accepted.InvitationId),
             ownerToken);
         revokeAccepted.StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-        using var crossTenant = await app.SendAsync(
+        using var crossWorkspace = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(tenant.Id, expired.InvitationId, "resend"),
+            InvitationPath(workspace.Id, expired.InvitationId, "resend"),
             otherOwnerToken);
-        crossTenant.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        crossWorkspace.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         using var mismatchedRoute = await app.SendAsync(
             HttpMethod.Delete,
-            InvitationPath(otherTenant.Id, expired.InvitationId),
+            InvitationPath(otherWorkspace.Id, expired.InvitationId),
             otherOwnerToken);
         mismatchedRoute.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
-    public async Task PlatformAdmin_CanManageOwnerInvitationOnlyUntilTenantHasOwner()
+    public async Task PlatformAdmin_CanManageOwnerInvitationOnlyUntilWorkspaceHasOwner()
     {
         var admin = await app.SeedUserAsync(
             "admin",
@@ -260,28 +260,28 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             PlatformRole.PlatformAdmin);
         var adminToken = await app.LoginAsync(admin.Email, "password");
         var created = await app.WithServiceAsync<
-            TenantInvitationService,
-            CreatedTenantInvitation>(
-            service => service.CreateTenantWithOwnerInvitationAsync(
+            WorkspaceInvitationService,
+            CreatedWorkspaceInvitation>(
+            service => service.CreateWorkspaceWithOwnerInvitationAsync(
                 admin.Id,
-                "Tenant A",
+                "Workspace A",
                 "owner@example.test"));
 
         using var listBeforeOwner = await app.SendAsync(
             HttpMethod.Get,
-            $"/api/tenants/{created.TenantId}/invitations",
+            $"/api/workspaces/{created.WorkspaceId}/invitations",
             adminToken);
         listBeforeOwner.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await listBeforeOwner.Content.ReadFromJsonAsync<
-            ListTenantInvitationsResponse>(
+            ListWorkspaceInvitationsResponse>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         page.ShouldNotBeNull();
-        page.Items.Single().Role.ShouldBe(TenantRole.Owner);
+        page.Items.Single().Role.ShouldBe(WorkspaceRole.Owner);
 
         using var resend = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(created.TenantId, created.InvitationId, "resend"),
+            InvitationPath(created.WorkspaceId, created.InvitationId, "resend"),
             adminToken);
         resend.StatusCode.ShouldBe(HttpStatusCode.OK);
         var replacementToken = app.Services
@@ -295,12 +295,12 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
 
         using var listAfterOwner = await app.SendAsync(
             HttpMethod.Get,
-            $"/api/tenants/{created.TenantId}/invitations",
+            $"/api/workspaces/{created.WorkspaceId}/invitations",
             adminToken);
         listAfterOwner.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         using var manageAfterOwner = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(created.TenantId, created.InvitationId, "resend"),
+            InvitationPath(created.WorkspaceId, created.InvitationId, "resend"),
             adminToken);
         manageAfterOwner.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -309,27 +309,27 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     public async Task InvitationList_FiltersStatusesAndNormalizesPagination()
     {
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var token = await app.LoginAsync(owner.Email, "password");
         await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "pending@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         var expired = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "expired@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         await SetInvitationExpiryAsync(expired.InvitationId, DateTime.UtcNow.AddMinutes(-1));
 
         using var response = await app.SendAsync(
             HttpMethod.Get,
-            $"/api/tenants/{tenant.Id}/invitations?status=Expired&page=0&pageSize=500",
+            $"/api/workspaces/{workspace.Id}/invitations?status=Expired&page=0&pageSize=500",
             token);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await response.Content.ReadFromJsonAsync<
-            ListTenantInvitationsResponse>(
+            ListWorkspaceInvitationsResponse>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         page.ShouldNotBeNull();
@@ -344,23 +344,23 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     {
         var owner = await app.SeedUserAsync("owner", "password");
         var invitee = await app.SeedUserAsync("revoked@example.test", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var invitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             invitee.Email,
-            TenantRole.Member);
+            WorkspaceRole.Member);
         var ownerToken = await app.LoginAsync(owner.Email, "password");
         var inviteeToken = await app.LoginAsync(invitee.Email, "password");
 
         using var firstRevoke = await app.SendAsync(
             HttpMethod.Delete,
-            InvitationPath(tenant.Id, invitation.InvitationId),
+            InvitationPath(workspace.Id, invitation.InvitationId),
             ownerToken);
         firstRevoke.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         using var repeatedRevoke = await app.SendAsync(
             HttpMethod.Delete,
-            InvitationPath(tenant.Id, invitation.InvitationId),
+            InvitationPath(workspace.Id, invitation.InvitationId),
             ownerToken);
         repeatedRevoke.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -458,26 +458,26 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
         anonymousAccept.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
         var owner = await app.SeedUserAsync("owner", "password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var ownerToken = await app.LoginAsync(owner.Email, "password");
         using var invalidRole = await app.SendAsync(
             HttpMethod.Post,
-            $"/api/tenants/{tenant.Id}/invitations",
+            $"/api/workspaces/{workspace.Id}/invitations",
             ownerToken,
             new { email = "member@example.test", role = "Owner" });
         invalidRole.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         using var invalidEmail = await app.SendAsync(
             HttpMethod.Post,
-            $"/api/tenants/{tenant.Id}/invitations",
+            $"/api/workspaces/{workspace.Id}/invitations",
             ownerToken,
             new { email = "not-an-email", role = "Member" });
         invalidEmail.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
         var shortEmailInvitation = await CreateInvitationAsync(
             owner.Id,
-            tenant.Id,
+            workspace.Id,
             "a@example.test",
-            TenantRole.Member);
+            WorkspaceRole.Member);
         using var preview = await app.HttpsClient.PostAsJsonAsync(
             "/api/auth/invitations/preview",
             new { token = shortEmailInvitation.Token },
@@ -490,31 +490,31 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
         body.MaskedEmail.ShouldBe("*@example.test");
     }
 
-    private Task<CreatedTenantInvitation> CreateInvitationAsync(
+    private Task<CreatedWorkspaceInvitation> CreateInvitationAsync(
         string ownerId,
-        Guid tenantId,
+        Guid workspaceId,
         string email,
-        TenantRole role) =>
-        app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
-            service => service.CreateInvitationAsync(ownerId, tenantId, email, role));
+        WorkspaceRole role) =>
+        app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
+            service => service.CreateInvitationAsync(ownerId, workspaceId, email, role));
 
-    private Task<TenantMembership> AcceptInvitationAsync(string userId, string token) =>
-        app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+    private Task<WorkspaceMembership> AcceptInvitationAsync(string userId, string token) =>
+        app.WithServiceAsync<WorkspaceInvitationService, WorkspaceMembership>(
             service => service.AcceptInvitationAsync(userId, token));
 
     private Task<InvitationRegistration> RegisterAsync(string token, string password) =>
-        app.WithServiceAsync<TenantInvitationService, InvitationRegistration>(
+        app.WithServiceAsync<WorkspaceInvitationService, InvitationRegistration>(
             service => service.RegisterAsync(token, password));
 
     private Task<InvitationPreview> PreviewAsync(string token) =>
-        app.WithServiceAsync<TenantInvitationService, InvitationPreview>(
+        app.WithServiceAsync<WorkspaceInvitationService, InvitationPreview>(
             service => service.PreviewAsync(token));
 
     private Task SetInvitationExpiryAsync(Guid invitationId, DateTime expiresAt) =>
         app.WithDatabaseAsync(
             async db =>
             {
-                var invitation = await db.TenantInvitations.SingleAsync(
+                var invitation = await db.WorkspaceInvitations.SingleAsync(
                     candidate => candidate.Id == invitationId);
                 invitation.ExpiresAt = expiresAt;
                 await db.SaveChangesAsync();
@@ -522,10 +522,10 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             });
 
     private static string InvitationPath(
-        Guid tenantId,
+        Guid workspaceId,
         Guid invitationId,
         string? action = null) =>
-        $"/api/tenants/{tenantId}/invitations/{invitationId}" +
+        $"/api/workspaces/{workspaceId}/invitations/{invitationId}" +
         (action is null ? string.Empty : $"/{action}");
 
     private static JsonSerializerOptions CreateJsonOptions()

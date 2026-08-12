@@ -2,8 +2,8 @@ using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -81,7 +81,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var logger = new RecordingLogger<LoggingInvitationEmailSender>();
         var configurationValues = new Dictionary<string, string?>();
         if (configuredBaseUrl is not null)
-            configurationValues["Tenancy:InvitationUrl"] = configuredBaseUrl;
+            configurationValues["Workspaces:InvitationUrl"] = configuredBaseUrl;
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(configurationValues)
             .Build();
@@ -89,8 +89,8 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
 
         await sender.SendAsync(
             "invitee@example.test",
-            "Tenant A",
-            TenantRole.Editor,
+            "Workspace A",
+            WorkspaceRole.Editor,
             "a+b/c?=",
             TestContext.Current.CancellationToken);
 
@@ -98,7 +98,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         entry.Level.ShouldBe(LogLevel.Information);
         entry.Exception.ShouldBeNull();
         entry.Message.ShouldBe(
-            "Development invitation for invitee@example.test to Tenant A as Editor: " +
+            "Development invitation for invitee@example.test to Workspace A as Editor: " +
             $"{expectedBaseUrl}?token=a%2Bb%2Fc%3F%3D");
     }
 
@@ -110,8 +110,8 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var exception = await Should.ThrowAsync<InvalidOperationException>(
             async () => await sender.SendAsync(
                 "invitee@example.test",
-                "Tenant A",
-                TenantRole.Member,
+                "Workspace A",
+                WorkspaceRole.Member,
                 "token",
                 TestContext.Current.CancellationToken));
 
@@ -122,21 +122,21 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     [Theory]
     [InlineData(
         null,
-        "Required configuration 'Tenancy:InvitationExpirationHours' is missing.")]
+        "Required configuration 'Workspaces:InvitationExpirationHours' is missing.")]
     [InlineData(
         "0",
-        "Tenancy invitation expiration must be greater than zero.")]
+        "Workspaces invitation expiration must be greater than zero.")]
     [InlineData(
         "-1",
-        "Tenancy invitation expiration must be greater than zero.")]
-    public async Task TenantInvitationService_RejectsMissingOrInvalidExpiration(
+        "Workspaces invitation expiration must be greater than zero.")]
+    public async Task WorkspaceInvitationService_RejectsMissingOrInvalidExpiration(
         string? configuredHours,
         string expectedMessage)
     {
         var configurationValues = new Dictionary<string, string?>();
         if (configuredHours is not null)
         {
-            configurationValues["Tenancy:InvitationExpirationHours"] =
+            configurationValues["Workspaces:InvitationExpirationHours"] =
                 configuredHours;
         }
 
@@ -144,12 +144,12 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             .AddInMemoryCollection(configurationValues)
             .Build();
         using var scope = app.Services.CreateScope();
-        var service = new TenantInvitationService(
+        var service = new WorkspaceInvitationService(
             scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
             configuration,
             scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),
             scope.ServiceProvider.GetRequiredService<IInvitationEmailSender>());
-        var pendingInvitation = new TenantInvitation
+        var pendingInvitation = new WorkspaceInvitation
         {
             ExpiresAt = DateTime.UtcNow.AddHours(1)
         };
@@ -334,7 +334,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task PostgreSql_AllowsOnlyOneOwnerPerTenant()
+    public async Task PostgreSql_AllowsOnlyOneOwnerPerWorkspace()
     {
         var ct = TestContext.Current.CancellationToken;
         var firstOwner = await app.SeedUserAsync(
@@ -345,42 +345,42 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             "second-password");
 
         await Should.ThrowAsync<DbUpdateException>(
-            () => app.SeedTenantAsync(
-                (firstOwner, TenantRole.Owner),
-                (secondOwner, TenantRole.Owner)));
+            () => app.SeedWorkspaceAsync(
+                (firstOwner, WorkspaceRole.Owner),
+                (secondOwner, WorkspaceRole.Owner)));
 
-        var tenantCount = await app.WithDatabaseAsync(
-            db => db.Tenants.CountAsync(ct));
-        tenantCount.ShouldBe(0);
+        var workspaceCount = await app.WithDatabaseAsync(
+            db => db.Workspaces.CountAsync(ct));
+        workspaceCount.ShouldBe(0);
     }
 
     [Fact]
-    public async Task PostgreSql_EnforcesTenantMembershipCompositeKey()
+    public async Task PostgreSql_EnforcesWorkspaceMembershipCompositeKey()
     {
         var ct = TestContext.Current.CancellationToken;
         var user = await app.SeedUserAsync(
             "member@example.test",
             "member-password");
-        var tenant = await app.SeedTenantAsync((user, TenantRole.Member));
+        var workspace = await app.SeedWorkspaceAsync((user, WorkspaceRole.Member));
 
         await Should.ThrowAsync<DbUpdateException>(
             () => app.WithDatabaseAsync(
                 async db =>
                 {
-                    db.TenantMemberships.Add(
-                        new TenantMembership
+                    db.WorkspaceMemberships.Add(
+                        new WorkspaceMembership
                         {
-                            TenantId = tenant.Id,
+                            WorkspaceId = workspace.Id,
                             UserId = user.Id,
-                            Role = TenantRole.Editor
+                            Role = WorkspaceRole.Editor
                         });
                     await db.SaveChangesAsync(ct);
                     return true;
                 }));
 
         var membership = await app.WithDatabaseAsync(
-            db => db.TenantMemberships.AsNoTracking().SingleAsync(ct));
-        membership.Role.ShouldBe(TenantRole.Member);
+            db => db.WorkspaceMemberships.AsNoTracking().SingleAsync(ct));
+        membership.Role.ShouldBe(WorkspaceRole.Member);
     }
 
     [Fact]
@@ -390,24 +390,24 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var inviter = await app.SeedUserAsync(
             "inviter@example.test",
             "inviter-password");
-        var tenant = await app.SeedTenantAsync((inviter, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((inviter, WorkspaceRole.Owner));
 
         await Should.ThrowAsync<DbUpdateException>(
             () => SeedInvitationAsync(
-                tenant.Id,
+                workspace.Id,
                 $"missing-user-{Guid.NewGuid():N}",
                 new string('a', 64),
                 "orphan@example.test"));
 
         var invitation = await SeedInvitationAsync(
-            tenant.Id,
+            workspace.Id,
             inviter.Id,
             new string('b', 64),
             "first@example.test");
 
         await Should.ThrowAsync<DbUpdateException>(
             () => SeedInvitationAsync(
-                tenant.Id,
+                workspace.Id,
                 inviter.Id,
                 invitation.TokenHash,
                 "second@example.test"));
@@ -425,7 +425,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
                 }));
 
         var invitationStillExists = await app.WithDatabaseAsync(
-            db => db.TenantInvitations.AnyAsync(
+            db => db.WorkspaceInvitations.AnyAsync(
                 candidate => candidate.Id == invitation.Id,
                 ct));
         invitationStillExists.ShouldBeTrue();
@@ -441,18 +441,18 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var acceptedBy = await app.SeedUserAsync(
             "accepted@example.test",
             "accepted-password");
-        var tenant = await app.SeedTenantAsync((inviter, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((inviter, WorkspaceRole.Owner));
 
         await Should.ThrowAsync<DbUpdateException>(
             () => SeedInvitationAsync(
-                tenant.Id,
+                workspace.Id,
                 inviter.Id,
                 new string('d', 64),
                 "orphan-acceptance@example.test",
                 $"missing-user-{Guid.NewGuid():N}"));
 
         var invitation = await SeedInvitationAsync(
-            tenant.Id,
+            workspace.Id,
             inviter.Id,
             new string('e', 64),
             acceptedBy.Email,
@@ -471,14 +471,14 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
                 }));
 
         var invitationStillExists = await app.WithDatabaseAsync(
-            db => db.TenantInvitations.AnyAsync(
+            db => db.WorkspaceInvitations.AnyAsync(
                 candidate => candidate.Id == invitation.Id,
                 ct));
         invitationStillExists.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task PostgreSql_DeletingTenantCascadesMembershipsAndInvitations()
+    public async Task PostgreSql_DeletingWorkspaceCascadesMembershipsAndInvitations()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync(
@@ -487,11 +487,11 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var member = await app.SeedUserAsync(
             "member@example.test",
             "member-password");
-        var tenant = await app.SeedTenantAsync(
-            (owner, TenantRole.Owner),
-            (member, TenantRole.Member));
+        var workspace = await app.SeedWorkspaceAsync(
+            (owner, WorkspaceRole.Owner),
+            (member, WorkspaceRole.Member));
         await SeedInvitationAsync(
-            tenant.Id,
+            workspace.Id,
             owner.Id,
             new string('f', 64),
             "invitee@example.test");
@@ -499,10 +499,10 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         await app.WithDatabaseAsync(
             async db =>
             {
-                var storedTenant = await db.Tenants.SingleAsync(
-                    candidate => candidate.Id == tenant.Id,
+                var storedWorkspace = await db.Workspaces.SingleAsync(
+                    candidate => candidate.Id == workspace.Id,
                     ct);
-                db.Tenants.Remove(storedTenant);
+                db.Workspaces.Remove(storedWorkspace);
                 await db.SaveChangesAsync(ct);
                 return true;
             });
@@ -510,8 +510,8 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         await app.WithDatabaseAsync(
             async db =>
             {
-                (await db.TenantMemberships.CountAsync(ct)).ShouldBe(0);
-                (await db.TenantInvitations.CountAsync(ct)).ShouldBe(0);
+                (await db.WorkspaceMemberships.CountAsync(ct)).ShouldBe(0);
+                (await db.WorkspaceInvitations.CountAsync(ct)).ShouldBe(0);
                 (await db.Users.CountAsync(ct)).ShouldBe(2);
                 return true;
             });
@@ -524,9 +524,9 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var inviter = await app.SeedUserAsync(
             "inviter@example.test",
             "inviter-password");
-        var tenant = await app.SeedTenantAsync((inviter, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((inviter, WorkspaceRole.Owner));
         var invitation = await SeedInvitationAsync(
-            tenant.Id,
+            workspace.Id,
             inviter.Id,
             new string('c', 64),
             "invitee@example.test");
@@ -537,10 +537,10 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             firstScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var secondDb =
             secondScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var firstCopy = await firstDb.TenantInvitations.SingleAsync(
+        var firstCopy = await firstDb.WorkspaceInvitations.SingleAsync(
             candidate => candidate.Id == invitation.Id,
             ct);
-        var secondCopy = await secondDb.TenantInvitations.SingleAsync(
+        var secondCopy = await secondDb.WorkspaceInvitations.SingleAsync(
             candidate => candidate.Id == invitation.Id,
             ct);
 
@@ -572,8 +572,8 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         return builder.Build();
     }
 
-    private Task<TenantInvitation> SeedInvitationAsync(
-        Guid tenantId,
+    private Task<WorkspaceInvitation> SeedInvitationAsync(
+        Guid workspaceId,
         string invitedByUserId,
         string tokenHash,
         string email,
@@ -582,11 +582,11 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         return app.WithDatabaseAsync(
             async db =>
             {
-                var invitation = new TenantInvitation
+                var invitation = new WorkspaceInvitation
                 {
-                    TenantId = tenantId,
+                    WorkspaceId = workspaceId,
                     Email = email,
-                    Role = TenantRole.Member,
+                    Role = WorkspaceRole.Member,
                     TokenHash = tokenHash,
                     ExpiresAt = DateTime.UtcNow.AddHours(1),
                     InvitedByUserId = invitedByUserId,
@@ -595,7 +595,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
                         : DateTime.UtcNow,
                     AcceptedByUserId = acceptedByUserId
                 };
-                db.TenantInvitations.Add(invitation);
+                db.WorkspaceInvitations.Add(invitation);
                 await db.SaveChangesAsync(TestContext.Current.CancellationToken);
                 return invitation;
             });

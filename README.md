@@ -31,8 +31,8 @@ headless-cms/
     │   │   ├── Auth/
     │   │   ├── Content/
     │   │   ├── Projects/
-    │   │   └── Tenants/
-    │   └── Tenancy/
+    │   │   └── Workspaces/
+    │   └── Workspaces/
     └── HeadlessCms.Api.Tests/
 ```
 
@@ -51,7 +51,7 @@ The hosted Postman collection makes it easy to:
 
 [Open the Headless CMS collection in Postman](https://go.postman.co/collection/30832597-e019a46d-66de-4a93-90a3-53a14453bd92).
 
-### Authentication and tenant API
+### Authentication and workspace API
 
 Authentication is email-based and normal user registration is invitation-only.
 All authenticated routes require `Authorization: Bearer <access-token>`.
@@ -63,41 +63,41 @@ All authenticated routes require `Authorization: Bearer <access-token>`.
 | `POST` | `/api/auth/invitations/preview` | Anonymous, masked invitation details |
 | `POST` | `/api/auth/invitations/register` | Anonymous, valid invitation |
 | `POST` | `/api/auth/invitations/accept` | Authenticated invited user |
-| `POST` | `/api/tenants` | `PlatformAdmin` |
-| `GET` | `/api/tenants` | `PlatformAdmin` |
-| `GET` | `/api/tenants/{tenantId}` | `PlatformAdmin` or tenant member |
-| `PATCH` | `/api/tenants/{tenantId}` | `PlatformAdmin` or tenant owner |
-| `GET` | `/api/me/tenants` | Authenticated user |
-| `DELETE` | `/api/me/tenants/{tenantId}` | Tenant editor/member |
-| `POST` | `/api/tenants/{tenantId}/invitations` | Tenant owner |
-| `GET` | `/api/tenants/{tenantId}/invitations` | Tenant owner |
-| `POST` | `/api/tenants/{tenantId}/invitations/{invitationId}/resend` | Tenant owner |
-| `DELETE` | `/api/tenants/{tenantId}/invitations/{invitationId}` | Tenant owner |
-| `GET` | `/api/tenants/{tenantId}/members` | Tenant owner |
-| `PATCH` | `/api/tenants/{tenantId}/members/{userId}` | Tenant owner |
-| `DELETE` | `/api/tenants/{tenantId}/members/{userId}` | Tenant owner |
-| `POST` | `/api/tenants/{tenantId}/ownership-transfer` | Tenant owner |
+| `POST` | `/api/workspaces` | `PlatformAdmin` |
+| `GET` | `/api/workspaces` | `PlatformAdmin` |
+| `GET` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace member |
+| `PATCH` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace owner |
+| `GET` | `/api/me/workspaces` | Authenticated user |
+| `DELETE` | `/api/me/workspaces/{workspaceId}` | Workspace editor/member |
+| `POST` | `/api/workspaces/{workspaceId}/invitations` | Workspace owner |
+| `GET` | `/api/workspaces/{workspaceId}/invitations` | Workspace owner |
+| `POST` | `/api/workspaces/{workspaceId}/invitations/{invitationId}/resend` | Workspace owner |
+| `DELETE` | `/api/workspaces/{workspaceId}/invitations/{invitationId}` | Workspace owner |
+| `GET` | `/api/workspaces/{workspaceId}/members` | Workspace owner |
+| `PATCH` | `/api/workspaces/{workspaceId}/members/{userId}` | Workspace owner |
+| `DELETE` | `/api/workspaces/{workspaceId}/members/{userId}` | Workspace owner |
+| `POST` | `/api/workspaces/{workspaceId}/ownership-transfer` | Workspace owner |
 
 ### Private project API
 
-Projects are private and owned by tenants. Every project route requires a
-bearer token and resolves the current user's membership for the tenant in the
+Projects are private and owned by workspaces. Every project route requires a
+bearer token and resolves the current user's membership for the workspace in the
 route:
 
-- tenant `Owner` and `Editor` roles can create, read, update, and delete
+- workspace `Owner` and `Editor` roles can create, read, update, and delete
   projects;
-- tenant `Member` roles can list and read projects, but write attempts return
+- workspace `Member` roles can list and read projects, but write attempts return
   `403 Forbidden`;
-- users without a tenant membership receive `404 Not Found`, so tenant and
+- users without a workspace membership receive `404 Not Found`, so workspace and
   project existence is not disclosed.
 
 | Method | Route | Description |
 | --- | --- | --- |
-| `POST` | `/api/tenants/{tenantId}/projects` | Create a tenant project |
-| `GET` | `/api/tenants/{tenantId}/projects` | List the tenant's projects |
-| `GET` | `/api/tenants/{tenantId}/projects/{id}` | Get one tenant project |
-| `PUT` | `/api/tenants/{tenantId}/projects/{id}` | Rename one tenant project |
-| `DELETE` | `/api/tenants/{tenantId}/projects/{id}` | Delete one tenant project |
+| `POST` | `/api/workspaces/{workspaceId}/projects` | Create a workspace project |
+| `GET` | `/api/workspaces/{workspaceId}/projects` | List the workspace's projects |
+| `GET` | `/api/workspaces/{workspaceId}/projects/{id}` | Get one workspace project |
+| `PUT` | `/api/workspaces/{workspaceId}/projects/{id}` | Rename one workspace project |
+| `DELETE` | `/api/workspaces/{workspaceId}/projects/{id}` | Delete one workspace project |
 
 Create and update requests use this shape:
 
@@ -140,19 +140,19 @@ Planned core capabilities:
 
 ## Authorization model
 
-Authorization has separate platform and tenant scopes:
+Authorization has separate platform and workspace scopes:
 
 - A user has one platform role: `PlatformAdmin` or `User`.
-- A user can belong to many tenants.
-- Each tenant membership has one tenant role: `Owner`, `Editor`, or `Member`.
+- A user can belong to many workspaces.
+- Each workspace membership has one workspace role: `Owner`, `Editor`, or `Member`.
 
 The development admin configured with `Auth:AdminEmail` is assigned
 `PlatformAdmin`. Login and refresh access tokens include the platform role as a
-standard `role` claim. Tenant permissions must be resolved from the
-authenticated user's membership for the requested `TenantId`; platform roles
-must not be used as tenant permissions.
+standard `role` claim. Workspace permissions must be resolved from the
+authenticated user's membership for the requested `WorkspaceId`; platform roles
+must not be used as workspace permissions.
 
-The tenant invitation model stores only a hash of each single-use token.
+The workspace invitation model stores only a hash of each single-use token.
 Resending rotates the token, and accepted, expired, or revoked invitations
 cannot be reused. Development logs invitation URLs; production must register an
 `IInvitationEmailSender` implementation.
@@ -164,18 +164,18 @@ Auth__SigningKey
 Auth__AdminEmail
 Auth__AdminPassword
 ConnectionStrings__DefaultConnection
-Tenancy__InvitationUrl
+Workspaces__InvitationUrl
 ```
 
 ## Dynamic content
 
-Content types belong to projects, and projects belong to tenants. Entry data
+Content types belong to projects, and projects belong to workspaces. Entry data
 uses versioned relational definitions with PostgreSQL `jsonb` values. Creating
 a content type does not create a .NET class, PostgreSQL table, or migration.
 
 The workflow is:
 
-1. An `Owner` or `Editor` creates a project inside a tenant.
+1. An `Owner` or `Editor` creates a project inside a workspace.
 2. They define content types inside that project.
 3. Entries are created and queried through the project-scoped content type.
 
@@ -185,24 +185,24 @@ The initial field types are:
 - `number`
 - `boolean`
 
-Definitions and entries are available below the tenant boundary:
+Definitions and entries are available below the workspace boundary:
 
 ```text
-GET  /api/tenants/{tenantId}/projects/{projectId}/content-types
-POST /api/tenants/{tenantId}/projects/{projectId}/content-types
-GET  /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}
-PUT  /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}
+GET  /api/workspaces/{workspaceId}/projects/{projectId}/content-types
+POST /api/workspaces/{workspaceId}/projects/{projectId}/content-types
+GET  /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}
+PUT  /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}
 
-GET    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries
-POST   /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries
-GET    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
-PUT    /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
-DELETE /api/tenants/{tenantId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+GET    /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries
+POST   /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries
+GET    /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+PUT    /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
+DELETE /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries/{entryId}
 ```
 
 `Owner` and `Editor` memberships can manage definitions and entries. `Member`
-memberships have read-only access. Platform administrators do not bypass tenant
-membership checks.
+memberships have read-only access. Platform administrators do not bypass
+workspace membership checks.
 
 Example content type:
 

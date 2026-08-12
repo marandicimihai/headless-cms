@@ -8,8 +8,8 @@ using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Endpoints.Auth;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Shouldly;
@@ -335,7 +335,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task TenantInvitations_CreateScopedMemberships_AndCanOnlyBeUsedOnce()
+    public async Task WorkspaceInvitations_CreateScopedMemberships_AndCanOnlyBeUsedOnce()
     {
         var platformAdmin = await app.SeedUserAsync(
             EmailAddress,
@@ -344,16 +344,16 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
             "admin@example.com");
 
         var ownerInvitation =
-            await app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
-                service => service.CreateTenantWithOwnerInvitationAsync(
+            await app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
+                service => service.CreateWorkspaceWithOwnerInvitationAsync(
                     platformAdmin.Id,
-                    "Tenant A",
+                    "Workspace A",
                     "owner@example.com"));
 
         var persistedInvitation = await app.WithDatabaseAsync(
-            db => db.TenantInvitations.AsNoTracking().SingleAsync());
+            db => db.WorkspaceInvitations.AsNoTracking().SingleAsync());
 
-        persistedInvitation.Role.ShouldBe(TenantRole.Owner);
+        persistedInvitation.Role.ShouldBe(WorkspaceRole.Owner);
         persistedInvitation.Email.ShouldBe("owner@example.com");
         persistedInvitation.TokenHash.ShouldBe(TokenHasher.Hash(ownerInvitation.Token));
         persistedInvitation.TokenHash.ShouldNotBe(ownerInvitation.Token);
@@ -365,40 +365,40 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
             email: "owner@example.com");
 
         var ownerMembership =
-            await app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+            await app.WithServiceAsync<WorkspaceInvitationService, WorkspaceMembership>(
                 service => service.AcceptInvitationAsync(owner.Id, ownerInvitation.Token));
 
-        ownerMembership.TenantId.ShouldBe(ownerInvitation.TenantId);
-        ownerMembership.Role.ShouldBe(TenantRole.Owner);
+        ownerMembership.WorkspaceId.ShouldBe(ownerInvitation.WorkspaceId);
+        ownerMembership.Role.ShouldBe(WorkspaceRole.Owner);
 
         var editorInvitation =
-            await app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
+            await app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
                 service => service.CreateInvitationAsync(
                     owner.Id,
-                    ownerInvitation.TenantId,
+                    ownerInvitation.WorkspaceId,
                     "editor@example.com",
-                    TenantRole.Editor));
+                    WorkspaceRole.Editor));
 
         var editor = await app.SeedUserAsync(
             "editor",
             "editor-password",
             email: "editor@example.com");
 
-        await app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+        await app.WithServiceAsync<WorkspaceInvitationService, WorkspaceMembership>(
             service => service.AcceptInvitationAsync(editor.Id, editorInvitation.Token));
 
         var editorMembership =
-            await app.WithServiceAsync<TenantAccessService, TenantMembership?>(
+            await app.WithServiceAsync<WorkspaceAccessService, WorkspaceMembership?>(
                 service => service.FindMembershipAsync(
                     new ClaimsPrincipal(
                         new ClaimsIdentity([new Claim("sub", editor.Id)])),
-                    ownerInvitation.TenantId));
+                    ownerInvitation.WorkspaceId));
 
         editorMembership.ShouldNotBeNull();
-        editorMembership.Role.ShouldBe(TenantRole.Editor);
+        editorMembership.Role.ShouldBe(WorkspaceRole.Editor);
 
         var unrelatedMembership =
-            await app.WithServiceAsync<TenantAccessService, TenantMembership?>(
+            await app.WithServiceAsync<WorkspaceAccessService, WorkspaceMembership?>(
                 service => service.FindMembershipAsync(
                     new ClaimsPrincipal(
                         new ClaimsIdentity([new Claim("sub", editor.Id)])),
@@ -407,20 +407,20 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
         unrelatedMembership.ShouldBeNull();
 
         await Should.ThrowAsync<InvitationFlowException>(
-            () => app.WithServiceAsync<TenantInvitationService, TenantMembership>(
+            () => app.WithServiceAsync<WorkspaceInvitationService, WorkspaceMembership>(
                 service => service.AcceptInvitationAsync(editor.Id, editorInvitation.Token)));
     }
 
     [Fact]
-    public async Task RegularPlatformUser_CannotCreateTenant()
+    public async Task RegularPlatformUser_CannotCreateWorkspace()
     {
         var user = await app.SeedUserAsync(EmailAddress, Password);
 
         await Should.ThrowAsync<InvitationFlowException>(
-            () => app.WithServiceAsync<TenantInvitationService, CreatedTenantInvitation>(
-                service => service.CreateTenantWithOwnerInvitationAsync(
+            () => app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
+                service => service.CreateWorkspaceWithOwnerInvitationAsync(
                     user.Id,
-                    "Tenant A",
+                    "Workspace A",
                     "owner@example.com")));
     }
 

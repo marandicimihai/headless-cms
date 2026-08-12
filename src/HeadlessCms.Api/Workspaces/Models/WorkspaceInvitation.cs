@@ -2,21 +2,21 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using HeadlessCms.Api.Auth.Models;
 
-namespace HeadlessCms.Api.Tenancy.Models;
+namespace HeadlessCms.Api.Workspaces.Models;
 
-public class TenantInvitation
+public class WorkspaceInvitation
 {
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
 
-    public Guid TenantId { get; set; }
-    public Tenant Tenant { get; set; } = default!;
+    public Guid WorkspaceId { get; set; }
+    public Workspace Workspace { get; set; } = default!;
 
     [Required]
     [StringLength(320)]
     public string Email { get; set; } = default!;
 
-    public TenantRole Role { get; set; }
+    public WorkspaceRole Role { get; set; }
 
     [Required]
     [StringLength(64)]

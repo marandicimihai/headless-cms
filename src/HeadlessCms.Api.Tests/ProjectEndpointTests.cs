@@ -8,7 +8,7 @@ using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Endpoints.Projects;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -24,16 +24,16 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task Owner_CanCreateReadUpdateAndDeleteTenantProject()
+    public async Task Owner_CanCreateReadUpdateAndDeleteWorkspaceProject()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var accessToken = await LoginAsync("owner", "owner-password");
 
         var createResponse = await SendAsync(
             HttpMethod.Post,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken,
             new { name = "Website" });
 
@@ -41,23 +41,23 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
         var created = await createResponse.Content.ReadFromJsonAsync<CreateProjectResponse>(
             cancellationToken: ct);
         created.ShouldNotBeNull();
-        created.TenantId.ShouldBe(tenant.Id);
+        created.WorkspaceId.ShouldBe(workspace.Id);
         created.Name.ShouldBe("Website");
         created.CreatedAt.ShouldBe(created.UpdatedAt);
         createResponse.Headers.Location.ShouldNotBeNull();
         createResponse.Headers.Location!.ToString().ShouldEndWith(
-            $"{ProjectsPath(tenant.Id)}/{created.Id}");
+            $"{ProjectsPath(workspace.Id)}/{created.Id}");
 
-        var storedTenantId = await app.WithDatabaseAsync(
+        var storedWorkspaceId = await app.WithDatabaseAsync(
             db => db.Projects
                 .Where(project => project.Id == created.Id)
-                .Select(project => project.TenantId)
+                .Select(project => project.WorkspaceId)
                 .SingleAsync(ct));
-        storedTenantId.ShouldBe(tenant.Id);
+        storedWorkspaceId.ShouldBe(workspace.Id);
 
         var listResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken);
         listResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var projects = await listResponse.Content.ReadFromJsonAsync<List<ListProjectsItemResponse>>(
@@ -67,13 +67,13 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
 
         var getResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectPath(tenant.Id, created.Id),
+            ProjectPath(workspace.Id, created.Id),
             accessToken);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var updateResponse = await SendAsync(
             HttpMethod.Put,
-            ProjectPath(tenant.Id, created.Id),
+            ProjectPath(workspace.Id, created.Id),
             accessToken,
             new { name = "Updated website" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -85,7 +85,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
 
         var deleteResponse = await SendAsync(
             HttpMethod.Delete,
-            ProjectPath(tenant.Id, created.Id),
+            ProjectPath(workspace.Id, created.Id),
             accessToken);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -94,16 +94,16 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task Editor_CanCreateUpdateAndDeleteTenantProject()
+    public async Task Editor_CanCreateUpdateAndDeleteWorkspaceProject()
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "editor-password");
-        var tenant = await SeedTenantAsync((editor, TenantRole.Editor));
+        var workspace = await SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
         var accessToken = await LoginAsync("editor", "editor-password");
 
         var createResponse = await SendAsync(
             HttpMethod.Post,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken,
             new { name = "Editor project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -113,30 +113,30 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
 
         var updateResponse = await SendAsync(
             HttpMethod.Put,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken,
             new { name = "Edited project" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var deleteResponse = await SendAsync(
             HttpMethod.Delete,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     [Fact]
-    public async Task Member_CanReadTenantProjectsButCannotWrite()
+    public async Task Member_CanReadWorkspaceProjectsButCannotWrite()
     {
         var ct = TestContext.Current.CancellationToken;
         var member = await app.SeedUserAsync("member", "member-password");
-        var tenant = await SeedTenantAsync((member, TenantRole.Member));
-        var project = await SeedProjectAsync(tenant.Id, "Read-only project");
+        var workspace = await SeedWorkspaceAsync((member, WorkspaceRole.Member));
+        var project = await SeedProjectAsync(workspace.Id, "Read-only project");
         var accessToken = await LoginAsync("member", "member-password");
 
         var listResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken);
         listResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var projects = await listResponse.Content.ReadFromJsonAsync<List<ListProjectsItemResponse>>(
@@ -146,27 +146,27 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
 
         var getResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var createResponse = await SendAsync(
             HttpMethod.Post,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken,
             new { name = "Forbidden project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var updateResponse = await SendAsync(
             HttpMethod.Put,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken,
             new { name = "Forbidden update" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var deleteResponse = await SendAsync(
             HttpMethod.Delete,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
@@ -176,78 +176,78 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task NonMember_CannotDiscoverOrMutateTenantProjects()
+    public async Task NonMember_CannotDiscoverOrMutateWorkspaceProjects()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
         var outsider = await app.SeedUserAsync("outsider", "outsider-password");
-        var tenant = await SeedTenantAsync((owner, TenantRole.Owner));
-        var project = await SeedProjectAsync(tenant.Id, "Private project");
+        var workspace = await SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var project = await SeedProjectAsync(workspace.Id, "Private project");
         var accessToken = await LoginAsync(outsider.Email, "outsider-password");
 
         var listResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken);
         listResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var getResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var createResponse = await SendAsync(
             HttpMethod.Post,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken,
             new { name = "Stolen project" });
         createResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var updateResponse = await SendAsync(
             HttpMethod.Put,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken,
             new { name = "Stolen project" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var deleteResponse = await SendAsync(
             HttpMethod.Delete,
-            ProjectPath(tenant.Id, project.Id),
+            ProjectPath(workspace.Id, project.Id),
             accessToken);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var storedProject = await app.WithDatabaseAsync(
             db => db.Projects.AsNoTracking().SingleAsync(ct));
         storedProject.Name.ShouldBe("Private project");
-        storedProject.TenantId.ShouldBe(tenant.Id);
+        storedProject.WorkspaceId.ShouldBe(workspace.Id);
     }
 
     [Fact]
-    public async Task ProjectId_CannotBeUsedThroughAnotherTenantRoute()
+    public async Task ProjectId_CannotBeUsedThroughAnotherWorkspaceRoute()
     {
         var editor = await app.SeedUserAsync("editor", "editor-password");
-        var firstTenant = await SeedTenantAsync((editor, TenantRole.Editor));
-        var secondTenant = await SeedTenantAsync((editor, TenantRole.Editor));
-        var secondTenantProject = await SeedProjectAsync(secondTenant.Id, "Other tenant project");
+        var firstWorkspace = await SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var secondWorkspace = await SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var secondWorkspaceProject = await SeedProjectAsync(secondWorkspace.Id, "Other workspace project");
         var accessToken = await LoginAsync("editor", "editor-password");
 
         var getResponse = await SendAsync(
             HttpMethod.Get,
-            ProjectPath(firstTenant.Id, secondTenantProject.Id),
+            ProjectPath(firstWorkspace.Id, secondWorkspaceProject.Id),
             accessToken);
         getResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var updateResponse = await SendAsync(
             HttpMethod.Put,
-            ProjectPath(firstTenant.Id, secondTenantProject.Id),
+            ProjectPath(firstWorkspace.Id, secondWorkspaceProject.Id),
             accessToken,
-            new { name = "Cross-tenant update" });
+            new { name = "Cross-workspace update" });
         updateResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var deleteResponse = await SendAsync(
             HttpMethod.Delete,
-            ProjectPath(firstTenant.Id, secondTenantProject.Id),
+            ProjectPath(firstWorkspace.Id, secondWorkspaceProject.Id),
             accessToken);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -263,10 +263,10 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
         bool includeProjectId,
         bool includeBody)
     {
-        var tenantId = Guid.NewGuid();
+        var workspaceId = Guid.NewGuid();
         var path = includeProjectId
-            ? ProjectPath(tenantId, Guid.NewGuid())
-            : ProjectsPath(tenantId);
+            ? ProjectPath(workspaceId, Guid.NewGuid())
+            : ProjectsPath(workspaceId);
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
         if (includeBody)
             request.Content = JsonContent.Create(new { name = "Private project" });
@@ -287,12 +287,12 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var accessToken = await LoginAsync("owner", "owner-password");
 
         var response = await SendAsync(
             HttpMethod.Post,
-            ProjectsPath(tenant.Id),
+            ProjectsPath(workspace.Id),
             accessToken,
             new { name });
 
@@ -306,13 +306,13 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var accessToken = await app.LoginAsync(owner.Email, "owner-password");
         var maximumLengthName = new string('x', 100);
 
         var minimumResponse = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             accessToken,
             new { name = " abc " });
         minimumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -323,7 +323,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
 
         var maximumResponse = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             accessToken,
             new { name = maximumLengthName });
         maximumResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -345,12 +345,12 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "owner-password");
-        var tenant = await app.SeedTenantAsync((owner, TenantRole.Owner));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var accessToken = await app.LoginAsync(owner.Email, "owner-password");
 
         var response = await app.SendAsync(
             HttpMethod.Post,
-            TestApp.ProjectsPath(tenant.Id),
+            TestApp.ProjectsPath(workspace.Id),
             accessToken,
             new { name = new string('x', 101) });
 
@@ -364,15 +364,15 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "editor-password");
-        var tenant = await app.SeedTenantAsync((editor, TenantRole.Editor));
-        var project = await app.SeedProjectAsync(tenant.Id, "Original project");
+        var workspace = await app.SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var project = await app.SeedProjectAsync(workspace.Id, "Original project");
         var accessToken = await app.LoginAsync(editor.Email, "editor-password");
 
         foreach (var invalidName in new[] { " ab ", new string('x', 101) })
         {
             var response = await app.SendAsync(
                 HttpMethod.Put,
-                TestApp.ProjectPath(tenant.Id, project.Id),
+                TestApp.ProjectPath(workspace.Id, project.Id),
                 accessToken,
                 new { name = invalidName });
             response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -385,20 +385,20 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task List_ReturnsOnlyRequestedTenantsProjectsInNameOrder()
+    public async Task List_ReturnsOnlyRequestedWorkspacesProjectsInNameOrder()
     {
         var ct = TestContext.Current.CancellationToken;
         var member = await app.SeedUserAsync("member", "member-password");
-        var firstTenant = await app.SeedTenantAsync((member, TenantRole.Member));
-        var secondTenant = await app.SeedTenantAsync((member, TenantRole.Member));
-        await app.SeedProjectAsync(firstTenant.Id, "Zulu");
-        await app.SeedProjectAsync(firstTenant.Id, "Alpha");
-        await app.SeedProjectAsync(secondTenant.Id, "Other tenant");
+        var firstWorkspace = await app.SeedWorkspaceAsync((member, WorkspaceRole.Member));
+        var secondWorkspace = await app.SeedWorkspaceAsync((member, WorkspaceRole.Member));
+        await app.SeedProjectAsync(firstWorkspace.Id, "Zulu");
+        await app.SeedProjectAsync(firstWorkspace.Id, "Alpha");
+        await app.SeedProjectAsync(secondWorkspace.Id, "Other workspace");
         var accessToken = await app.LoginAsync(member.Email, "member-password");
 
         var response = await app.SendAsync(
             HttpMethod.Get,
-            TestApp.ProjectsPath(firstTenant.Id),
+            TestApp.ProjectsPath(firstWorkspace.Id),
             accessToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -406,20 +406,20 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             cancellationToken: ct);
         projects.ShouldNotBeNull();
         projects.Select(project => project.Name).ShouldBe(["Alpha", "Zulu"]);
-        projects.ShouldAllBe(project => project.TenantId == firstTenant.Id);
+        projects.ShouldAllBe(project => project.WorkspaceId == firstWorkspace.Id);
     }
 
-    private async Task<Tenant> SeedTenantAsync(
-        params (User User, TenantRole Role)[] members)
+    private async Task<Workspace> SeedWorkspaceAsync(
+        params (User User, WorkspaceRole Role)[] members)
     {
         return await app.WithDatabaseAsync(
             async db =>
             {
-                var tenant = new Tenant
+                var workspace = new Workspace
                 {
-                    Name = $"Tenant {Guid.NewGuid():N}",
+                    Name = $"Workspace {Guid.NewGuid():N}",
                     Memberships = members
-                        .Select(member => new TenantMembership
+                        .Select(member => new WorkspaceMembership
                         {
                             UserId = member.User.Id,
                             Role = member.Role
@@ -427,13 +427,13 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
                         .ToList()
                 };
 
-                db.Tenants.Add(tenant);
+                db.Workspaces.Add(workspace);
                 await db.SaveChangesAsync();
-                return tenant;
+                return workspace;
             });
     }
 
-    private async Task<Project> SeedProjectAsync(Guid tenantId, string name)
+    private async Task<Project> SeedProjectAsync(Guid workspaceId, string name)
     {
         return await app.WithDatabaseAsync(
             async db =>
@@ -441,7 +441,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
                 var now = DateTime.UtcNow;
                 var project = new Project
                 {
-                    TenantId = tenantId,
+                    WorkspaceId = workspaceId,
                     Name = name,
                     CreatedAt = now,
                     UpdatedAt = now
@@ -481,9 +481,9 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
         return await app.HttpsClient.SendAsync(request);
     }
 
-    private static string ProjectsPath(Guid tenantId) =>
-        $"/api/tenants/{tenantId}/projects";
+    private static string ProjectsPath(Guid workspaceId) =>
+        $"/api/workspaces/{workspaceId}/projects";
 
-    private static string ProjectPath(Guid tenantId, Guid projectId) =>
-        $"{ProjectsPath(tenantId)}/{projectId}";
+    private static string ProjectPath(Guid workspaceId, Guid projectId) =>
+        $"{ProjectsPath(workspaceId)}/{projectId}";
 }

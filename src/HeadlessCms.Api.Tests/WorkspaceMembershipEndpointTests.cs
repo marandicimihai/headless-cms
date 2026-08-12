@@ -5,8 +5,8 @@ using System.Text.Json.Serialization;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Endpoints;
-using HeadlessCms.Api.Endpoints.Tenants;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Endpoints.Workspaces;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -14,7 +14,7 @@ using Xunit;
 namespace HeadlessCms.Api.Tests;
 
 [Collection<TestAppCollection>]
-public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
+public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
 {
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
@@ -28,25 +28,25 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Delete,
-            MemberPath(setup.TenantId, setup.Member.Id),
+            MemberPath(setup.WorkspaceId, setup.Member.Id),
             setup.OwnerToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var membershipExists = await app.WithDatabaseAsync(
-            db => db.TenantMemberships.AnyAsync(
+            db => db.WorkspaceMemberships.AnyAsync(
                 membership =>
-                    membership.TenantId == setup.TenantId &&
+                    membership.WorkspaceId == setup.WorkspaceId &&
                     membership.UserId == setup.Member.Id));
         membershipExists.ShouldBeFalse();
 
-        using var removedMemberTenants = await app.SendAsync(
+        using var removedMemberWorkspaces = await app.SendAsync(
             HttpMethod.Get,
-            "/api/me/tenants",
+            "/api/me/workspaces",
             setup.MemberToken);
-        var tenants = await removedMemberTenants.Content
-            .ReadFromJsonAsync<IReadOnlyList<ListMyTenantsItemResponse>>(JsonOptions, ct);
-        tenants.ShouldNotBeNull();
-        tenants.ShouldBeEmpty();
+        var workspaces = await removedMemberWorkspaces.Content
+            .ReadFromJsonAsync<IReadOnlyList<ListMyWorkspacesItemResponse>>(JsonOptions, ct);
+        workspaces.ShouldNotBeNull();
+        workspaces.ShouldBeEmpty();
     }
 
     [Fact]
@@ -56,11 +56,11 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Delete,
-            MemberPath(setup.TenantId, setup.Member.Id),
+            MemberPath(setup.WorkspaceId, setup.Member.Id),
             setup.EditorToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await MembershipExistsAsync(setup.TenantId, setup.Member.Id)).ShouldBeTrue();
+        (await MembershipExistsAsync(setup.WorkspaceId, setup.Member.Id)).ShouldBeTrue();
     }
 
     [Fact]
@@ -70,23 +70,23 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var removeOwner = await app.SendAsync(
             HttpMethod.Delete,
-            MemberPath(setup.TenantId, setup.Owner.Id),
+            MemberPath(setup.WorkspaceId, setup.Owner.Id),
             setup.OwnerToken);
         removeOwner.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         using var removeUnknown = await app.SendAsync(
             HttpMethod.Delete,
-            MemberPath(setup.TenantId, setup.Outsider.Id),
+            MemberPath(setup.WorkspaceId, setup.Outsider.Id),
             setup.OwnerToken);
         removeUnknown.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var memberships = await app.WithDatabaseAsync(
-            db => db.TenantMemberships
+            db => db.WorkspaceMemberships
                 .AsNoTracking()
-                .Where(membership => membership.TenantId == setup.TenantId)
+                .Where(membership => membership.WorkspaceId == setup.WorkspaceId)
                 .ToDictionaryAsync(membership => membership.UserId, membership => membership.Role));
         memberships.Count.ShouldBe(3);
-        memberships[setup.Owner.Id].ShouldBe(TenantRole.Owner);
+        memberships[setup.Owner.Id].ShouldBe(WorkspaceRole.Owner);
     }
 
     [Fact]
@@ -94,13 +94,13 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
     {
         var setup = await CreateMembershipSetupAsync();
         var ct = TestContext.Current.CancellationToken;
-        object[] unsupportedRoles = [TenantRole.Owner, (TenantRole)999];
+        object[] unsupportedRoles = [WorkspaceRole.Owner, (WorkspaceRole)999];
 
         foreach (var role in unsupportedRoles)
         {
             using var response = await app.SendAsync(
                 HttpMethod.Patch,
-                MemberPath(setup.TenantId, setup.Member.Id),
+                MemberPath(setup.WorkspaceId, setup.Member.Id),
                 setup.OwnerToken,
                 new { role });
 
@@ -110,8 +110,8 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
             problem.Code.ShouldBe("invalid_role");
         }
 
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Member.Id))
-            .ShouldBe(TenantRole.Member);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Member.Id))
+            .ShouldBe(WorkspaceRole.Member);
     }
 
     [Fact]
@@ -121,13 +121,13 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Patch,
-            MemberPath(setup.TenantId, setup.Member.Id),
+            MemberPath(setup.WorkspaceId, setup.Member.Id),
             setup.EditorToken,
-            new { role = TenantRole.Editor });
+            new { role = WorkspaceRole.Editor });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Member.Id))
-            .ShouldBe(TenantRole.Member);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Member.Id))
+            .ShouldBe(WorkspaceRole.Member);
     }
 
     [Fact]
@@ -137,9 +137,9 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Patch,
-            MemberPath(setup.TenantId, setup.Outsider.Id),
+            MemberPath(setup.WorkspaceId, setup.Outsider.Id),
             setup.OwnerToken,
-            new { role = TenantRole.Editor });
+            new { role = WorkspaceRole.Editor });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -151,13 +151,13 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Patch,
-            MemberPath(setup.TenantId, setup.Owner.Id),
+            MemberPath(setup.WorkspaceId, setup.Owner.Id),
             setup.OwnerToken,
-            new { role = TenantRole.Member });
+            new { role = WorkspaceRole.Member });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Owner.Id))
-            .ShouldBe(TenantRole.Owner);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Owner.Id))
+            .ShouldBe(WorkspaceRole.Owner);
     }
 
     [Fact]
@@ -175,16 +175,16 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
         {
             using var response = await app.SendAsync(
                 HttpMethod.Post,
-                $"/api/tenants/{setup.TenantId}/ownership-transfer",
+                $"/api/workspaces/{setup.WorkspaceId}/ownership-transfer",
                 setup.OwnerToken,
                 new { newOwnerUserId = targetId });
             response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         }
 
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Owner.Id))
-            .ShouldBe(TenantRole.Owner);
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Editor.Id))
-            .ShouldBe(TenantRole.Editor);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Owner.Id))
+            .ShouldBe(WorkspaceRole.Owner);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Editor.Id))
+            .ShouldBe(WorkspaceRole.Editor);
     }
 
     [Fact]
@@ -194,35 +194,35 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
 
         using var response = await app.SendAsync(
             HttpMethod.Post,
-            $"/api/tenants/{setup.TenantId}/ownership-transfer",
+            $"/api/workspaces/{setup.WorkspaceId}/ownership-transfer",
             setup.EditorToken,
             new { newOwnerUserId = setup.Member.Id });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Owner.Id))
-            .ShouldBe(TenantRole.Owner);
-        (await GetMembershipRoleAsync(setup.TenantId, setup.Member.Id))
-            .ShouldBe(TenantRole.Member);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Owner.Id))
+            .ShouldBe(WorkspaceRole.Owner);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Member.Id))
+            .ShouldBe(WorkspaceRole.Member);
     }
 
     [Fact]
-    public async Task LeaveTenant_ReturnsNotFoundForUnknownOrUnjoinedTenant()
+    public async Task LeaveWorkspace_ReturnsNotFoundForUnknownOrUnjoinedWorkspace()
     {
         var setup = await CreateMembershipSetupAsync();
 
-        using var unknownTenant = await app.SendAsync(
+        using var unknownWorkspace = await app.SendAsync(
             HttpMethod.Delete,
-            $"/api/me/tenants/{Guid.NewGuid()}",
+            $"/api/me/workspaces/{Guid.NewGuid()}",
             setup.MemberToken);
-        unknownTenant.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        unknownWorkspace.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        using var unjoinedTenant = await app.SendAsync(
+        using var unjoinedWorkspace = await app.SendAsync(
             HttpMethod.Delete,
-            $"/api/me/tenants/{setup.TenantId}",
+            $"/api/me/workspaces/{setup.WorkspaceId}",
             setup.OutsiderToken);
-        unjoinedTenant.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        unjoinedWorkspace.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        (await MembershipExistsAsync(setup.TenantId, setup.Member.Id)).ShouldBeTrue();
+        (await MembershipExistsAsync(setup.WorkspaceId, setup.Member.Id)).ShouldBeTrue();
     }
 
     [Fact]
@@ -230,26 +230,26 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
     {
         var setup = await CreateOrderedMembershipSetupAsync();
 
-        var first = await GetMembersAsync(setup.TenantId, setup.OwnerToken, 1, 2);
+        var first = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, 1, 2);
         first.Page.ShouldBe(1);
         first.PageSize.ShouldBe(2);
         first.Total.ShouldBe(5);
         first.Items.Select(member => member.Email).ShouldBe(
             new[] { "owner@example.test", "alpha-editor@example.test" });
         first.Items.Select(member => member.Role).ShouldBe(
-            new[] { TenantRole.Owner, TenantRole.Editor });
+            new[] { WorkspaceRole.Owner, WorkspaceRole.Editor });
 
-        var second = await GetMembersAsync(setup.TenantId, setup.OwnerToken, 2, 2);
+        var second = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, 2, 2);
         second.Items.Select(member => member.Email).ShouldBe(
             new[] { "zulu-editor@example.test", "alpha-member@example.test" });
         second.Items.Select(member => member.Role).ShouldBe(
-            new[] { TenantRole.Editor, TenantRole.Member });
+            new[] { WorkspaceRole.Editor, WorkspaceRole.Member });
 
-        var third = await GetMembersAsync(setup.TenantId, setup.OwnerToken, 3, 2);
+        var third = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, 3, 2);
         third.Items.Select(member => member.Email).ShouldBe(
             new[] { "zulu-member@example.test" });
 
-        var pastEnd = await GetMembersAsync(setup.TenantId, setup.OwnerToken, 4, 2);
+        var pastEnd = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, 4, 2);
         pastEnd.Page.ShouldBe(4);
         pastEnd.Total.ShouldBe(5);
         pastEnd.Items.ShouldBeEmpty();
@@ -260,13 +260,13 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
     {
         var setup = await CreateOrderedMembershipSetupAsync();
 
-        var minimum = await GetMembersAsync(setup.TenantId, setup.OwnerToken, 0, 0);
+        var minimum = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, 0, 0);
         minimum.Page.ShouldBe(1);
         minimum.PageSize.ShouldBe(1);
         minimum.Total.ShouldBe(5);
         minimum.Items.Single().Email.ShouldBe("owner@example.test");
 
-        var maximum = await GetMembersAsync(setup.TenantId, setup.OwnerToken, -10, 101);
+        var maximum = await GetMembersAsync(setup.WorkspaceId, setup.OwnerToken, -10, 101);
         maximum.Page.ShouldBe(1);
         maximum.PageSize.ShouldBe(100);
         maximum.Total.ShouldBe(5);
@@ -280,13 +280,13 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
         var editor = await app.SeedUserAsync("editor@example.test", password);
         var member = await app.SeedUserAsync("member@example.test", password);
         var outsider = await app.SeedUserAsync("outsider@example.test", password);
-        var tenant = await app.SeedTenantAsync(
-            (owner, TenantRole.Owner),
-            (editor, TenantRole.Editor),
-            (member, TenantRole.Member));
+        var workspace = await app.SeedWorkspaceAsync(
+            (owner, WorkspaceRole.Owner),
+            (editor, WorkspaceRole.Editor),
+            (member, WorkspaceRole.Member));
 
         return new MembershipSetup(
-            tenant.Id,
+            workspace.Id,
             owner,
             editor,
             member,
@@ -297,7 +297,7 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
             await app.LoginAsync(outsider.Email, password));
     }
 
-    private async Task<(Guid TenantId, string OwnerToken)>
+    private async Task<(Guid WorkspaceId, string OwnerToken)>
         CreateOrderedMembershipSetupAsync()
     {
         const string password = "membership-password";
@@ -306,54 +306,54 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
         var zuluEditor = await app.SeedUserAsync("zulu-editor@example.test", password);
         var alphaMember = await app.SeedUserAsync("alpha-member@example.test", password);
         var zuluMember = await app.SeedUserAsync("zulu-member@example.test", password);
-        var tenant = await app.SeedTenantAsync(
-            (zuluMember, TenantRole.Member),
-            (zuluEditor, TenantRole.Editor),
-            (owner, TenantRole.Owner),
-            (alphaMember, TenantRole.Member),
-            (alphaEditor, TenantRole.Editor));
+        var workspace = await app.SeedWorkspaceAsync(
+            (zuluMember, WorkspaceRole.Member),
+            (zuluEditor, WorkspaceRole.Editor),
+            (owner, WorkspaceRole.Owner),
+            (alphaMember, WorkspaceRole.Member),
+            (alphaEditor, WorkspaceRole.Editor));
 
-        return (tenant.Id, await app.LoginAsync(owner.Email, password));
+        return (workspace.Id, await app.LoginAsync(owner.Email, password));
     }
 
-    private async Task<ListTenantMembersResponse> GetMembersAsync(
-        Guid tenantId,
+    private async Task<ListWorkspaceMembersResponse> GetMembersAsync(
+        Guid workspaceId,
         string ownerToken,
         int page,
         int pageSize)
     {
         using var response = await app.SendAsync(
             HttpMethod.Get,
-            $"/api/tenants/{tenantId}/members?page={page}&pageSize={pageSize}",
+            $"/api/workspaces/{workspaceId}/members?page={page}&pageSize={pageSize}",
             ownerToken);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var result = await response.Content
-            .ReadFromJsonAsync<ListTenantMembersResponse>(
+            .ReadFromJsonAsync<ListWorkspaceMembersResponse>(
                 JsonOptions,
                 TestContext.Current.CancellationToken);
         result.ShouldNotBeNull();
         return result;
     }
 
-    private Task<bool> MembershipExistsAsync(Guid tenantId, string userId) =>
+    private Task<bool> MembershipExistsAsync(Guid workspaceId, string userId) =>
         app.WithDatabaseAsync(
-            db => db.TenantMemberships.AnyAsync(
+            db => db.WorkspaceMemberships.AnyAsync(
                 membership =>
-                    membership.TenantId == tenantId &&
+                    membership.WorkspaceId == workspaceId &&
                     membership.UserId == userId));
 
-    private Task<TenantRole> GetMembershipRoleAsync(Guid tenantId, string userId) =>
+    private Task<WorkspaceRole> GetMembershipRoleAsync(Guid workspaceId, string userId) =>
         app.WithDatabaseAsync(
-            db => db.TenantMemberships
+            db => db.WorkspaceMemberships
                 .Where(
                     membership =>
-                        membership.TenantId == tenantId &&
+                        membership.WorkspaceId == workspaceId &&
                         membership.UserId == userId)
                 .Select(membership => membership.Role)
                 .SingleAsync());
 
-    private static string MemberPath(Guid tenantId, string userId) =>
-        $"/api/tenants/{tenantId}/members/{userId}";
+    private static string MemberPath(Guid workspaceId, string userId) =>
+        $"/api/workspaces/{workspaceId}/members/{userId}";
 
     private static JsonSerializerOptions CreateJsonOptions()
     {
@@ -363,7 +363,7 @@ public sealed class TenantMembershipEndpointTests(TestApp app) : TestBase
     }
 
     private sealed record MembershipSetup(
-        Guid TenantId,
+        Guid WorkspaceId,
         User Owner,
         User Editor,
         User Member,

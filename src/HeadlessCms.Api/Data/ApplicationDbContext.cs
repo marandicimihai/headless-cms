@@ -1,6 +1,6 @@
 using HeadlessCms.Api.Auth.Data;
 using HeadlessCms.Api.Content.Models;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -10,9 +10,9 @@ namespace HeadlessCms.Api.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : AuthDbContext(options)
 {
-    public DbSet<Tenant> Tenants { get; set; }
-    public DbSet<TenantMembership> TenantMemberships { get; set; }
-    public DbSet<TenantInvitation> TenantInvitations { get; set; }
+    public DbSet<Workspace> Workspaces { get; set; }
+    public DbSet<WorkspaceMembership> WorkspaceMemberships { get; set; }
+    public DbSet<WorkspaceInvitation> WorkspaceInvitations { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<ContentType> ContentTypes { get; set; }
     public DbSet<ContentTypeVersion> ContentTypeVersions { get; set; }
@@ -23,39 +23,39 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<TenantMembership>()
-            .HasKey(membership => new { membership.TenantId, membership.UserId });
+        modelBuilder.Entity<WorkspaceMembership>()
+            .HasKey(membership => new { membership.WorkspaceId, membership.UserId });
 
-        modelBuilder.Entity<TenantMembership>()
+        modelBuilder.Entity<WorkspaceMembership>()
             .Property(membership => membership.Role)
             .HasConversion<string>()
             .HasMaxLength(16);
 
-        modelBuilder.Entity<TenantMembership>()
-            .HasIndex(membership => new { membership.TenantId, membership.Role })
+        modelBuilder.Entity<WorkspaceMembership>()
+            .HasIndex(membership => new { membership.WorkspaceId, membership.Role })
             .IsUnique()
             .HasFilter("\"Role\" = 'Owner'");
 
-        modelBuilder.Entity<TenantInvitation>()
+        modelBuilder.Entity<WorkspaceInvitation>()
             .Property(invitation => invitation.Role)
             .HasConversion<string>()
             .HasMaxLength(16);
 
-        modelBuilder.Entity<TenantInvitation>()
+        modelBuilder.Entity<WorkspaceInvitation>()
             .HasIndex(invitation => invitation.TokenHash)
             .IsUnique();
 
-        modelBuilder.Entity<TenantInvitation>()
+        modelBuilder.Entity<WorkspaceInvitation>()
             .Property(invitation => invitation.AcceptedAt)
             .IsConcurrencyToken();
 
-        modelBuilder.Entity<TenantInvitation>()
+        modelBuilder.Entity<WorkspaceInvitation>()
             .HasOne(invitation => invitation.InvitedByUser)
             .WithMany()
             .HasForeignKey(invitation => invitation.InvitedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<TenantInvitation>()
+        modelBuilder.Entity<WorkspaceInvitation>()
             .HasOne(invitation => invitation.AcceptedByUser)
             .WithMany()
             .HasForeignKey(invitation => invitation.AcceptedByUserId)
@@ -71,12 +71,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         bool configurePortableJsonConverters)
     {
         modelBuilder.Entity<Project>()
-            .HasAlternateKey(project => new { project.TenantId, project.Id });
+            .HasAlternateKey(project => new { project.WorkspaceId, project.Id });
 
         modelBuilder.Entity<ContentType>()
             .HasAlternateKey(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId,
                 contentType.Id
             });
@@ -84,16 +84,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ContentType>()
             .HasIndex(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId,
                 contentType.Key
             })
             .IsUnique();
 
         modelBuilder.Entity<ContentType>()
-            .HasOne(contentType => contentType.Tenant)
-            .WithMany(tenant => tenant.ContentTypes)
-            .HasForeignKey(contentType => contentType.TenantId)
+            .HasOne(contentType => contentType.Workspace)
+            .WithMany(workspace => workspace.ContentTypes)
+            .HasForeignKey(contentType => contentType.WorkspaceId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ContentType>()
@@ -101,16 +101,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(project => project.ContentTypes)
             .HasForeignKey(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId
             })
-            .HasPrincipalKey(project => new { project.TenantId, project.Id })
+            .HasPrincipalKey(project => new { project.WorkspaceId, project.Id })
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ContentTypeVersion>()
             .HasAlternateKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.ContentTypeId,
                 version.Id
@@ -119,7 +119,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ContentTypeVersion>()
             .HasAlternateKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.Id
             });
@@ -127,7 +127,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ContentTypeVersion>()
             .HasIndex(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.ContentTypeId,
                 version.Version
@@ -139,13 +139,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(contentType => contentType.Versions)
             .HasForeignKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.ContentTypeId
             })
             .HasPrincipalKey(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId,
                 contentType.Id
             })
@@ -156,14 +156,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId,
                 contentType.Id,
                 contentType.CurrentVersionId
             })
             .HasPrincipalKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.ContentTypeId,
                 version.Id
@@ -178,7 +178,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ContentField>()
             .HasIndex(field => new
             {
-                field.TenantId,
+                field.WorkspaceId,
                 field.ProjectId,
                 field.ContentTypeVersionId,
                 field.Key
@@ -190,13 +190,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(version => version.Fields)
             .HasForeignKey(field => new
             {
-                field.TenantId,
+                field.WorkspaceId,
                 field.ProjectId,
                 field.ContentTypeVersionId
             })
             .HasPrincipalKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.Id
             })
@@ -210,7 +210,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ContentEntry>()
             .HasIndex(entry => new
             {
-                entry.TenantId,
+                entry.WorkspaceId,
                 entry.ProjectId,
                 entry.ContentTypeId,
                 entry.Status,
@@ -222,13 +222,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(contentType => contentType.Entries)
             .HasForeignKey(entry => new
             {
-                entry.TenantId,
+                entry.WorkspaceId,
                 entry.ProjectId,
                 entry.ContentTypeId
             })
             .HasPrincipalKey(contentType => new
             {
-                contentType.TenantId,
+                contentType.WorkspaceId,
                 contentType.ProjectId,
                 contentType.Id
             })
@@ -239,14 +239,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(version => version.Entries)
             .HasForeignKey(entry => new
             {
-                entry.TenantId,
+                entry.WorkspaceId,
                 entry.ProjectId,
                 entry.ContentTypeId,
                 entry.ContentTypeVersionId
             })
             .HasPrincipalKey(version => new
             {
-                version.TenantId,
+                version.WorkspaceId,
                 version.ProjectId,
                 version.ContentTypeId,
                 version.Id
@@ -254,9 +254,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ContentEntry>()
-            .HasOne<Tenant>()
-            .WithMany(tenant => tenant.ContentEntries)
-            .HasForeignKey(entry => entry.TenantId)
+            .HasOne<Workspace>()
+            .WithMany(workspace => workspace.ContentEntries)
+            .HasForeignKey(entry => entry.WorkspaceId)
             .OnDelete(DeleteBehavior.NoAction);
 
         if (configurePortableJsonConverters)

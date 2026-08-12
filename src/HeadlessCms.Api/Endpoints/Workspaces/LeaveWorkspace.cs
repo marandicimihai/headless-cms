@@ -1,26 +1,26 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class LeaveTenant(ApplicationDbContext db)
-    : Endpoint<LeaveTenantRequest>
+public sealed class LeaveWorkspace(ApplicationDbContext db)
+    : Endpoint<LeaveWorkspaceRequest>
 {
     public override void Configure()
     {
-        Delete("me/tenants/{tenantId:guid}");
+        Delete("me/workspaces/{workspaceId:guid}");
         Claims("sub");
     }
 
-    public override async Task HandleAsync(LeaveTenantRequest request, CancellationToken ct)
+    public override async Task HandleAsync(LeaveWorkspaceRequest request, CancellationToken ct)
     {
         var userId = User.ClaimValue("sub")!;
-        var membership = await db.TenantMemberships.SingleOrDefaultAsync(
+        var membership = await db.WorkspaceMemberships.SingleOrDefaultAsync(
             candidate =>
-                candidate.TenantId == request.TenantId &&
+                candidate.WorkspaceId == request.WorkspaceId &&
                 candidate.UserId == userId,
             ct);
 
@@ -30,24 +30,24 @@ public sealed class LeaveTenant(ApplicationDbContext db)
             return;
         }
 
-        if (membership.Role == TenantRole.Owner)
+        if (membership.Role == WorkspaceRole.Owner)
         {
             await ApiErrors.SendAsync(
                 HttpContext,
                 StatusCodes.Status409Conflict,
                 "owner_must_transfer",
-                "Transfer ownership before leaving the tenant.",
+                "Transfer ownership before leaving the workspace.",
                 ct);
             return;
         }
 
-        db.TenantMemberships.Remove(membership);
+        db.WorkspaceMemberships.Remove(membership);
         await db.SaveChangesAsync(ct);
         await Send.NoContentAsync(ct);
     }
 }
 
-public sealed class LeaveTenantRequest
+public sealed class LeaveWorkspaceRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
 }

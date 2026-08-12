@@ -106,7 +106,7 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -114,9 +114,9 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "ProjectId", "ContentTypeId", "ContentTypeVersionId");
+                    b.HasIndex("WorkspaceId", "ProjectId", "ContentTypeId", "ContentTypeVersionId");
 
-                    b.HasIndex("TenantId", "ProjectId", "ContentTypeId", "Status", "CreatedAt");
+                    b.HasIndex("WorkspaceId", "ProjectId", "ContentTypeId", "Status", "CreatedAt");
 
                     b.ToTable("ContentEntries");
                 });
@@ -155,7 +155,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<JsonElement>("Settings")
                         .HasColumnType("jsonb");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Type")
@@ -165,7 +165,7 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "ProjectId", "ContentTypeVersionId", "Key")
+                    b.HasIndex("WorkspaceId", "ProjectId", "ContentTypeVersionId", "Key")
                         .IsUnique();
 
                     b.ToTable("ContentFields");
@@ -196,7 +196,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -204,10 +204,10 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "ProjectId", "Key")
+                    b.HasIndex("WorkspaceId", "ProjectId", "Key")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "ProjectId", "Id", "CurrentVersionId");
+                    b.HasIndex("WorkspaceId", "ProjectId", "Id", "CurrentVersionId");
 
                     b.ToTable("ContentTypes");
                 });
@@ -227,7 +227,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Version")
@@ -235,7 +235,7 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "ProjectId", "ContentTypeId", "Version")
+                    b.HasIndex("WorkspaceId", "ProjectId", "ContentTypeId", "Version")
                         .IsUnique();
 
                     b.ToTable("ContentTypeVersions");
@@ -255,7 +255,7 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -263,12 +263,12 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("Projects");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.Tenant", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -284,10 +284,10 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tenants");
+                    b.ToTable("Workspaces");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.TenantInvitation", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.WorkspaceInvitation", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -326,7 +326,7 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("TokenHash")
@@ -340,17 +340,17 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasIndex("InvitedByUserId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("WorkspaceId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("TenantInvitations");
+                    b.ToTable("WorkspaceInvitations");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.TenantMembership", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.WorkspaceMembership", b =>
                 {
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("UserId")
@@ -364,36 +364,36 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.HasKey("TenantId", "UserId");
+                    b.HasKey("WorkspaceId", "UserId");
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("TenantId", "Role")
+                    b.HasIndex("WorkspaceId", "Role")
                         .IsUnique()
                         .HasFilter("\"Role\" = 'Owner'");
 
-                    b.ToTable("TenantMemberships");
+                    b.ToTable("WorkspaceMemberships");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Content.Models.ContentEntry", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", null)
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", null)
                         .WithMany("ContentEntries")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("HeadlessCms.Api.Content.Models.ContentType", "ContentType")
                         .WithMany("Entries")
-                        .HasForeignKey("TenantId", "ProjectId", "ContentTypeId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId", "ContentTypeId")
+                        .HasPrincipalKey("WorkspaceId", "ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("HeadlessCms.Api.Content.Models.ContentTypeVersion", "ContentTypeVersion")
                         .WithMany("Entries")
-                        .HasForeignKey("TenantId", "ProjectId", "ContentTypeId", "ContentTypeVersionId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "ContentTypeId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId", "ContentTypeId", "ContentTypeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "ProjectId", "ContentTypeId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -406,8 +406,8 @@ namespace HeadlessCms.Api.Migrations
                 {
                     b.HasOne("HeadlessCms.Api.Content.Models.ContentTypeVersion", "ContentTypeVersion")
                         .WithMany("Fields")
-                        .HasForeignKey("TenantId", "ProjectId", "ContentTypeVersionId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId", "ContentTypeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -416,38 +416,38 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Content.Models.ContentType", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
                         .WithMany("ContentTypes")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("HeadlessCms.Api.Content.Models.Project", "Project")
                         .WithMany("ContentTypes")
-                        .HasForeignKey("TenantId", "ProjectId")
-                        .HasPrincipalKey("TenantId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("HeadlessCms.Api.Content.Models.ContentTypeVersion", "CurrentVersion")
                         .WithMany()
-                        .HasForeignKey("TenantId", "ProjectId", "Id", "CurrentVersionId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "ContentTypeId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId", "Id", "CurrentVersionId")
+                        .HasPrincipalKey("WorkspaceId", "ProjectId", "ContentTypeId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CurrentVersion");
 
                     b.Navigation("Project");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Workspace");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Content.Models.ContentTypeVersion", b =>
                 {
                     b.HasOne("HeadlessCms.Api.Content.Models.ContentType", "ContentType")
                         .WithMany("Versions")
-                        .HasForeignKey("TenantId", "ProjectId", "ContentTypeId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "Id")
+                        .HasForeignKey("WorkspaceId", "ProjectId", "ContentTypeId")
+                        .HasPrincipalKey("WorkspaceId", "ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -456,16 +456,16 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Content.Models.Project", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
                         .WithMany("Projects")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Workspace");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.TenantInvitation", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.WorkspaceInvitation", b =>
                 {
                     b.HasOne("HeadlessCms.Api.Auth.Models.User", "AcceptedByUser")
                         .WithMany()
@@ -478,9 +478,9 @@ namespace HeadlessCms.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
                         .WithMany("Invitations")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -488,31 +488,31 @@ namespace HeadlessCms.Api.Migrations
 
                     b.Navigation("InvitedByUser");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Workspace");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.TenantMembership", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.WorkspaceMembership", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Tenancy.Models.Tenant", "Tenant")
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
                         .WithMany("Memberships")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("HeadlessCms.Api.Auth.Models.User", "User")
-                        .WithMany("TenantMemberships")
+                        .WithMany("WorkspaceMemberships")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Workspace");
 
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Auth.Models.User", b =>
                 {
-                    b.Navigation("TenantMemberships");
+                    b.Navigation("WorkspaceMemberships");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Content.Models.ContentType", b =>
@@ -534,7 +534,7 @@ namespace HeadlessCms.Api.Migrations
                     b.Navigation("ContentTypes");
                 });
 
-            modelBuilder.Entity("HeadlessCms.Api.Tenancy.Models.Tenant", b =>
+            modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.Workspace", b =>
                 {
                     b.Navigation("ContentEntries");
 

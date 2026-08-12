@@ -1,12 +1,12 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using FluentValidation;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Auth;
 
-public sealed class AcceptInvitation(TenantInvitationService invitations)
+public sealed class AcceptInvitation(WorkspaceInvitationService invitations)
     : Endpoint<AcceptInvitation.Request, AcceptInvitation.ResponseDto>
 {
     public override void Configure()
@@ -23,10 +23,10 @@ public sealed class AcceptInvitation(TenantInvitationService invitations)
                 User.ClaimValue("sub")!,
                 request.Token,
                 ct);
-            var tenantName = membership.Tenant?.Name;
+            var workspaceName = membership.Workspace?.Name;
             Response = new ResponseDto(
-                membership.TenantId,
-                tenantName ?? string.Empty,
+                membership.WorkspaceId,
+                workspaceName ?? string.Empty,
                 membership.Role,
                 membership.JoinedAt);
         }
@@ -42,9 +42,9 @@ public sealed class AcceptInvitation(TenantInvitationService invitations)
     }
 
     public sealed record ResponseDto(
-        Guid TenantId,
-        string TenantName,
-        TenantRole Role,
+        Guid WorkspaceId,
+        string WorkspaceName,
+        WorkspaceRole Role,
         DateTime JoinedAt);
 
     public sealed class RequestValidator : Validator<Request>

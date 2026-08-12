@@ -1,20 +1,20 @@
 using FastEndpoints;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class GetProjectRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid Id { get; init; }
 }
 
 public sealed class GetProjectResponse
 {
     public Guid Id { get; init; }
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -22,18 +22,18 @@ public sealed class GetProjectResponse
 
 public sealed class GetProject(
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<GetProjectRequest, GetProjectResponse>
 {
     public override void Configure()
     {
-        Get("tenants/{tenantId:guid}/projects/{id:guid}");
+        Get("workspaces/{workspaceId:guid}/projects/{id:guid}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(GetProjectRequest request, CancellationToken ct)
     {
-        var membership = await tenantAccess.FindMembershipAsync(User, request.TenantId, ct);
+        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
 
         if (membership is null)
         {
@@ -46,7 +46,7 @@ public sealed class GetProject(
             .SingleOrDefaultAsync(
                 candidate =>
                     candidate.Id == request.Id &&
-                    candidate.TenantId == request.TenantId,
+                    candidate.WorkspaceId == request.WorkspaceId,
                 ct);
 
         if (project is null)
@@ -58,7 +58,7 @@ public sealed class GetProject(
         Response = new GetProjectResponse
         {
             Id = project.Id,
-            TenantId = project.TenantId,
+            WorkspaceId = project.WorkspaceId,
             Name = project.Name,
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt

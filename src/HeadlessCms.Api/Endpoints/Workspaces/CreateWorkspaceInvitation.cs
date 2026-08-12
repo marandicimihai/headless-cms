@@ -2,36 +2,36 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using FluentValidation;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class CreateTenantInvitation(
-    TenantInvitationService invitations,
+public sealed class CreateWorkspaceInvitation(
+    WorkspaceInvitationService invitations,
     ApplicationDbContext db)
-    : Endpoint<CreateTenantInvitationRequest, CreateTenantInvitationResponse>
+    : Endpoint<CreateWorkspaceInvitationRequest, CreateWorkspaceInvitationResponse>
 {
     public override void Configure()
     {
-        Post("tenants/{tenantId:guid}/invitations");
+        Post("workspaces/{workspaceId:guid}/invitations");
         Claims("sub");
     }
 
     public override async Task HandleAsync(
-        CreateTenantInvitationRequest request,
+        CreateWorkspaceInvitationRequest request,
         CancellationToken ct)
     {
         try
         {
             var created = await invitations.CreateInvitationAsync(
                 User.ClaimValue("sub")!,
-                request.TenantId,
+                request.WorkspaceId,
                 request.Email,
                 request.Role,
                 ct);
-            var invitation = await db.TenantInvitations
+            var invitation = await db.WorkspaceInvitations
                 .AsNoTracking()
                 .SingleAsync(candidate => candidate.Id == created.InvitationId, ct);
             await Send.ResponseAsync(
@@ -45,14 +45,14 @@ public sealed class CreateTenantInvitation(
         }
     }
 
-    private static CreateTenantInvitationResponse ToResponse(
-        TenantInvitation invitation) =>
+    private static CreateWorkspaceInvitationResponse ToResponse(
+        WorkspaceInvitation invitation) =>
         new(
             invitation.Id,
-            invitation.TenantId,
+            invitation.WorkspaceId,
             invitation.Email,
             invitation.Role,
-            TenantInvitationService.GetStatus(invitation),
+            WorkspaceInvitationService.GetStatus(invitation),
             invitation.CreatedAt,
             invitation.ExpiresAt,
             invitation.LastSentAt,
@@ -60,30 +60,30 @@ public sealed class CreateTenantInvitation(
             invitation.RevokedAt);
 }
 
-public sealed class CreateTenantInvitationRequest
+public sealed class CreateWorkspaceInvitationRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public required string Email { get; init; }
-    public TenantRole Role { get; init; }
+    public WorkspaceRole Role { get; init; }
 }
 
-public sealed class CreateTenantInvitationRequestValidator
-    : Validator<CreateTenantInvitationRequest>
+public sealed class CreateWorkspaceInvitationRequestValidator
+    : Validator<CreateWorkspaceInvitationRequest>
 {
-    public CreateTenantInvitationRequestValidator()
+    public CreateWorkspaceInvitationRequestValidator()
     {
         RuleFor(request => request.Email).NotEmpty().EmailAddress().MaximumLength(320);
         RuleFor(request => request.Role)
-            .Must(role => role is TenantRole.Editor or TenantRole.Member)
+            .Must(role => role is WorkspaceRole.Editor or WorkspaceRole.Member)
             .WithMessage("Role must be Editor or Member.");
     }
 }
 
-public sealed record CreateTenantInvitationResponse(
+public sealed record CreateWorkspaceInvitationResponse(
     Guid Id,
-    Guid TenantId,
+    Guid WorkspaceId,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     InvitationStatus Status,
     DateTime CreatedAt,
     DateTime ExpiresAt,

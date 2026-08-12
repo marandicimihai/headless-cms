@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 
 namespace HeadlessCms.Api.Auth.Models;
 
@@ -20,5 +20,5 @@ public class User
     [Required]
     public PlatformRole PlatformRole { get; set; } = PlatformRole.User;
 
-    public List<TenantMembership> TenantMemberships { get; set; } = [];
+    public List<WorkspaceMembership> WorkspaceMemberships { get; set; } = [];
 }

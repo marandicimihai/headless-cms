@@ -2,28 +2,28 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class ResendTenantInvitation(
+public sealed class ResendWorkspaceInvitation(
     ApplicationDbContext db,
-    TenantInvitationService invitations)
-    : EndpointWithoutRequest<ResendTenantInvitationResponse>
+    WorkspaceInvitationService invitations)
+    : EndpointWithoutRequest<ResendWorkspaceInvitationResponse>
 {
     public override void Configure()
     {
-        Post("tenants/{tenantId:guid}/invitations/{invitationId:guid}/resend");
+        Post("workspaces/{workspaceId:guid}/invitations/{invitationId:guid}/resend");
         Claims("sub");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var tenantId = Route<Guid>("tenantId");
+        var workspaceId = Route<Guid>("workspaceId");
         var invitationId = Route<Guid>("invitationId");
-        var invitation = await FindManageableAsync(tenantId, invitationId, ct);
+        var invitation = await FindManageableAsync(workspaceId, invitationId, ct);
         if (invitation is null)
         {
             await Send.NotFoundAsync(ct);
@@ -41,51 +41,51 @@ public sealed class ResendTenantInvitation(
         }
     }
 
-    private async Task<TenantInvitation?> FindManageableAsync(
-        Guid tenantId,
+    private async Task<WorkspaceInvitation?> FindManageableAsync(
+        Guid workspaceId,
         Guid invitationId,
         CancellationToken ct)
     {
-        var invitation = await db.TenantInvitations.SingleOrDefaultAsync(
+        var invitation = await db.WorkspaceInvitations.SingleOrDefaultAsync(
             candidate =>
                 candidate.Id == invitationId &&
-                candidate.TenantId == tenantId,
+                candidate.WorkspaceId == workspaceId,
             ct);
         if (invitation is null)
             return null;
 
         var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.TenantMemberships.AnyAsync(
+        var isOwner = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == tenantId &&
+                membership.WorkspaceId == workspaceId &&
                 membership.UserId == userId &&
-                membership.Role == TenantRole.Owner,
+                membership.Role == WorkspaceRole.Owner,
             ct);
         if (isOwner)
             return invitation;
 
         if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)) ||
-            invitation.Role != TenantRole.Owner)
+            invitation.Role != WorkspaceRole.Owner)
         {
             return null;
         }
 
-        var tenantHasOwner = await db.TenantMemberships.AnyAsync(
+        var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == tenantId &&
-                membership.Role == TenantRole.Owner,
+                membership.WorkspaceId == workspaceId &&
+                membership.Role == WorkspaceRole.Owner,
             ct);
-        return tenantHasOwner ? null : invitation;
+        return workspaceHasOwner ? null : invitation;
     }
 
-    private static ResendTenantInvitationResponse ToResponse(
-        TenantInvitation invitation) =>
+    private static ResendWorkspaceInvitationResponse ToResponse(
+        WorkspaceInvitation invitation) =>
         new(
             invitation.Id,
-            invitation.TenantId,
+            invitation.WorkspaceId,
             invitation.Email,
             invitation.Role,
-            TenantInvitationService.GetStatus(invitation),
+            WorkspaceInvitationService.GetStatus(invitation),
             invitation.CreatedAt,
             invitation.ExpiresAt,
             invitation.LastSentAt,
@@ -93,11 +93,11 @@ public sealed class ResendTenantInvitation(
             invitation.RevokedAt);
 }
 
-public sealed record ResendTenantInvitationResponse(
+public sealed record ResendWorkspaceInvitationResponse(
     Guid Id,
-    Guid TenantId,
+    Guid WorkspaceId,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     InvitationStatus Status,
     DateTime CreatedAt,
     DateTime ExpiresAt,

@@ -2,30 +2,30 @@ using System.Text.Json;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class CreateContentType(
     ContentDefinitionService definitions,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<CreateContentTypeRequest, CreateContentTypeResponse>
 {
     private const string KeyPattern = "^[a-z][a-z0-9_]*$";
 
-    private static readonly IReadOnlySet<TenantRole> Writers =
-        new HashSet<TenantRole>([TenantRole.Owner, TenantRole.Editor]);
+    private static readonly IReadOnlySet<WorkspaceRole> Writers =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor]);
 
     public override void Configure()
     {
-        Post("tenants/{tenantId:guid}/projects/{projectId:guid}/content-types");
+        Post("workspaces/{workspaceId:guid}/projects/{projectId:guid}/content-types");
         Claims("sub");
     }
 
     public override async Task HandleAsync(CreateContentTypeRequest request, CancellationToken ct)
     {
-        if (await tenantAccess.ResolveAsync(User, request.TenantId, Writers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Writers, ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -34,7 +34,7 @@ public sealed class CreateContentType(
         try
         {
             var definition = await definitions.CreateAsync(
-                request.TenantId,
+                request.WorkspaceId,
                 request.ProjectId,
                 request.Key,
                 request.Name.Trim(),
@@ -44,7 +44,7 @@ public sealed class CreateContentType(
             await Send.CreatedAtAsync<GetContentType>(
                 new
                 {
-                    request.TenantId,
+                    request.WorkspaceId,
                     request.ProjectId,
                     ContentTypeKey = request.Key
                 },
@@ -111,7 +111,7 @@ public sealed class CreateContentType(
 
 public sealed class CreateContentTypeRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
     public required string Name { get; init; }

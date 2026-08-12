@@ -4,8 +4,8 @@ using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
-using HeadlessCms.Api.Tenancy.Services;
+using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Content;
@@ -13,11 +13,11 @@ namespace HeadlessCms.Api.Endpoints.Content;
 public sealed class ListContentEntries(
     ContentEntryService entries,
     ApplicationDbContext db,
-    TenantAccessService tenantAccess)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListContentEntriesRequest, ListContentEntriesResponse>
 {
-    private static readonly IReadOnlySet<TenantRole> Readers =
-        new HashSet<TenantRole>([TenantRole.Owner, TenantRole.Editor, TenantRole.Member]);
+    private static readonly IReadOnlySet<WorkspaceRole> Readers =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
 
     private static readonly Regex FilterPattern = new(
         @"^filter\[(?<field>[a-z][a-z0-9_]*)\]\[(?<operator>[a-z]+)\]$",
@@ -26,14 +26,14 @@ public sealed class ListContentEntries(
     public override void Configure()
     {
         Get(
-            "tenants/{tenantId:guid}/projects/{projectId:guid}/" +
+            "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
             "content-types/{contentTypeKey}/entries");
         Claims("sub");
     }
 
     public override async Task HandleAsync(ListContentEntriesRequest request, CancellationToken ct)
     {
-        if (await tenantAccess.ResolveAsync(User, request.TenantId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -42,7 +42,7 @@ public sealed class ListContentEntries(
         try
         {
             var page = await entries.QueryAsync(
-                request.TenantId,
+                request.WorkspaceId,
                 request.ProjectId,
                 request.ContentTypeKey,
                 new ContentEntryQuery(
@@ -65,7 +65,7 @@ public sealed class ListContentEntries(
                 .ToList();
             var versions = await db.ContentTypeVersions
                 .Where(version =>
-                    version.TenantId == request.TenantId &&
+                    version.WorkspaceId == request.WorkspaceId &&
                     version.ProjectId == request.ProjectId &&
                     versionIds.Contains(version.Id))
                 .ToDictionaryAsync(version => version.Id, version => version.Version, ct);
@@ -142,7 +142,7 @@ public sealed class ListContentEntries(
 
 public sealed class ListContentEntriesRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
     public string? Sort { get; init; }

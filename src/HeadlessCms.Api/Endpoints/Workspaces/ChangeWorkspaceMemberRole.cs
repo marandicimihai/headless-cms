@@ -1,25 +1,25 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HeadlessCms.Api.Endpoints.Tenants;
+namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class ChangeTenantMemberRole(ApplicationDbContext db)
-    : Endpoint<ChangeTenantMemberRoleRequest, ChangeTenantMemberRoleResponse>
+public sealed class ChangeWorkspaceMemberRole(ApplicationDbContext db)
+    : Endpoint<ChangeWorkspaceMemberRoleRequest, ChangeWorkspaceMemberRoleResponse>
 {
     public override void Configure()
     {
-        Patch("tenants/{tenantId:guid}/members/{userId}");
+        Patch("workspaces/{workspaceId:guid}/members/{userId}");
         Claims("sub");
     }
 
     public override async Task HandleAsync(
-        ChangeTenantMemberRoleRequest request,
+        ChangeWorkspaceMemberRoleRequest request,
         CancellationToken ct)
     {
-        if (request.Role is not (TenantRole.Editor or TenantRole.Member))
+        if (request.Role is not (WorkspaceRole.Editor or WorkspaceRole.Member))
         {
             await ApiErrors.SendAsync(
                 HttpContext,
@@ -31,19 +31,19 @@ public sealed class ChangeTenantMemberRole(ApplicationDbContext db)
         }
 
         var ownerId = User.ClaimValue("sub")!;
-        if (!await IsOwnerAsync(ownerId, request.TenantId, ct))
+        if (!await IsOwnerAsync(ownerId, request.WorkspaceId, ct))
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        var membership = await db.TenantMemberships
+        var membership = await db.WorkspaceMemberships
             .Include(item => item.User)
             .SingleOrDefaultAsync(
                 item =>
-                    item.TenantId == request.TenantId &&
+                    item.WorkspaceId == request.WorkspaceId &&
                     item.UserId == request.UserId &&
-                    item.Role != TenantRole.Owner,
+                    item.Role != WorkspaceRole.Owner,
                 ct);
         if (membership is null)
         {
@@ -53,31 +53,31 @@ public sealed class ChangeTenantMemberRole(ApplicationDbContext db)
 
         membership.Role = request.Role;
         await db.SaveChangesAsync(ct);
-        Response = new ChangeTenantMemberRoleResponse(
+        Response = new ChangeWorkspaceMemberRoleResponse(
             membership.UserId,
             membership.User.Email,
             membership.Role,
             membership.JoinedAt);
     }
 
-    private Task<bool> IsOwnerAsync(string userId, Guid tenantId, CancellationToken ct) =>
-        db.TenantMemberships.AnyAsync(
+    private Task<bool> IsOwnerAsync(string userId, Guid workspaceId, CancellationToken ct) =>
+        db.WorkspaceMemberships.AnyAsync(
             membership =>
-                membership.TenantId == tenantId &&
+                membership.WorkspaceId == workspaceId &&
                 membership.UserId == userId &&
-                membership.Role == TenantRole.Owner,
+                membership.Role == WorkspaceRole.Owner,
             ct);
 }
 
-public sealed class ChangeTenantMemberRoleRequest
+public sealed class ChangeWorkspaceMemberRoleRequest
 {
-    public Guid TenantId { get; init; }
+    public Guid WorkspaceId { get; init; }
     public string UserId { get; init; } = default!;
-    public TenantRole Role { get; init; }
+    public WorkspaceRole Role { get; init; }
 }
 
-public sealed record ChangeTenantMemberRoleResponse(
+public sealed record ChangeWorkspaceMemberRoleResponse(
     string UserId,
     string Email,
-    TenantRole Role,
+    WorkspaceRole Role,
     DateTime JoinedAt);

@@ -1,13 +1,13 @@
-using HeadlessCms.Api.Tenancy.Models;
+using HeadlessCms.Api.Workspaces.Models;
 
-namespace HeadlessCms.Api.Tenancy.Services;
+namespace HeadlessCms.Api.Workspaces.Services;
 
 public interface IInvitationEmailSender
 {
     Task SendAsync(
         string email,
-        string tenantName,
-        TenantRole role,
+        string workspaceName,
+        WorkspaceRole role,
         string token,
         CancellationToken ct = default);
 }
@@ -18,19 +18,19 @@ public sealed class LoggingInvitationEmailSender(
 {
     public Task SendAsync(
         string email,
-        string tenantName,
-        TenantRole role,
+        string workspaceName,
+        WorkspaceRole role,
         string token,
         CancellationToken ct = default)
     {
-        var baseUrl = configuration["Tenancy:InvitationUrl"]
+        var baseUrl = configuration["Workspaces:InvitationUrl"]
                       ?? "https://localhost/invitations/accept";
         var url = $"{baseUrl}?token={Uri.EscapeDataString(token)}";
 
         logger.LogInformation(
-            "Development invitation for {Email} to {TenantName} as {Role}: {InvitationUrl}",
+            "Development invitation for {Email} to {WorkspaceName} as {Role}: {InvitationUrl}",
             email,
-            tenantName,
+            workspaceName,
             role,
             url);
 
@@ -42,8 +42,8 @@ public sealed class UnconfiguredInvitationEmailSender : IInvitationEmailSender
 {
     public Task SendAsync(
         string email,
-        string tenantName,
-        TenantRole role,
+        string workspaceName,
+        WorkspaceRole role,
         string token,
         CancellationToken ct = default) =>
         throw new InvalidOperationException(
