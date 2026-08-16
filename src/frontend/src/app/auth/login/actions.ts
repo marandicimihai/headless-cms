@@ -1,35 +1,30 @@
 "use server";
 
 import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/problem-details";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 export type LoginState = {
-  error: string | null
+  error: ApiError | null
 }
 
 export async function loginAction(
   _previousState: LoginState, 
   formData: FormData
 ): Promise<LoginState> {
-  let tokens;
-
-  try {
-    tokens = await login(
+  const loginResponse = await login(
       String(formData.get("email")),
       String(formData.get("password")),
     );
-  } catch {
+
+  if (!loginResponse.ok) {
     return {
-      error: "The login service is temporarily unavailable.",
+      error: loginResponse.error,
     };
   }
 
-  if (!tokens) {
-    return {
-      error: "Invalid credentials",
-    };
-  }
+  const tokens = loginResponse.data
 
   const cookieStore = await cookies();
 

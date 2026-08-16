@@ -1,10 +1,12 @@
-import { TokenResponse } from "../types/auth";
 import "server-only";
+import { TokenResponse } from "../types/auth";
+import { ApiResult } from "../types/general";
+import { parseApiError } from "./problem-details";
 
 export async function login(
   email: string,
   password: string
-): Promise<TokenResponse | null> {
+): Promise<ApiResult<TokenResponse>> {
   const response = await fetch(`${process.env.BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -12,13 +14,15 @@ export async function login(
     cache: "no-store"
   })
 
-  if (response.status === 401) {
-    return null;
-  }
-
   if (!response.ok) {
-    throw new Error("Login failed");
+    return {
+      ok: false,
+      error: await parseApiError(response)
+    };
   }
 
-  return response.json() as Promise<TokenResponse>;
+  return {
+    ok: true,
+    data: await response.json() as TokenResponse,
+  };
 }
