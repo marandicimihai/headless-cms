@@ -405,7 +405,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             new { email = user.Email, password = "password" },
             TestContext.Current.CancellationToken);
         login.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var invalidResponse = await login.Content.ReadFromJsonAsync<TokenResponse>(
+        var invalidResponse = await login.Content.ReadFromJsonAsync<SessionTokens>(
             cancellationToken: TestContext.Current.CancellationToken);
         invalidResponse.ShouldNotBeNull();
         var originalTokenHash = TokenHasher.Hash(invalidResponse.RefreshToken);

@@ -2,7 +2,7 @@
 
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/problem-details";
-import { cookies } from "next/headers";
+import { createSession } from "@/lib/api/session";
 import { redirect } from "next/navigation";
 
 export type LoginState = {
@@ -24,25 +24,6 @@ export async function loginAction(
     };
   }
 
-  const tokens = loginResponse.data
-
-  const cookieStore = await cookies();
-
-  cookieStore.set("access_token", tokens.accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: new Date(tokens.accessExpiry),
-  });
-
-  cookieStore.set("refresh_token", tokens.refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: new Date(tokens.refreshExpiry),
-  })
-
+  await createSession(loginResponse.data)
   redirect("/")
 }

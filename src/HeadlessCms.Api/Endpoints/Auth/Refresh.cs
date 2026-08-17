@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Auth;
 
-public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
+public class Refresh : RefreshTokenService<TokenRequest, SessionTokens>
 {
     private readonly ApplicationDbContext db;
     private readonly ILogger<Refresh> logger;
@@ -36,7 +36,7 @@ public class Refresh : RefreshTokenService<TokenRequest, TokenResponse>
         });
     }
 
-    public override async Task PersistTokenAsync(TokenResponse response)
+    public override async Task PersistTokenAsync(SessionTokens response)
     {
         var refreshToken = new RefreshToken
         {

@@ -26,7 +26,7 @@ public class LoginRequest
     }
 }
 
-public class Login(UserManager userManager) : Endpoint<LoginRequest, TokenResponse>
+public class Login(UserManager userManager) : Endpoint<LoginRequest, SessionTokens>
 {
     public override void Configure()
     {
