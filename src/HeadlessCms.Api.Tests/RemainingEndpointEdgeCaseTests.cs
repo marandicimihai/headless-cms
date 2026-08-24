@@ -4,9 +4,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Endpoints;
 using HeadlessCms.Api.Endpoints.Projects;
 using HeadlessCms.Api.Endpoints.Workspaces;
 using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -21,7 +23,7 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
     protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
 
     [Fact]
-    public async Task CreateWorkspace_TrimsNameAndNormalizesOwnerEmail()
+    public async Task CreateWorkspace_TrimsNameAndCreatesOwnerMembership()
     {
         var admin = await app.SeedUserAsync(
             "admin",
@@ -33,31 +35,28 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
             HttpMethod.Post,
             "/api/workspaces",
             token,
-            new
-            {
-                name = "  Workspace A  ",
-                ownerEmail = "  OWNER@EXAMPLE.TEST  "
-            });
+            new { name = "  Workspace A  " });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await response.Content.ReadFromJsonAsync<CreateWorkspaceResponse>(
             JsonOptions,
             TestContext.Current.CancellationToken);
         created.ShouldNotBeNull();
-        created.Workspace.Name.ShouldBe("Workspace A");
-        created.OwnerInvitation.Email.ShouldBe("owner@example.test");
+        created.Name.ShouldBe("Workspace A");
+        created.CurrentRole.ShouldBe(WorkspaceRole.Owner);
+
+        var membership = await app.WithDatabaseAsync(
+            db => db.WorkspaceMemberships.SingleAsync(
+                item => item.WorkspaceId == created.Id && item.UserId == admin.Id));
+        membership.Role.ShouldBe(WorkspaceRole.Owner);
     }
 
     [Theory]
-    [InlineData("", "owner@example.test")]
-    [InlineData("   ", "owner@example.test")]
+    [InlineData("")]
+    [InlineData("   ")]
     [InlineData(
-        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "owner@example.test")]
-    [InlineData("Workspace A", "not-an-email")]
-    public async Task CreateWorkspace_RejectsInvalidInputWithoutPersisting(
-        string name,
-        string ownerEmail)
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    public async Task CreateWorkspace_RejectsInvalidNameWithoutPersisting(string name)
     {
         var admin = await app.SeedUserAsync(
             "admin",
@@ -69,11 +68,38 @@ public sealed class RemainingEndpointEdgeCaseTests(TestApp app) : TestBase
             HttpMethod.Post,
             "/api/workspaces",
             token,
-            new { name, ownerEmail });
+            new { name });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var workspaceCount = await app.WithDatabaseAsync(db => db.Workspaces.CountAsync());
         workspaceCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task CreateWorkspace_RejectsCreatorAtConfiguredOwnershipLimit()
+    {
+        var owner = await app.SeedUserAsync("owner", "password");
+        var maximum = await app.WithServiceAsync<WorkspaceOwnershipLimitService, int>(
+            service => Task.FromResult(service.MaximumOwnedWorkspaces));
+        for (var index = 0; index < maximum; index++)
+            await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var token = await app.LoginAsync(owner.Email, "password");
+
+        using var response = await app.SendAsync(
+            HttpMethod.Post,
+            "/api/workspaces",
+            token,
+            new { name = "One too many" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var problem = await response.Content.ReadFromJsonAsync<ApiProblem>(
+            JsonOptions,
+            TestContext.Current.CancellationToken);
+        problem.ShouldNotBeNull();
+        problem.Code.ShouldBe("workspace_limit_reached");
+
+        var workspaceCount = await app.WithDatabaseAsync(db => db.Workspaces.CountAsync());
+        workspaceCount.ShouldBe(maximum);
     }
 
     [Fact]

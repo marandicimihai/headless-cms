@@ -17,7 +17,7 @@ const stats = [
   { title: "Entries", value: "1,284", description: "86 drafts" },
 ]
 
-export function DashboardOverview() {
+export default function Home() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -41,7 +41,9 @@ export function DashboardOverview() {
               <CardTitle className="text-2xl">{stat.value}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
+              <p className="text-xs text-muted-foreground">
+                {stat.description}
+              </p>
             </CardContent>
           </Card>
         ))}

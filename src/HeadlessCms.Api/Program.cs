@@ -30,6 +30,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<UserManager>();
 builder.Services.AddScoped<WorkspaceAccessService>();
 builder.Services.AddScoped<WorkspaceInvitationService>();
+builder.Services.AddScoped<WorkspaceOwnershipLimitService>();
 builder.Services.AddScoped<ContentDocumentValidator>();
 builder.Services.AddScoped<ContentDefinitionService>();
 builder.Services.AddScoped<ContentEntryService>();

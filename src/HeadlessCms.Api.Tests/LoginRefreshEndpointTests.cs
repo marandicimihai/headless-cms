@@ -337,47 +337,27 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     [Fact]
     public async Task WorkspaceInvitations_CreateScopedMemberships_AndCanOnlyBeUsedOnce()
     {
-        var platformAdmin = await app.SeedUserAsync(
-            EmailAddress,
-            Password,
-            PlatformRole.PlatformAdmin,
-            "admin@example.com");
-
-        var ownerInvitation =
-            await app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
-                service => service.CreateWorkspaceWithOwnerInvitationAsync(
-                    platformAdmin.Id,
-                    "Workspace A",
-                    "owner@example.com"));
-
-        var persistedInvitation = await app.WithDatabaseAsync(
-            db => db.WorkspaceInvitations.AsNoTracking().SingleAsync());
-
-        persistedInvitation.Role.ShouldBe(WorkspaceRole.Owner);
-        persistedInvitation.Email.ShouldBe("owner@example.com");
-        persistedInvitation.TokenHash.ShouldBe(TokenHasher.Hash(ownerInvitation.Token));
-        persistedInvitation.TokenHash.ShouldNotBe(ownerInvitation.Token);
-        persistedInvitation.ExpiresAt.ShouldBeGreaterThan(DateTime.UtcNow.AddHours(71));
-
         var owner = await app.SeedUserAsync(
             "owner",
             "owner-password",
             email: "owner@example.com");
-
-        var ownerMembership =
-            await app.WithServiceAsync<WorkspaceInvitationService, WorkspaceMembership>(
-                service => service.AcceptInvitationAsync(owner.Id, ownerInvitation.Token));
-
-        ownerMembership.WorkspaceId.ShouldBe(ownerInvitation.WorkspaceId);
-        ownerMembership.Role.ShouldBe(WorkspaceRole.Owner);
-
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var editorInvitation =
             await app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
                 service => service.CreateInvitationAsync(
                     owner.Id,
-                    ownerInvitation.WorkspaceId,
+                    workspace.Id,
                     "editor@example.com",
                     WorkspaceRole.Editor));
+
+        var persistedInvitation = await app.WithDatabaseAsync(
+            db => db.WorkspaceInvitations.AsNoTracking().SingleAsync());
+
+        persistedInvitation.Role.ShouldBe(WorkspaceRole.Editor);
+        persistedInvitation.Email.ShouldBe("editor@example.com");
+        persistedInvitation.TokenHash.ShouldBe(TokenHasher.Hash(editorInvitation.Token));
+        persistedInvitation.TokenHash.ShouldNotBe(editorInvitation.Token);
+        persistedInvitation.ExpiresAt.ShouldBeGreaterThan(DateTime.UtcNow.AddHours(71));
 
         var editor = await app.SeedUserAsync(
             "editor",
@@ -392,7 +372,7 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
                 service => service.FindMembershipAsync(
                     new ClaimsPrincipal(
                         new ClaimsIdentity([new Claim("sub", editor.Id)])),
-                    ownerInvitation.WorkspaceId));
+                    workspace.Id));
 
         editorMembership.ShouldNotBeNull();
         editorMembership.Role.ShouldBe(WorkspaceRole.Editor);
@@ -412,16 +392,21 @@ public sealed class LoginRefreshEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task RegularPlatformUser_CannotCreateWorkspace()
+    public async Task RegularPlatformUser_CanCreateWorkspaceAsOwner()
     {
         var user = await app.SeedUserAsync(EmailAddress, Password);
+        var token = await app.LoginAsync(user.Email, Password);
 
-        await Should.ThrowAsync<InvitationFlowException>(
-            () => app.WithServiceAsync<WorkspaceInvitationService, CreatedWorkspaceInvitation>(
-                service => service.CreateWorkspaceWithOwnerInvitationAsync(
-                    user.Id,
-                    "Workspace A",
-                    "owner@example.com")));
+        using var response = await app.SendAsync(
+            HttpMethod.Post,
+            "/api/workspaces",
+            token,
+            new { name = "Workspace A" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var membership = await app.WithDatabaseAsync(
+            db => db.WorkspaceMemberships.SingleAsync(item => item.UserId == user.Id));
+        membership.Role.ShouldBe(WorkspaceRole.Owner);
     }
 
     private async Task<TokenResponse> LoginAsync(

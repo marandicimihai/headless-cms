@@ -22,6 +22,8 @@
 - Add missing primitives through the shadcn CLI and keep generated components under `src/frontend/src/components/ui/`.
 - Compose pages from shadcn primitives with as little custom styling as possible. Limit page-level Tailwind classes to layout, spacing, and responsive placement; use the shared theme tokens and component variants for visual styling.
 - Do not recreate shadcn behavior such as sidebars, drawers, breadcrumbs, menus, dialogs, form controls, cards, or tables with bespoke markup and state unless the available shadcn component cannot satisfy a documented requirement.
+- Keep route-specific UI in its `page.tsx` or `layout.tsx`. Do not create tiny pass-through files or extract a component used by only one page merely to shorten that page.
+- Prefer locality over artificial file separation: a longer page file is easier to follow than a chain of single-use wrappers. Extract only meaningful reuse, independently complex behavior, or a framework-required boundary such as a Server Action file.
 
 ## Developer Workflows (what is known vs unknown)
 - Known: repository has no runnable API project yet, so build/test/debug commands are currently undefined.

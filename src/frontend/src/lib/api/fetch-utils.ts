@@ -1,4 +1,4 @@
-import { ApiResult } from "../types/general";
+import type { ApiResult } from "../types/general";
 import { parseApiError } from "./problem-details";
 
 export class ApiUnavailableError extends Error {}
@@ -20,13 +20,19 @@ export async function apiFetch<T>(
   options?: RequestInit,
 ): Promise<ApiResult<T>> {
   try {
+    const headers = new Headers(options?.headers)
+
+    if (
+      typeof options?.body === "string" &&
+      !headers.has("Content-Type")
+    ) {
+      headers.set("Content-Type", "application/json")
+    }
+
     const response = await fetch(`${process.env.BACKEND_URL}` + endpoint, {
       ...options,
       signal: AbortSignal.timeout(10_000),
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      }
+      headers,
     })
 
     if (response.status >= 500) {

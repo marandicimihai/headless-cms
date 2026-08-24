@@ -74,6 +74,7 @@
 }
 
 :root {
+    color-scheme: light;
     --card: oklch(0.9911 0 0);
     --card-foreground: oklch(0.2435 0 0);
     --popover: oklch(0.9911 0 0);
@@ -130,6 +131,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     --background: oklch(0.1776 0 0);
     --foreground: oklch(0.9491 0 0);
     --card: oklch(0.2134 0 0);

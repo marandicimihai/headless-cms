@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HeadlessCms.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260729094813_Initial")]
+    [Migration("20260824075949_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -109,11 +109,11 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -158,13 +158,13 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<JsonElement>("Settings")
                         .HasColumnType("jsonb");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -199,11 +199,11 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -230,11 +230,11 @@ namespace HeadlessCms.Api.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<int>("Version")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -258,11 +258,11 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -329,13 +329,13 @@ namespace HeadlessCms.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -343,10 +343,10 @@ namespace HeadlessCms.Api.Migrations
 
                     b.HasIndex("InvitedByUserId");
 
-                    b.HasIndex("WorkspaceId");
-
                     b.HasIndex("TokenHash")
                         .IsUnique();
+
+                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("WorkspaceInvitations");
                 });
@@ -496,21 +496,21 @@ namespace HeadlessCms.Api.Migrations
 
             modelBuilder.Entity("HeadlessCms.Api.Workspaces.Models.WorkspaceMembership", b =>
                 {
-                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
-                        .WithMany("Memberships")
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("HeadlessCms.Api.Auth.Models.User", "User")
                         .WithMany("WorkspaceMemberships")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Workspace");
+                    b.HasOne("HeadlessCms.Api.Workspaces.Models.Workspace", "Workspace")
+                        .WithMany("Memberships")
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
+
+                    b.Navigation("Workspace");
                 });
 
             modelBuilder.Entity("HeadlessCms.Api.Auth.Models.User", b =>

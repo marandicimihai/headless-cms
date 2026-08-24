@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FastEndpoints.Security;
 using FastEndpoints.Testing;
-using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Endpoints.Workspaces;
 using HeadlessCms.Api.Workspaces.Models;
@@ -23,58 +22,31 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
     protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
 
     [Fact]
-    public async Task InvitationLifecycle_CreatesOwnerAndEditorMemberships()
+    public async Task WorkspaceCreator_BecomesOwnerAndCanInviteEditor()
     {
         var ct = TestContext.Current.CancellationToken;
-        await app.SeedUserAsync(
-            "admin@example.test",
-            "admin-password",
-            PlatformRole.PlatformAdmin);
-        var adminToken = await LoginAsync("admin@example.test", "admin-password");
+        await app.SeedUserAsync("owner@example.test", "owner-password");
+        var ownerToken = await LoginAsync("owner@example.test", "owner-password");
 
         using var createWorkspace = await SendAsync(
             HttpMethod.Post,
             "/api/workspaces",
-            adminToken,
-            new { name = "Workspace A", ownerEmail = "owner@example.test" });
+            ownerToken,
+            new { name = "Workspace A" });
         createWorkspace.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await createWorkspace.Content.ReadFromJsonAsync<CreateWorkspaceResponse>(
             JsonOptions,
             cancellationToken: ct);
         created.ShouldNotBeNull();
+        created.CurrentRole.ShouldBe(WorkspaceRole.Owner);
 
         var sender = app.Services.GetRequiredService<TestInvitationEmailSender>();
-        var ownerMessage = sender.Sent.Single();
-        ownerMessage.Role.ShouldBe(WorkspaceRole.Owner);
-
-        using var previewResponse = await app.HttpsClient.PostAsJsonAsync(
-            "/api/auth/invitations/preview",
-            new { token = ownerMessage.Token },
-            ct);
-        previewResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var preview = await previewResponse.Content.ReadFromJsonAsync<PreviewInvitation.ResponseDto>(
-            JsonOptions,
-            cancellationToken: ct);
-        preview.ShouldNotBeNull();
-        preview.WorkspaceName.ShouldBe("Workspace A");
-        preview.MaskedEmail.ShouldNotContain("owner@example.test");
-
-        using var registerResponse = await app.HttpsClient.PostAsJsonAsync(
-            "/api/auth/invitations/register",
-            new { token = ownerMessage.Token, password = "owner-password" },
-            ct);
-        registerResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var registration = await registerResponse.Content
-            .ReadFromJsonAsync<RegisterWithInvitation.ResponseDto>(
-                JsonOptions,
-                cancellationToken: ct);
-        registration.ShouldNotBeNull();
-        registration.Membership.Role.ShouldBe(WorkspaceRole.Owner);
+        sender.Sent.ShouldBeEmpty();
 
         using var inviteEditor = await SendAsync(
             HttpMethod.Post,
-            $"/api/workspaces/{created.Workspace.Id}/invitations",
-            registration.Tokens.AccessToken,
+            $"/api/workspaces/{created.Id}/invitations",
+            ownerToken,
             new { email = "editor@example.test", role = "Editor" });
         inviteEditor.StatusCode.ShouldBe(HttpStatusCode.Created);
         var editorMessage = sender.Sent.Last();
@@ -90,8 +62,8 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
 
         using var listMembers = await SendAsync(
             HttpMethod.Get,
-            $"/api/workspaces/{created.Workspace.Id}/members",
-            registration.Tokens.AccessToken);
+            $"/api/workspaces/{created.Id}/members",
+            ownerToken);
         listMembers.StatusCode.ShouldBe(HttpStatusCode.OK);
         var members = await listMembers.Content
             .ReadFromJsonAsync<ListWorkspaceMembersResponse>(
@@ -99,12 +71,6 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
                 cancellationToken: ct);
         members.ShouldNotBeNull();
         members.Total.ShouldBe(2);
-
-        using var adminMemberList = await SendAsync(
-            HttpMethod.Get,
-            $"/api/workspaces/{created.Workspace.Id}/members",
-            adminToken);
-        adminMemberList.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         using var reuse = await SendAsync(
             HttpMethod.Post,
@@ -161,7 +127,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task NormalUser_CannotCreateWorkspace()
+    public async Task NormalUser_CanCreateWorkspaceAsOwner()
     {
         await app.SeedUserAsync("user@example.test", "user-password");
         var token = await LoginAsync("user@example.test", "user-password");
@@ -170,9 +136,14 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
             HttpMethod.Post,
             "/api/workspaces",
             token,
-            new { name = "Forbidden", ownerEmail = "owner@example.test" });
+            new { name = "Personal workspace" });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await response.Content.ReadFromJsonAsync<CreateWorkspaceResponse>(
+            JsonOptions,
+            TestContext.Current.CancellationToken);
+        created.ShouldNotBeNull();
+        created.CurrentRole.ShouldBe(WorkspaceRole.Owner);
     }
 
     [Fact]
@@ -236,22 +207,8 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
     private async Task<(Guid WorkspaceId, string OwnerToken, string EditorToken, string EditorId)>
         CreateWorkspaceWithOwnerAndEditorAsync()
     {
-        var admin = await app.SeedUserAsync(
-            "admin@example.test",
-            "admin-password",
-            PlatformRole.PlatformAdmin);
-        var created = await app.WithServiceAsync<
-            HeadlessCms.Api.Workspaces.Services.WorkspaceInvitationService,
-            HeadlessCms.Api.Workspaces.Services.CreatedWorkspaceInvitation>(
-            service => service.CreateWorkspaceWithOwnerInvitationAsync(
-                admin.Id,
-                "Workspace A",
-                "owner@example.test"));
         var owner = await app.SeedUserAsync("owner@example.test", "owner-password");
-        await app.WithServiceAsync<
-            HeadlessCms.Api.Workspaces.Services.WorkspaceInvitationService,
-            WorkspaceMembership>(
-            service => service.AcceptInvitationAsync(owner.Id, created.Token));
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
         var ownerToken = await LoginAsync("owner@example.test", "owner-password");
 
         var editorInvite = await app.WithServiceAsync<
@@ -259,7 +216,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
             HeadlessCms.Api.Workspaces.Services.CreatedWorkspaceInvitation>(
             service => service.CreateInvitationAsync(
                 owner.Id,
-                created.WorkspaceId,
+                workspace.Id,
                 "editor@example.test",
                 WorkspaceRole.Editor));
         var editor = await app.SeedUserAsync("editor@example.test", "editor-password");
@@ -269,7 +226,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
             service => service.AcceptInvitationAsync(editor.Id, editorInvite.Token));
         var editorToken = await LoginAsync("editor@example.test", "editor-password");
 
-        return (created.WorkspaceId, ownerToken, editorToken, editor.Id);
+        return (workspace.Id, ownerToken, editorToken, editor.Id);
     }
 
     private async Task<string> LoginAsync(string email, string password)

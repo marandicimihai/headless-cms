@@ -24,7 +24,7 @@ public sealed class LoggingInvitationEmailSender(
         CancellationToken ct = default)
     {
         var baseUrl = configuration["Workspaces:InvitationUrl"]
-                      ?? "https://localhost/invitations/accept";
+                      ?? "http://localhost/invitations/accept";
         var url = $"{baseUrl}?token={Uri.EscapeDataString(token)}";
 
         logger.LogInformation(

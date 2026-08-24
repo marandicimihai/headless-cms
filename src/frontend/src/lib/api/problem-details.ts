@@ -1,12 +1,4 @@
-export type FieldErrors = Record<string, string[]>;
-
-export type ApiError = {
-  status: number;
-  code?: string;
-  detail: string;
-  fieldErrors: FieldErrors;
-  traceId?: string;
-}
+import type { ApiError, FieldErrors } from "../types/general";
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

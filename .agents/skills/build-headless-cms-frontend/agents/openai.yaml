@@ -1,0 +1,4 @@
+interface:
+  display_name: "Headless CMS Frontend"
+  short_description: "Build the CMS frontend to project conventions"
+  default_prompt: "Use $build-headless-cms-frontend to implement this frontend change using the project conventions."

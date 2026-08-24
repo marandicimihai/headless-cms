@@ -7,6 +7,7 @@ using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Endpoints;
 using HeadlessCms.Api.Endpoints.Workspaces;
 using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
@@ -203,6 +204,33 @@ public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
             .ShouldBe(WorkspaceRole.Owner);
         (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Member.Id))
             .ShouldBe(WorkspaceRole.Member);
+    }
+
+    [Fact]
+    public async Task OwnershipTransfer_RejectsNewOwnerAtConfiguredWorkspaceLimit()
+    {
+        var setup = await CreateMembershipSetupAsync();
+        var maximum = await app.WithServiceAsync<WorkspaceOwnershipLimitService, int>(
+            service => Task.FromResult(service.MaximumOwnedWorkspaces));
+        for (var index = 0; index < maximum; index++)
+            await app.SeedWorkspaceAsync((setup.Editor, WorkspaceRole.Owner));
+
+        using var response = await app.SendAsync(
+            HttpMethod.Post,
+            $"/api/workspaces/{setup.WorkspaceId}/ownership-transfer",
+            setup.OwnerToken,
+            new { newOwnerUserId = setup.Editor.Id });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var problem = await response.Content.ReadFromJsonAsync<ApiProblem>(
+            JsonOptions,
+            TestContext.Current.CancellationToken);
+        problem.ShouldNotBeNull();
+        problem.Code.ShouldBe("workspace_limit_reached");
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Owner.Id))
+            .ShouldBe(WorkspaceRole.Owner);
+        (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Editor.Id))
+            .ShouldBe(WorkspaceRole.Editor);
     }
 
     [Fact]

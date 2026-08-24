@@ -41,40 +41,6 @@ public class WorkspaceInvitationService(
     IPasswordHasher<User> passwordHasher,
     IInvitationEmailSender emailSender)
 {
-    public async Task<CreatedWorkspaceInvitation> CreateWorkspaceWithOwnerInvitationAsync(
-        string platformAdminUserId,
-        string workspaceName,
-        string ownerEmail,
-        CancellationToken ct = default)
-    {
-        var isPlatformAdmin = await db.Users.AnyAsync(
-            user =>
-                user.Id == platformAdminUserId &&
-                user.PlatformRole == PlatformRole.PlatformAdmin,
-            ct);
-
-        if (!isPlatformAdmin)
-            throw Forbidden("Only a platform administrator can create workspaces.");
-
-        var normalizedName = NormalizeWorkspaceName(workspaceName);
-        var workspace = new Workspace { Name = normalizedName };
-        var (invitation, token) = CreateInvitationEntity(
-            ownerEmail,
-            WorkspaceRole.Owner,
-            platformAdminUserId);
-
-        workspace.Invitations.Add(invitation);
-        db.Workspaces.Add(workspace);
-        await db.SaveChangesAsync(ct);
-        await SendInvitationAsync(invitation, workspace.Name, token, ct);
-
-        return new CreatedWorkspaceInvitation(
-            workspace.Id,
-            invitation.Id,
-            token,
-            invitation.ExpiresAt);
-    }
-
     public async Task<CreatedWorkspaceInvitation> CreateInvitationAsync(
         string ownerUserId,
         Guid workspaceId,
@@ -354,14 +320,6 @@ public class WorkspaceInvitationService(
 
     private static string CreateToken() =>
         WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-
-    private static string NormalizeWorkspaceName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 100)
-            throw BadRequest("A workspace name between 1 and 100 characters is required.");
-
-        return name.Trim();
-    }
 
     private static InvitationFlowException BadRequest(string message) =>
         new(StatusCodes.Status400BadRequest, "invalid_request", message);

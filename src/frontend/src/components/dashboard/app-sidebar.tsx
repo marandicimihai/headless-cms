@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Blocks,
   Boxes,
@@ -41,7 +42,7 @@ import { useTransition } from "react"
 import { logoutAction } from "@/app/auth/logout/actions"
 
 const navigation = [
-  { title: "Dashboard", url: "/", icon: Home, active: true },
+  { title: "Dashboard", url: "/", icon: Home },
   { title: "Workspaces", url: "/workspaces", icon: Boxes },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Content types", url: "/content-types", icon: Blocks },
@@ -50,6 +51,7 @@ const navigation = [
 ]
 
 export function AppSidebar() {
+  const pathname = usePathname()
   const [isLoggingOut, startTransition] = useTransition()
 
   function handleLogout() {
@@ -59,7 +61,10 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="offcanvas">
+    <Sidebar
+      className="shadow-[2px_0_4px_-2px_var(--sidebar-border)]"
+      collapsible="offcanvas"
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -88,7 +93,12 @@ export function AppSidebar() {
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    isActive={item.active}
+                    isActive={
+                      item.url === "/"
+                        ? pathname === item.url
+                        : pathname === item.url ||
+                          pathname.startsWith(`${item.url}/`)
+                    }
                     render={<Link href={item.url} />}
                     tooltip={item.title}
                   >

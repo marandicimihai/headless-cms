@@ -63,7 +63,7 @@ All authenticated routes require `Authorization: Bearer <access-token>`.
 | `POST` | `/api/auth/invitations/preview` | Anonymous, masked invitation details |
 | `POST` | `/api/auth/invitations/register` | Anonymous, valid invitation |
 | `POST` | `/api/auth/invitations/accept` | Authenticated invited user |
-| `POST` | `/api/workspaces` | `PlatformAdmin` |
+| `POST` | `/api/workspaces` | Authenticated user, creates an `Owner` membership |
 | `GET` | `/api/workspaces` | `PlatformAdmin` |
 | `GET` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace member |
 | `PATCH` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace owner |
@@ -145,6 +145,8 @@ Authorization has separate platform and workspace scopes:
 - A user has one platform role: `PlatformAdmin` or `User`.
 - A user can belong to many workspaces.
 - Each workspace membership has one workspace role: `Owner`, `Editor`, or `Member`.
+- Any authenticated user can create a workspace and immediately becomes its
+  owner. A user can own at most `Workspaces:MaximumOwnedWorkspaces` workspaces.
 
 The development admin configured with `Auth:AdminEmail` is assigned
 `PlatformAdmin`. Login and refresh access tokens include the platform role as a
@@ -156,6 +158,10 @@ The workspace invitation model stores only a hash of each single-use token.
 Resending rotates the token, and accepted, expired, or revoked invitations
 cannot be reused. Development logs invitation URLs; production must register an
 `IInvitationEmailSender` implementation.
+
+The workspace ownership limit defaults to `10` in `appsettings.json`. Override
+`Workspaces:MaximumOwnedWorkspaces` in local configuration or with the
+`Workspaces__MaximumOwnedWorkspaces` environment variable.
 
 Required production configuration:
 

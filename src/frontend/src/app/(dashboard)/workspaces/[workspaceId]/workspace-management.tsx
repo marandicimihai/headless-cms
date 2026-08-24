@@ -1,0 +1,409 @@
+"use client"
+
+import { CircleAlert, CircleCheck } from "lucide-react"
+import { useActionState } from "react"
+
+import {
+  changeWorkspaceMemberRoleAction,
+  inviteWorkspaceMemberAction,
+  renameWorkspaceAction,
+} from "./actions"
+import type { WorkspaceActionState } from "./actions"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import type {
+  WorkspaceInvitation,
+  WorkspaceMember,
+  WorkspaceRole,
+} from "@/lib/types/workspaces"
+
+const initialWorkspaceActionState: WorkspaceActionState = {
+  status: "idle",
+  message: null,
+  fieldErrors: {},
+}
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+  dateStyle: "medium",
+  timeZone: "UTC",
+})
+
+function formatDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "Unknown date" : dateFormatter.format(date)
+}
+
+function roleLabel(role: WorkspaceRole) {
+  return role === "Member" ? "Read only" : role
+}
+
+function ActionMessage({
+  status,
+  message,
+}: {
+  status: "idle" | "success" | "error"
+  message: string | null
+}) {
+  if (!message || status === "idle") return null
+
+  return (
+    <Alert variant={status === "error" ? "destructive" : "default"}>
+      {status === "error" ? <CircleAlert /> : <CircleCheck />}
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  )
+}
+
+function RenameWorkspaceForm({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName: string
+}) {
+  const renameAction = renameWorkspaceAction.bind(null, workspaceId)
+  const [state, formAction, pending] = useActionState(
+    renameAction,
+    initialWorkspaceActionState,
+  )
+  const nameErrors = state.fieldErrors.name ?? []
+
+  return (
+    <form action={formAction} className="max-w-2xl space-y-4">
+      <Field data-invalid={nameErrors.length > 0}>
+        <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            id="workspace-name"
+            name="name"
+            defaultValue={workspaceName}
+            maxLength={100}
+            required
+          />
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving..." : "Save name"}
+          </Button>
+        </div>
+        <FieldError errors={nameErrors.map((message) => ({ message }))} />
+      </Field>
+      <ActionMessage status={state.status} message={state.message} />
+    </form>
+  )
+}
+
+function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
+  const inviteAction = inviteWorkspaceMemberAction.bind(null, workspaceId)
+  const [state, formAction, pending] = useActionState(
+    inviteAction,
+    initialWorkspaceActionState,
+  )
+  const emailErrors = state.fieldErrors.email ?? []
+  const roleErrors = state.fieldErrors.role ?? []
+
+  return (
+    <form action={formAction} className="max-w-2xl space-y-4">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-end">
+        <Field data-invalid={emailErrors.length > 0}>
+          <FieldLabel htmlFor="invitation-email">Email address</FieldLabel>
+          <Input
+            id="invitation-email"
+            name="email"
+            type="email"
+            placeholder="person@example.com"
+            maxLength={320}
+            required
+          />
+          <FieldError errors={emailErrors.map((message) => ({ message }))} />
+        </Field>
+        <Field data-invalid={roleErrors.length > 0}>
+          <FieldLabel htmlFor="invitation-role">Access</FieldLabel>
+          <Select name="role" defaultValue="Member" required>
+            <SelectTrigger id="invitation-role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false}>
+              <SelectItem showIndicator={false} value="Member">
+                Read only
+              </SelectItem>
+              <SelectItem showIndicator={false} value="Editor">
+                Editor
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <FieldError errors={roleErrors.map((message) => ({ message }))} />
+        </Field>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Sending..." : "Send invitation"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Invitations are emailed to the address above and must be accepted before
+        the person becomes a workspace member.
+      </p>
+      <ActionMessage status={state.status} message={state.message} />
+    </form>
+  )
+}
+
+function MemberRoleForm({
+  workspaceId,
+  member,
+}: {
+  workspaceId: string
+  member: WorkspaceMember
+}) {
+  const roleAction = changeWorkspaceMemberRoleAction.bind(
+    null,
+    workspaceId,
+    member.userId,
+  )
+  const [state, formAction, pending] = useActionState(
+    roleAction,
+    initialWorkspaceActionState,
+  )
+
+  if (member.role === "Owner") {
+    return <Badge>Owner</Badge>
+  }
+
+  return (
+    <div className="space-y-2">
+      <form action={formAction} className="flex items-center justify-end gap-2">
+        <Select name="role" defaultValue={member.role} required>
+          <SelectTrigger
+            aria-label={`Access for ${member.email}`}
+            size="sm"
+            className="w-28"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Member">Read only</SelectItem>
+            <SelectItem value="Editor">Editor</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+          {pending ? "Saving..." : "Save"}
+        </Button>
+      </form>
+      {state.message ? (
+        <p
+          className={
+            state.status === "error"
+              ? "text-xs text-destructive"
+              : "text-xs text-muted-foreground"
+          }
+          role="status"
+        >
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+export function WorkspaceManagement({
+  workspaceId,
+  workspaceName,
+  members,
+  invitations,
+  memberTotal,
+  invitationTotal,
+  membersError,
+  invitationsError,
+}: {
+  workspaceId: string
+  workspaceName: string
+  members: WorkspaceMember[]
+  invitations: WorkspaceInvitation[]
+  memberTotal: number
+  invitationTotal: number
+  membersError?: string
+  invitationsError?: string
+}) {
+  return (
+    <div className="space-y-10">
+      <RenameWorkspaceForm workspaceId={workspaceId} workspaceName={workspaceName} />
+
+      <section aria-labelledby="invite-heading" className="space-y-4 border-t pt-8">
+        <div>
+          <h2 id="invite-heading" className="text-sm font-semibold">
+            Invite people
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Editors can change projects and content. Read-only members can view
+            them but cannot make changes.
+          </p>
+        </div>
+        <InviteMemberForm workspaceId={workspaceId} />
+      </section>
+
+      <section aria-labelledby="members-heading" className="space-y-4 border-t pt-8">
+        <div>
+          <h2 id="members-heading" className="text-sm font-semibold">
+            Members
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Owners can change editor and read-only access. The owner role cannot
+            be changed from this member list.
+          </p>
+        </div>
+        {membersError ? (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{membersError}</AlertDescription>
+          </Alert>
+        ) : members.length ? (
+          <div className="border-y">
+            <Table className="min-w-[36rem]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Member
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Joined
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                    Access
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow key={member.userId}>
+                    <TableCell className="px-4 py-4 font-medium">
+                      {member.email}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-muted-foreground">
+                      {formatDate(member.joinedAt)}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-right">
+                      <MemberRoleForm workspaceId={workspaceId} member={member} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {memberTotal > members.length ? (
+              <p className="border-t px-2 py-3 text-xs text-muted-foreground">
+                Showing the first {members.length} of {memberTotal} members.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No members found.</p>
+        )}
+      </section>
+
+      <section
+        aria-labelledby="invitations-heading"
+        className="space-y-4 border-t pt-8"
+      >
+        <div>
+          <h2 id="invitations-heading" className="text-sm font-semibold">
+            Pending invitations
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            People appear in the member list after accepting their invitation.
+          </p>
+        </div>
+        {invitationsError ? (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{invitationsError}</AlertDescription>
+          </Alert>
+        ) : invitations.length ? (
+          <div className="border-y">
+            <Table className="min-w-[36rem]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Email
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Sent
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                    Access
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((invitation) => (
+                  <TableRow key={invitation.id}>
+                    <TableCell className="px-4 py-4 font-medium">
+                      {invitation.email}
+                    </TableCell>
+                    <TableCell className="px-4 py-4">
+                      <div className="space-y-0.5">
+                        <p>{formatDate(invitation.createdAt)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Expires {formatDate(invitation.expiresAt)}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-right">
+                      <Badge variant="outline">{roleLabel(invitation.role)}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {invitationTotal > invitations.length ? (
+              <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+                Showing the first {invitations.length} of {invitationTotal} pending invitations.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="border-y">
+            <Table className="min-w-[36rem]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Email
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    Sent
+                  </TableHead>
+                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                    Access
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell
+                    colSpan={3}
+                    className="px-4 py-10 text-center text-sm text-muted-foreground"
+                  >
+                    There are no pending invitations.
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}

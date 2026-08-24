@@ -252,57 +252,38 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task PlatformAdmin_CanManageOwnerInvitationOnlyUntilWorkspaceHasOwner()
+    public async Task PlatformAdmin_CannotManageInvitationsWithoutWorkspaceOwnership()
     {
         var admin = await app.SeedUserAsync(
             "admin",
             "password",
             PlatformRole.PlatformAdmin);
+        var owner = await app.SeedUserAsync("owner@example.test", "password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var invitation = await CreateInvitationAsync(
+            owner.Id,
+            workspace.Id,
+            "member@example.test",
+            WorkspaceRole.Member);
         var adminToken = await app.LoginAsync(admin.Email, "password");
-        var created = await app.WithServiceAsync<
-            WorkspaceInvitationService,
-            CreatedWorkspaceInvitation>(
-            service => service.CreateWorkspaceWithOwnerInvitationAsync(
-                admin.Id,
-                "Workspace A",
-                "owner@example.test"));
 
-        using var listBeforeOwner = await app.SendAsync(
+        using var list = await app.SendAsync(
             HttpMethod.Get,
-            $"/api/workspaces/{created.WorkspaceId}/invitations",
+            $"/api/workspaces/{workspace.Id}/invitations",
             adminToken);
-        listBeforeOwner.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var page = await listBeforeOwner.Content.ReadFromJsonAsync<
-            ListWorkspaceInvitationsResponse>(
-            JsonOptions,
-            TestContext.Current.CancellationToken);
-        page.ShouldNotBeNull();
-        page.Items.Single().Role.ShouldBe(WorkspaceRole.Owner);
+        list.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         using var resend = await app.SendAsync(
             HttpMethod.Post,
-            InvitationPath(created.WorkspaceId, created.InvitationId, "resend"),
+            InvitationPath(workspace.Id, invitation.InvitationId, "resend"),
             adminToken);
-        resend.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var replacementToken = app.Services
-            .GetRequiredService<TestInvitationEmailSender>()
-            .Sent
-            .Last()
-            .Token;
+        resend.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        var owner = await app.SeedUserAsync("owner@example.test", "password");
-        await AcceptInvitationAsync(owner.Id, replacementToken);
-
-        using var listAfterOwner = await app.SendAsync(
-            HttpMethod.Get,
-            $"/api/workspaces/{created.WorkspaceId}/invitations",
+        using var revoke = await app.SendAsync(
+            HttpMethod.Delete,
+            InvitationPath(workspace.Id, invitation.InvitationId),
             adminToken);
-        listAfterOwner.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        using var manageAfterOwner = await app.SendAsync(
-            HttpMethod.Post,
-            InvitationPath(created.WorkspaceId, created.InvitationId, "resend"),
-            adminToken);
-        manageAfterOwner.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        revoke.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]

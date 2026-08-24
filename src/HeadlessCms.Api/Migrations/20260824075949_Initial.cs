@@ -13,19 +13,6 @@ namespace HeadlessCms.Api.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Workspaces",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Workspaces", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Tokens",
                 columns: table => new
                 {
@@ -51,6 +38,19 @@ namespace HeadlessCms.Api.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Workspaces",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Workspaces", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -96,12 +96,6 @@ namespace HeadlessCms.Api.Migrations
                 {
                     table.PrimaryKey("PK_WorkspaceInvitations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_WorkspaceInvitations_Workspaces_WorkspaceId",
-                        column: x => x.WorkspaceId,
-                        principalTable: "Workspaces",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
                         name: "FK_WorkspaceInvitations_Users_AcceptedByUserId",
                         column: x => x.AcceptedByUserId,
                         principalTable: "Users",
@@ -113,6 +107,12 @@ namespace HeadlessCms.Api.Migrations
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WorkspaceInvitations_Workspaces_WorkspaceId",
+                        column: x => x.WorkspaceId,
+                        principalTable: "Workspaces",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -128,15 +128,15 @@ namespace HeadlessCms.Api.Migrations
                 {
                     table.PrimaryKey("PK_WorkspaceMemberships", x => new { x.WorkspaceId, x.UserId });
                     table.ForeignKey(
-                        name: "FK_WorkspaceMemberships_Workspaces_WorkspaceId",
-                        column: x => x.WorkspaceId,
-                        principalTable: "Workspaces",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
                         name: "FK_WorkspaceMemberships_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_WorkspaceMemberships_Workspaces_WorkspaceId",
+                        column: x => x.WorkspaceId,
+                        principalTable: "Workspaces",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -234,7 +234,7 @@ namespace HeadlessCms.Api.Migrations
                     table.UniqueConstraint("AK_ContentTypeVersions_WorkspaceId_ProjectId_ContentTypeId_Id", x => new { x.WorkspaceId, x.ProjectId, x.ContentTypeId, x.Id });
                     table.UniqueConstraint("AK_ContentTypeVersions_WorkspaceId_ProjectId_Id", x => new { x.WorkspaceId, x.ProjectId, x.Id });
                     table.ForeignKey(
-                        name: "FK_ContentTypeVersions_ContentTypes_WorkspaceId_ProjectId_Content~",
+                        name: "FK_ContentTypeVersions_ContentTypes_WorkspaceId_ProjectId_Cont~",
                         columns: x => new { x.WorkspaceId, x.ProjectId, x.ContentTypeId },
                         principalTable: "ContentTypes",
                         principalColumns: new[] { "WorkspaceId", "ProjectId", "Id" },
@@ -242,12 +242,12 @@ namespace HeadlessCms.Api.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentEntries_WorkspaceId_ProjectId_ContentTypeId_ContentType~",
+                name: "IX_ContentEntries_WorkspaceId_ProjectId_ContentTypeId_ContentT~",
                 table: "ContentEntries",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeId", "ContentTypeVersionId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentEntries_WorkspaceId_ProjectId_ContentTypeId_Status_Crea~",
+                name: "IX_ContentEntries_WorkspaceId_ProjectId_ContentTypeId_Status_C~",
                 table: "ContentEntries",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeId", "Status", "CreatedAt" });
 
@@ -269,7 +269,7 @@ namespace HeadlessCms.Api.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentTypeVersions_WorkspaceId_ProjectId_ContentTypeId_Version",
+                name: "IX_ContentTypeVersions_WorkspaceId_ProjectId_ContentTypeId_Ver~",
                 table: "ContentTypeVersions",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeId", "Version" },
                 unique: true);
@@ -278,39 +278,6 @@ namespace HeadlessCms.Api.Migrations
                 name: "IX_Projects_WorkspaceId",
                 table: "Projects",
                 column: "WorkspaceId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceInvitations_AcceptedByUserId",
-                table: "WorkspaceInvitations",
-                column: "AcceptedByUserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceInvitations_InvitedByUserId",
-                table: "WorkspaceInvitations",
-                column: "InvitedByUserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceInvitations_WorkspaceId",
-                table: "WorkspaceInvitations",
-                column: "WorkspaceId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceInvitations_TokenHash",
-                table: "WorkspaceInvitations",
-                column: "TokenHash",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceMemberships_WorkspaceId_Role",
-                table: "WorkspaceMemberships",
-                columns: new[] { "WorkspaceId", "Role" },
-                unique: true,
-                filter: "\"Role\" = 'Owner'");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_WorkspaceMemberships_UserId",
-                table: "WorkspaceMemberships",
-                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Email",
@@ -325,8 +292,41 @@ namespace HeadlessCms.Api.Migrations
                 unique: true,
                 filter: "\"PlatformRole\" = 'PlatformAdmin'");
 
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceInvitations_AcceptedByUserId",
+                table: "WorkspaceInvitations",
+                column: "AcceptedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceInvitations_InvitedByUserId",
+                table: "WorkspaceInvitations",
+                column: "InvitedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceInvitations_TokenHash",
+                table: "WorkspaceInvitations",
+                column: "TokenHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceInvitations_WorkspaceId",
+                table: "WorkspaceInvitations",
+                column: "WorkspaceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceMemberships_UserId",
+                table: "WorkspaceMemberships",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkspaceMemberships_WorkspaceId_Role",
+                table: "WorkspaceMemberships",
+                columns: new[] { "WorkspaceId", "Role" },
+                unique: true,
+                filter: "\"Role\" = 'Owner'");
+
             migrationBuilder.AddForeignKey(
-                name: "FK_ContentEntries_ContentTypeVersions_WorkspaceId_ProjectId_Conte~",
+                name: "FK_ContentEntries_ContentTypeVersions_WorkspaceId_ProjectId_Co~",
                 table: "ContentEntries",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeId", "ContentTypeVersionId" },
                 principalTable: "ContentTypeVersions",
@@ -334,7 +334,7 @@ namespace HeadlessCms.Api.Migrations
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_ContentEntries_ContentTypes_WorkspaceId_ProjectId_ContentTypeId",
+                name: "FK_ContentEntries_ContentTypes_WorkspaceId_ProjectId_ContentTy~",
                 table: "ContentEntries",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeId" },
                 principalTable: "ContentTypes",
@@ -342,7 +342,7 @@ namespace HeadlessCms.Api.Migrations
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_ContentFields_ContentTypeVersions_WorkspaceId_ProjectId_Conten~",
+                name: "FK_ContentFields_ContentTypeVersions_WorkspaceId_ProjectId_Con~",
                 table: "ContentFields",
                 columns: new[] { "WorkspaceId", "ProjectId", "ContentTypeVersionId" },
                 principalTable: "ContentTypeVersions",
@@ -350,7 +350,7 @@ namespace HeadlessCms.Api.Migrations
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_ContentTypes_ContentTypeVersions_WorkspaceId_ProjectId_Id_Curr~",
+                name: "FK_ContentTypes_ContentTypeVersions_WorkspaceId_ProjectId_Id_C~",
                 table: "ContentTypes",
                 columns: new[] { "WorkspaceId", "ProjectId", "Id", "CurrentVersionId" },
                 principalTable: "ContentTypeVersions",
@@ -362,7 +362,7 @@ namespace HeadlessCms.Api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_ContentTypes_ContentTypeVersions_WorkspaceId_ProjectId_Id_Curr~",
+                name: "FK_ContentTypes_ContentTypeVersions_WorkspaceId_ProjectId_Id_C~",
                 table: "ContentTypes");
 
             migrationBuilder.DropTable(
@@ -372,13 +372,13 @@ namespace HeadlessCms.Api.Migrations
                 name: "ContentFields");
 
             migrationBuilder.DropTable(
+                name: "Tokens");
+
+            migrationBuilder.DropTable(
                 name: "WorkspaceInvitations");
 
             migrationBuilder.DropTable(
                 name: "WorkspaceMemberships");
-
-            migrationBuilder.DropTable(
-                name: "Tokens");
 
             migrationBuilder.DropTable(
                 name: "Users");

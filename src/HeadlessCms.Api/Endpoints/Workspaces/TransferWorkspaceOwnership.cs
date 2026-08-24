@@ -2,12 +2,15 @@ using FastEndpoints;
 using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class TransferWorkspaceOwnership(ApplicationDbContext db)
+public sealed class TransferWorkspaceOwnership(
+    ApplicationDbContext db,
+    WorkspaceOwnershipLimitService ownershipLimits)
     : Endpoint<
         TransferWorkspaceOwnershipRequest,
         IReadOnlyList<TransferWorkspaceOwnershipMemberResponse>>
@@ -43,6 +46,17 @@ public sealed class TransferWorkspaceOwnership(ApplicationDbContext db)
         if (owner is null || nextOwner is null)
         {
             await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        if (!await ownershipLimits.CanOwnAnotherWorkspaceAsync(nextOwner.UserId, ct))
+        {
+            await ApiErrors.SendAsync(
+                HttpContext,
+                StatusCodes.Status409Conflict,
+                "workspace_limit_reached",
+                $"A user can own at most {ownershipLimits.MaximumOwnedWorkspaces} workspaces.",
+                ct);
             return;
         }
 
