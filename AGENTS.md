@@ -17,6 +17,12 @@
 - Prefer minimal, explicit architecture matching stated goals ("simple and maintainable" in `README.md`).
 - When introducing major structure (projects, layers, modules), document the rationale in the PR/commit message.
 
+## Frontend UI Conventions
+- Build frontend UI **shadcn-first**: use the official shadcn component or composition pattern whenever one exists before writing a custom equivalent.
+- Add missing primitives through the shadcn CLI and keep generated components under `src/frontend/src/components/ui/`.
+- Compose pages from shadcn primitives with as little custom styling as possible. Limit page-level Tailwind classes to layout, spacing, and responsive placement; use the shared theme tokens and component variants for visual styling.
+- Do not recreate shadcn behavior such as sidebars, drawers, breadcrumbs, menus, dialogs, form controls, cards, or tables with bespoke markup and state unless the available shadcn component cannot satisfy a documented requirement.
+
 ## Developer Workflows (what is known vs unknown)
 - Known: repository has no runnable API project yet, so build/test/debug commands are currently undefined.
 - Unknown until code exists: package manager setup, migration workflow, test framework, local bootstrap scripts.

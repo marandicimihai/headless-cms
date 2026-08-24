@@ -61,15 +61,15 @@ export default function LoginForm() {
                 errors={passwordErrors.map((message) => ({ message }))}
               />
             </Field>
-              {formError && (
-                <Alert variant="destructive">
-                  <CircleAlert />
-                  <AlertTitle>Unable to sign in</AlertTitle>
-                  <AlertDescription>
-                    Check your email and password, then try again.
-                  </AlertDescription>
-                </Alert>
-              )}
+            {formError && (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertTitle>Unable to sign in</AlertTitle>
+                <AlertDescription>
+                  {state.error?.detail}
+                </AlertDescription>
+              </Alert>
+            )}
             <Field className="my-2">
               <Button type="submit" disabled={pending}>
                 {pending ? "Logging in..." : "Login"}

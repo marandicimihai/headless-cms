@@ -52,7 +52,12 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, SessionToke
         }
         else
         {
-            await Send.UnauthorizedAsync(ct);
+            await ApiErrors.SendAsync(
+                HttpContext,
+                StatusCodes.Status401Unauthorized,
+                "invalid_credentials",
+                "The email or password is incorrect.",
+                ct);
         }
     }
 }

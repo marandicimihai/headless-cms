@@ -1,6 +1,6 @@
 import "server-only";
 
-import { EncryptJWT, jwtDecrypt } from "jose";
+import { decodeJwt, EncryptJWT, jwtDecrypt } from "jose";
 import { TokenResponse } from "../types/auth";
 import { cookies } from "next/headers";
 
@@ -89,4 +89,16 @@ export async function getSession(): Promise<TokenResponse | null> {
 export async function deleteSession(): Promise<void> {
   const c = await cookies();
   c.delete(COOKIE_NAME);
+}
+
+export function getEmail(accessToken: string): string | null {
+  try {
+    const claims = decodeJwt(accessToken);
+
+    return typeof claims.email === "string"
+      ? claims.email
+      : null;
+  } catch {
+    return null;
+  }
 }

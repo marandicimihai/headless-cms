@@ -1,8 +1,8 @@
 "use server";
 
 import { login } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/problem-details";
 import { createSession } from "@/lib/api/session";
+import { ApiError } from "@/lib/types/general";
 import { redirect } from "next/navigation";
 
 export type LoginState = {

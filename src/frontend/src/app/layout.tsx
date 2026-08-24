@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { JetBrains_Mono, Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -15,7 +16,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={cn( jetbrainsMono.variable, "font-sans", geist.variable)}>
-      <body className="dark">{children}</body>
+      <body className="dark">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }
