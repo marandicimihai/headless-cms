@@ -1,8 +1,6 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FastEndpoints;
-using FastEndpoints.Security;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
@@ -24,9 +22,6 @@ namespace HeadlessCms.Api.Tests;
 
 public sealed class TestApp : AppFixture<Program>
 {
-    public const string SigningKey =
-        "test-only-signing-key-that-is-long-enough-for-hmac-sha256-validation";
-
     private readonly PostgreSqlContainer container =
         new PostgreSqlBuilder(
             Environment.GetEnvironmentVariable("TEST_POSTGRES_IMAGE")
@@ -66,6 +61,7 @@ public sealed class TestApp : AppFixture<Program>
             new ClientOptions
             {
                 AllowAutoRedirect = false,
+                HandleCookies = false,
                 BaseAddress = new Uri("https://localhost")
             });
 
@@ -165,8 +161,8 @@ public sealed class TestApp : AppFixture<Program>
 
     public async Task<string> LoginAsync(string identifier, string password)
     {
-        var (response, tokens) =
-            await HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
+        var (response, _) =
+            await HttpsClient.POSTAsync<Login, LoginRequest, AuthSessionResponse>(
                 new LoginRequest
                 {
                     Email = AsEmail(identifier),
@@ -174,17 +170,27 @@ public sealed class TestApp : AppFixture<Program>
                 });
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return tokens.AccessToken;
+        return ExtractSessionCookie(response);
+    }
+
+    public static string ExtractSessionCookie(HttpResponseMessage response)
+    {
+        response.Headers.TryGetValues("Set-Cookie", out var values).ShouldBeTrue();
+        var header = values!.Single(value =>
+            value.StartsWith(
+                $"{AuthSessionService.CookieName}=",
+                StringComparison.Ordinal));
+        return header.Split(';', 2)[0];
     }
 
     public async Task<HttpResponseMessage> SendAsync(
         HttpMethod method,
         string path,
-        string accessToken,
+        string sessionCookie,
         object? body = null)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("Cookie", sessionCookie);
         if (body is not null)
             request.Content = JsonContent.Create(body);
 

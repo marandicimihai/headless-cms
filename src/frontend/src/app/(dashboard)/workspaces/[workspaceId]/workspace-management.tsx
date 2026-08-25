@@ -1,7 +1,7 @@
 "use client"
 
-import { CircleAlert, CircleCheck } from "lucide-react"
-import { useActionState } from "react"
+import { CircleAlert } from "lucide-react"
+import { useActionState, useState } from "react"
 
 import {
   changeWorkspaceMemberRoleAction,
@@ -9,6 +9,7 @@ import {
   renameWorkspaceAction,
 } from "./actions"
 import type { WorkspaceActionState } from "./actions"
+import { useActionToast } from "@/hooks/use-action-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,23 +56,6 @@ function roleLabel(role: WorkspaceRole) {
   return role === "Member" ? "Read only" : role
 }
 
-function ActionMessage({
-  status,
-  message,
-}: {
-  status: "idle" | "success" | "error"
-  message: string | null
-}) {
-  if (!message || status === "idle") return null
-
-  return (
-    <Alert variant={status === "error" ? "destructive" : "default"}>
-      {status === "error" ? <CircleAlert /> : <CircleCheck />}
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
-  )
-}
-
 function RenameWorkspaceForm({
   workspaceId,
   workspaceName,
@@ -84,7 +68,16 @@ function RenameWorkspaceForm({
     renameAction,
     initialWorkspaceActionState,
   )
+  useActionToast(state)
+  const [name, setName] = useState(workspaceName)
+  const [previousWorkspaceName, setPreviousWorkspaceName] =
+    useState(workspaceName)
   const nameErrors = state.fieldErrors.name ?? []
+
+  if (previousWorkspaceName !== workspaceName) {
+    setPreviousWorkspaceName(workspaceName)
+    setName(workspaceName)
+  }
 
   return (
     <form action={formAction} className="max-w-2xl space-y-4">
@@ -94,7 +87,8 @@ function RenameWorkspaceForm({
           <Input
             id="workspace-name"
             name="name"
-            defaultValue={workspaceName}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             maxLength={100}
             required
           />
@@ -104,7 +98,6 @@ function RenameWorkspaceForm({
         </div>
         <FieldError errors={nameErrors.map((message) => ({ message }))} />
       </Field>
-      <ActionMessage status={state.status} message={state.message} />
     </form>
   )
 }
@@ -115,6 +108,7 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
     inviteAction,
     initialWorkspaceActionState,
   )
+  useActionToast(state)
   const emailErrors = state.fieldErrors.email ?? []
   const roleErrors = state.fieldErrors.role ?? []
 
@@ -158,7 +152,6 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
         Invitations are emailed to the address above and must be accepted before
         the person becomes a workspace member.
       </p>
-      <ActionMessage status={state.status} message={state.message} />
     </form>
   )
 }
@@ -179,15 +172,30 @@ function MemberRoleForm({
     roleAction,
     initialWorkspaceActionState,
   )
+  useActionToast(state)
+  const [role, setRole] = useState(member.role)
+  const [previousRole, setPreviousRole] = useState(member.role)
+
+  if (previousRole !== member.role) {
+    setPreviousRole(member.role)
+    setRole(member.role)
+  }
 
   if (member.role === "Owner") {
     return <Badge>Owner</Badge>
   }
 
   return (
-    <div className="space-y-2">
+    <div>
       <form action={formAction} className="flex items-center justify-end gap-2">
-        <Select name="role" defaultValue={member.role} required>
+        <Select
+          name="role"
+          value={role}
+          onValueChange={(value) => {
+            if (value === "Member" || value === "Editor") setRole(value)
+          }}
+          required
+        >
           <SelectTrigger
             aria-label={`Access for ${member.email}`}
             size="sm"
@@ -204,18 +212,6 @@ function MemberRoleForm({
           {pending ? "Saving..." : "Save"}
         </Button>
       </form>
-      {state.message ? (
-        <p
-          className={
-            state.status === "error"
-              ? "text-xs text-destructive"
-              : "text-xs text-muted-foreground"
-          }
-          role="status"
-        >
-          {state.message}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -272,17 +268,17 @@ export function WorkspaceManagement({
             <AlertDescription>{membersError}</AlertDescription>
           </Alert>
         ) : members.length ? (
-          <div className="border-y">
+          <div className="overflow-hidden rounded-xl border">
             <Table className="min-w-[36rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Member
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Joined
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-right">
                     Access
                   </TableHead>
                 </TableRow>
@@ -290,13 +286,13 @@ export function WorkspaceManagement({
               <TableBody>
                 {members.map((member) => (
                   <TableRow key={member.userId}>
-                    <TableCell className="px-4 py-4 font-medium">
+                    <TableCell className="font-medium">
                       {member.email}
                     </TableCell>
-                    <TableCell className="px-4 py-4 text-muted-foreground">
+                    <TableCell className="text-muted-foreground">
                       {formatDate(member.joinedAt)}
                     </TableCell>
-                    <TableCell className="px-4 py-4 text-right">
+                    <TableCell className="text-right">
                       <MemberRoleForm workspaceId={workspaceId} member={member} />
                     </TableCell>
                   </TableRow>
@@ -304,7 +300,7 @@ export function WorkspaceManagement({
               </TableBody>
             </Table>
             {memberTotal > members.length ? (
-              <p className="border-t px-2 py-3 text-xs text-muted-foreground">
+              <p className="border-t px-6 py-3 text-xs text-muted-foreground">
                 Showing the first {members.length} of {memberTotal} members.
               </p>
             ) : null}
@@ -332,17 +328,17 @@ export function WorkspaceManagement({
             <AlertDescription>{invitationsError}</AlertDescription>
           </Alert>
         ) : invitations.length ? (
-          <div className="border-y">
+          <div className="overflow-hidden rounded-xl border">
             <Table className="min-w-[36rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Email
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Sent
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-right">
                     Access
                   </TableHead>
                 </TableRow>
@@ -350,10 +346,10 @@ export function WorkspaceManagement({
               <TableBody>
                 {invitations.map((invitation) => (
                   <TableRow key={invitation.id}>
-                    <TableCell className="px-4 py-4 font-medium">
+                    <TableCell className="font-medium">
                       {invitation.email}
                     </TableCell>
-                    <TableCell className="px-4 py-4">
+                    <TableCell>
                       <div className="space-y-0.5">
                         <p>{formatDate(invitation.createdAt)}</p>
                         <p className="text-xs text-muted-foreground">
@@ -361,7 +357,7 @@ export function WorkspaceManagement({
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="px-4 py-4 text-right">
+                    <TableCell className="text-right">
                       <Badge variant="outline">{roleLabel(invitation.role)}</Badge>
                     </TableCell>
                   </TableRow>
@@ -369,23 +365,23 @@ export function WorkspaceManagement({
               </TableBody>
             </Table>
             {invitationTotal > invitations.length ? (
-              <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+              <p className="border-t px-6 py-3 text-xs text-muted-foreground">
                 Showing the first {invitations.length} of {invitationTotal} pending invitations.
               </p>
             ) : null}
           </div>
         ) : (
-          <div className="border-y">
+          <div className="overflow-hidden rounded-xl border">
             <Table className="min-w-[36rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Email
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead>
                     Sent
                   </TableHead>
-                  <TableHead className="h-11 px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-right">
                     Access
                   </TableHead>
                 </TableRow>
@@ -394,7 +390,7 @@ export function WorkspaceManagement({
                 <TableRow>
                   <TableCell
                     colSpan={3}
-                    className="px-4 py-10 text-center text-sm text-muted-foreground"
+                    className="py-10 text-center text-sm text-muted-foreground"
                   >
                     There are no pending invitations.
                   </TableCell>

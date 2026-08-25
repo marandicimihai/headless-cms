@@ -1,6 +1,5 @@
-using FastEndpoints;
-using FastEndpoints.Security;
 using FluentValidation;
+using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
@@ -8,7 +7,7 @@ namespace HeadlessCms.Api.Endpoints.Auth;
 
 public sealed class RegisterWithInvitation(
     WorkspaceInvitationService invitations,
-    Refresh tokenService)
+    AuthSessionService sessions)
     : Endpoint<RegisterWithInvitation.Request, RegisterWithInvitation.ResponseDto>
 {
     public override void Configure()
@@ -24,17 +23,8 @@ public sealed class RegisterWithInvitation(
             var registration =
                 await invitations.RegisterAsync(request.Token, request.Password, ct);
             var user = registration.User;
-            var tokens = await tokenService.CreateCustomToken(
-                user.Id,
-                privileges =>
-                {
-                    privileges["sub"] = user.Id;
-                    privileges["email"] = user.Email;
-                    privileges.Roles.Add(user.PlatformRole.ToString());
-                },
-                response => response,
-                false,
-                request);
+            var created = await sessions.CreateAsync(user.Id, ct);
+            sessions.AppendCookie(HttpContext.Response, created);
 
             Response = new ResponseDto(
                 user.Id,
@@ -43,8 +33,7 @@ public sealed class RegisterWithInvitation(
                     registration.Workspace.Id,
                     registration.Workspace.Name,
                     registration.Membership.Role,
-                    registration.Membership.JoinedAt),
-                tokens);
+                    registration.Membership.JoinedAt));
         }
         catch (InvitationFlowException exception)
         {
@@ -67,8 +56,7 @@ public sealed class RegisterWithInvitation(
     public sealed record ResponseDto(
         string UserId,
         string Email,
-        Membership Membership,
-        TokenResponse Tokens);
+        Membership Membership);
 
     public sealed class RequestValidator : Validator<Request>
     {

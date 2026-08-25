@@ -1,4 +1,3 @@
-using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +6,7 @@ namespace HeadlessCms.Api.Auth.Data;
 public abstract class AuthDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<User> Users { get; set; }
-    public DbSet<RefreshToken> Tokens { get; set; }
+    public DbSet<AuthSession> AuthSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,5 +25,18 @@ public abstract class AuthDbContext(DbContextOptions options) : DbContext(option
         modelBuilder.Entity<User>()
             .HasIndex(user => user.Email)
             .IsUnique();
+
+        modelBuilder.Entity<AuthSession>()
+            .HasIndex(session => session.SecretHash)
+            .IsUnique();
+
+        modelBuilder.Entity<AuthSession>()
+            .HasIndex(session => new { session.UserId, session.LastSeenAt });
+
+        modelBuilder.Entity<AuthSession>()
+            .HasOne(session => session.User)
+            .WithMany()
+            .HasForeignKey(session => session.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

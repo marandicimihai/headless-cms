@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FastEndpoints;
@@ -372,7 +371,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         object? body = null)
     {
         using var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("Cookie", accessToken);
         if (body is not null)
             request.Content = JsonContent.Create(body);
 

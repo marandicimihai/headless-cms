@@ -32,7 +32,6 @@ async function requireSession() {
     redirect("/auth/login")
   }
 
-  return session
 }
 
 function refreshWorkspace(workspaceId: string) {
@@ -45,8 +44,8 @@ export async function renameWorkspaceAction(
   _previousState: WorkspaceActionState,
   formData: FormData,
 ): Promise<WorkspaceActionState> {
-  const session = await requireSession()
-  const result = await renameWorkspace(session.accessToken, workspaceId, {
+  await requireSession()
+  const result = await renameWorkspace(workspaceId, {
     name: String(formData.get("name") ?? ""),
   })
 
@@ -65,7 +64,7 @@ export async function inviteWorkspaceMemberAction(
   _previousState: WorkspaceActionState,
   formData: FormData,
 ): Promise<WorkspaceActionState> {
-  const session = await requireSession()
+  await requireSession()
   const role = String(formData.get("role") ?? "")
 
   if (role !== "Editor" && role !== "Member") {
@@ -77,7 +76,6 @@ export async function inviteWorkspaceMemberAction(
   }
 
   const result = await createWorkspaceInvitation(
-    session.accessToken,
     workspaceId,
     {
       email: String(formData.get("email") ?? ""),
@@ -101,7 +99,7 @@ export async function changeWorkspaceMemberRoleAction(
   _previousState: WorkspaceActionState,
   formData: FormData,
 ): Promise<WorkspaceActionState> {
-  const session = await requireSession()
+  await requireSession()
   const role = String(formData.get("role") ?? "")
 
   if (role !== "Editor" && role !== "Member") {
@@ -113,7 +111,6 @@ export async function changeWorkspaceMemberRoleAction(
   }
 
   const result = await changeWorkspaceMemberRole(
-    session.accessToken,
     workspaceId,
     userId,
     role,

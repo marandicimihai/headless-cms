@@ -1,4 +1,4 @@
-using FastEndpoints.Security;
+using FastEndpoints;
 using FluentValidation;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
@@ -26,7 +26,9 @@ public class LoginRequest
     }
 }
 
-public class Login(UserManager userManager) : Endpoint<LoginRequest, SessionTokens>
+public class Login(
+    UserManager userManager,
+    AuthSessionService sessions) : Endpoint<LoginRequest, AuthSessionResponse>
 {
     public override void Configure()
     {
@@ -41,14 +43,14 @@ public class Login(UserManager userManager) : Endpoint<LoginRequest, SessionToke
 
         if (valid)
         {
-            Response = await CreateTokenWith<Refresh>(
-                user!.Id,
-                privileges =>
-                {
-                    privileges["sub"] = user.Id;
-                    privileges["email"] = user.Email;
-                    privileges.Roles.Add(user.PlatformRole.ToString());
-                });
+            var created = await sessions.CreateAsync(user!.Id, ct);
+            sessions.AppendCookie(HttpContext.Response, created);
+            Response = new AuthSessionResponse(
+                user.Id,
+                user.Email,
+                user.PlatformRole,
+                created.Session.IdleExpiresAt,
+                created.Session.AbsoluteExpiresAt);
         }
         else
         {

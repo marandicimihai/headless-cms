@@ -1,14 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { CircleAlert } from "lucide-react"
 import { useActionState } from "react"
 
 import {
   createWorkspaceAction,
   type CreateWorkspaceState,
 } from "./actions"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -17,6 +15,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { useErrorToast } from "@/hooks/use-action-toast"
 
 const initialState: CreateWorkspaceState = {
   error: null,
@@ -31,6 +30,7 @@ export default function NewWorkspacePage() {
   const nameErrors = state.error?.fieldErrors.name ?? []
   const hasFieldErrors = Object.keys(state.error?.fieldErrors ?? {}).length > 0
   const formError = state.error && !hasFieldErrors ? state.error : null
+  useErrorToast(formError)
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -58,14 +58,6 @@ export default function NewWorkspacePage() {
               errors={nameErrors.map((message) => ({ message }))}
             />
           </Field>
-
-          {formError && (
-            <Alert variant="destructive">
-              <CircleAlert />
-              <AlertTitle>Unable to create workspace</AlertTitle>
-              <AlertDescription>{formError.detail}</AlertDescription>
-            </Alert>
-          )}
 
           <div className="flex items-center gap-2">
             <Button type="submit" disabled={pending}>

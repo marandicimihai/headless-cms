@@ -4,6 +4,7 @@ import "./globals.css";
 import { JetBrains_Mono, Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={cn( jetbrainsMono.variable, "font-sans", geist.variable)}>
       <body className="dark">
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          {children}
+          <Toaster position="bottom-left" />
+        </TooltipProvider>
       </body>
     </html>
   );

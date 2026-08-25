@@ -163,54 +163,6 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public void Refresh_WithoutRefreshTokenLifetime_Throws()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["Auth:SigningKey"] = TestApp.SigningKey,
-                    ["Auth:AccessTokenExpirationMinutes"] = "10"
-                })
-            .Build();
-        using var scope = app.Services.CreateScope();
-
-        var exception = Should.Throw<InvalidOperationException>(
-            () => new Refresh(
-                configuration,
-                new RecordingLogger<Refresh>(),
-                scope.ServiceProvider
-                    .GetRequiredService<ApplicationDbContext>()));
-
-        exception.Message.ShouldBe(
-            "Required configuration 'Auth:RefreshTokenExpirationDays' is missing.");
-    }
-
-    [Fact]
-    public void Refresh_WithoutAccessTokenLifetime_Throws()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["Auth:SigningKey"] = TestApp.SigningKey,
-                    ["Auth:RefreshTokenExpirationDays"] = "7"
-                })
-            .Build();
-        using var scope = app.Services.CreateScope();
-
-        var exception = Should.Throw<InvalidOperationException>(
-            () => new Refresh(
-                configuration,
-                new RecordingLogger<Refresh>(),
-                scope.ServiceProvider
-                    .GetRequiredService<ApplicationDbContext>()));
-
-        exception.Message.ShouldBe(
-            "Required configuration 'Auth:AccessTokenExpirationMinutes' is missing.");
-    }
-
-    [Fact]
     public async Task ApplicationDbContextFactory_UsesEnvironmentConnectionString()
     {
         var ct = TestContext.Current.CancellationToken;

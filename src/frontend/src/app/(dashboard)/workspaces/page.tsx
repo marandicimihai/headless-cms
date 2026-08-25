@@ -48,7 +48,7 @@ export default async function WorkspacesPage() {
     redirect("/auth/login")
   }
 
-  const result = await listMyWorkspaces(session.accessToken)
+  const result = await listMyWorkspaces()
   const error = result.ok ? undefined : result.error.detail
   const workspaces = result.ok ? result.data : undefined
   const summary = [

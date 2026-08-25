@@ -1,7 +1,18 @@
+import "server-only";
+
 import type { ApiResult } from "../types/general";
 import { parseApiError } from "./problem-details";
+import { getSessionCookie, SESSION_COOKIE_NAME } from "./session";
 
 export class ApiUnavailableError extends Error {}
+
+function isFetchUnavailableError(error: unknown) {
+  return (
+    error instanceof ApiUnavailableError ||
+    error instanceof TypeError ||
+    (error instanceof DOMException && error.name === "TimeoutError")
+  )
+}
 
 function backendUnavailable<T>(status = 503): ApiResult<T> {
   return {
@@ -21,6 +32,11 @@ export async function apiFetch<T>(
 ): Promise<ApiResult<T>> {
   try {
     const headers = new Headers(options?.headers)
+    const sessionSecret = await getSessionCookie()
+
+    if (sessionSecret) {
+      headers.set("Cookie", `${SESSION_COOKIE_NAME}=${sessionSecret}`)
+    }
 
     if (
       typeof options?.body === "string" &&
@@ -51,11 +67,7 @@ export async function apiFetch<T>(
       data: await response.json() as T
     };
   } catch (error) {
-    if (
-      error instanceof ApiUnavailableError ||
-      error instanceof TypeError || // fetch network failure
-      (error instanceof DOMException && error.name === "TimeoutError")
-    ) {
+    if (isFetchUnavailableError(error)) {
       return backendUnavailable<T>();
     }
 

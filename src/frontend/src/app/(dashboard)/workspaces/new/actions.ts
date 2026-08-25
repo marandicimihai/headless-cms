@@ -20,7 +20,7 @@ export async function createWorkspaceAction(
     redirect("/auth/login")
   }
 
-  const result = await createWorkspace(session.accessToken, {
+  const result = await createWorkspace({
     name: String(formData.get("name")),
   })
 

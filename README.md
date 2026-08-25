@@ -54,12 +54,17 @@ The hosted Postman collection makes it easy to:
 ### Authentication and workspace API
 
 Authentication is email-based and normal user registration is invitation-only.
-All authenticated routes require `Authorization: Bearer <access-token>`.
+Authenticated requests use an opaque PostgreSQL-backed `cms_session` cookie.
+The cookie is HttpOnly, host-only, `SameSite=Lax`, secure outside development,
+and is never returned in a JSON response. API clients such as Postman should
+enable their cookie jar and reuse the cookie set by login or invitation
+registration.
 
 | Method | Route | Access |
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | Anonymous |
-| `POST` | `/api/auth/refresh` | Anonymous, valid refresh token |
+| `GET` | `/api/auth/session` | Authenticated, current session metadata |
+| `POST` | `/api/auth/logout` | Anonymous/idempotent, revokes the presented session |
 | `POST` | `/api/auth/invitations/preview` | Anonymous, masked invitation details |
 | `POST` | `/api/auth/invitations/register` | Anonymous, valid invitation |
 | `POST` | `/api/auth/invitations/accept` | Authenticated invited user |
@@ -81,8 +86,8 @@ All authenticated routes require `Authorization: Bearer <access-token>`.
 ### Private project API
 
 Projects are private and owned by workspaces. Every project route requires a
-bearer token and resolves the current user's membership for the workspace in the
-route:
+valid session cookie and resolves the current user's membership for the
+workspace in the route:
 
 - workspace `Owner` and `Editor` roles can create, read, update, and delete
   projects;
@@ -129,6 +134,29 @@ dotnet ef database update \
   --startup-project src/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
 
+Build and test the API:
+
+```bash
+dotnet build headless-cms.slnx
+dotnet test headless-cms.slnx
+```
+
+Run the API locally:
+
+```bash
+dotnet run --project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+```
+
+Run and verify the frontend:
+
+```bash
+cd src/frontend
+pnpm dev
+pnpm test
+pnpm lint
+pnpm build
+```
+
 ## Development Notes
 
 Planned core capabilities:
@@ -149,10 +177,18 @@ Authorization has separate platform and workspace scopes:
   owner. A user can own at most `Workspaces:MaximumOwnedWorkspaces` workspaces.
 
 The development admin configured with `Auth:AdminEmail` is assigned
-`PlatformAdmin`. Login and refresh access tokens include the platform role as a
-standard `role` claim. Workspace permissions must be resolved from the
-authenticated user's membership for the requested `WorkspaceId`; platform roles
-must not be used as workspace permissions.
+`PlatformAdmin`. Each authenticated request resolves the user's current platform
+role from the database and exposes it as a standard `role` claim. Workspace
+permissions must be resolved from the authenticated user's membership for the
+requested `WorkspaceId`; platform roles must not be used as workspace
+permissions.
+
+Sessions remain valid for 30 days of inactivity and have a one-year absolute
+limit. Activity updates `LastSeenAt` and rolls the idle expiry at most once every
+24 hours. A user can have at most ten active sessions; a new login prunes expired
+sessions and evicts the least recently used session when necessary. Logout
+revokes only the current browser session. Deleting a user cascades to all of that
+user's sessions.
 
 The workspace invitation model stores only a hash of each single-use token.
 Resending rotates the token, and accepted, expired, or revoked invitations
@@ -166,7 +202,6 @@ The workspace ownership limit defaults to `10` in `appsettings.json`. Override
 Required production configuration:
 
 ```text
-Auth__SigningKey
 Auth__AdminEmail
 Auth__AdminPassword
 ConnectionStrings__DefaultConnection

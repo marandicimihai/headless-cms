@@ -1,7 +1,7 @@
 "use server";
 
 import { login } from "@/lib/api/auth";
-import { createSession } from "@/lib/api/session";
+import { mirrorBackendSessionCookie } from "@/lib/api/session";
 import { ApiError } from "@/lib/types/general";
 import { redirect } from "next/navigation";
 
@@ -24,6 +24,9 @@ export async function loginAction(
     };
   }
 
-  await createSession(loginResponse.data)
+  await mirrorBackendSessionCookie(
+    loginResponse.data.setCookieHeader,
+    loginResponse.data.session.absoluteExpiresAt,
+  )
   redirect("/")
 }

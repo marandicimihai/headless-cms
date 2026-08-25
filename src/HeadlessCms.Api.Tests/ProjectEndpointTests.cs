@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FastEndpoints;
 using FastEndpoints.Security;
@@ -453,19 +452,8 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
             });
     }
 
-    private async Task<string> LoginAsync(string email, string password)
-    {
-        var (response, tokens) =
-            await app.HttpsClient.POSTAsync<Login, LoginRequest, TokenResponse>(
-                new LoginRequest
-                {
-                    Email = TestApp.AsEmail(email),
-                    Password = password
-                });
-
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return tokens.AccessToken;
-    }
+    private Task<string> LoginAsync(string email, string password) =>
+        app.LoginAsync(email, password);
 
     private async Task<HttpResponseMessage> SendAsync(
         HttpMethod method,
@@ -474,7 +462,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
         object? body = null)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("Cookie", accessToken);
         if (body is not null)
             request.Content = JsonContent.Create(body);
 

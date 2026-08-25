@@ -1,7 +1,7 @@
-export type TokenResponse = {
+export type AuthSession = {
   userId: string;
-  accessToken: string;
-  refreshToken: string;
-  accessExpiry: string;
-  refreshExpiry: string;
+  email: string;
+  platformRole: "User" | "PlatformAdmin";
+  idleExpiresAt: string;
+  absoluteExpiresAt: string;
 }

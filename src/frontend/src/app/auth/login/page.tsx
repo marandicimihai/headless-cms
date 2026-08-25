@@ -6,8 +6,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { loginAction } from "./actions";
 import { useActionState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CircleAlert } from "lucide-react";
+import { useErrorToast } from "@/hooks/use-action-toast";
 
 const initialState = { error: null }
 
@@ -17,14 +16,13 @@ export default function LoginForm() {
     initialState
   )
 
-  console.log(state.error)
-
   const emailErrors = state.error?.fieldErrors.email ?? [];
   const passwordErrors = state.error?.fieldErrors.password ?? [];
 
   const hasFieldErrors = Object.keys(state.error?.fieldErrors ?? {}).length > 0;
 
   const formError = state.error && !hasFieldErrors ? state.error : null;
+  useErrorToast(formError)
 
   return (
     <Card className="w-full max-w-sm">
@@ -61,15 +59,6 @@ export default function LoginForm() {
                 errors={passwordErrors.map((message) => ({ message }))}
               />
             </Field>
-            {formError && (
-              <Alert variant="destructive">
-                <CircleAlert />
-                <AlertTitle>Unable to sign in</AlertTitle>
-                <AlertDescription>
-                  {state.error?.detail}
-                </AlertDescription>
-              </Alert>
-            )}
             <Field className="my-2">
               <Button type="submit" disabled={pending}>
                 {pending ? "Logging in..." : "Login"}

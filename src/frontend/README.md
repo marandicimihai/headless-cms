@@ -2,6 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Set the backend URL; no frontend signing or encryption secret is required:
+
+```text
+BACKEND_URL=http://localhost:5123
+```
+
+The Next.js app acts as the browser-facing BFF. Login mirrors the backend's
+opaque HttpOnly `cms_session` cookie, server-side API helpers forward it
+automatically, dashboard access is verified with `GET /api/auth/session`, and
+logout revokes the backend session before clearing the browser cookie.
+
 First, run the development server:
 
 ```bash

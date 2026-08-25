@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -235,9 +234,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
             "/api/auth/login",
             new { email, password });
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var tokens = await response.Content.ReadFromJsonAsync<TokenResponse>();
-        tokens.ShouldNotBeNull();
-        return tokens.AccessToken;
+        return TestApp.ExtractSessionCookie(response);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -247,7 +244,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
         object? body = null)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Add("Cookie", token);
         if (body is not null)
             request.Content = JsonContent.Create(body);
         return await app.HttpsClient.SendAsync(request);

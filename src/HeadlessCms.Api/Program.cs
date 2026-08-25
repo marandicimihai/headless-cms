@@ -1,21 +1,28 @@
-using FastEndpoints.Security;
 using System.Text.Json.Serialization;
+using HeadlessCms.Api.Auth;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Workspaces.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var signingKey = builder.Configuration["Auth:SigningKey"] ??
-                 throw new InvalidOperationException("Missing configuration Auth:SigningKey");
-
 builder.Services
-    .AddAuthenticationJwtBearer(s => s.SigningKey = signingKey) 
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = SessionAuthenticationDefaults.Scheme;
+        options.DefaultChallengeScheme = SessionAuthenticationDefaults.Scheme;
+        options.DefaultForbidScheme = SessionAuthenticationDefaults.Scheme;
+    })
+    .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(
+        SessionAuthenticationDefaults.Scheme,
+        _ => { });
+builder.Services
     .AddAuthorization()
     .AddFastEndpoints();
 builder.Services.ConfigureHttpJsonOptions(
@@ -28,6 +35,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 });
 
 builder.Services.AddScoped<UserManager>();
+builder.Services.AddScoped<AuthSessionService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<WorkspaceAccessService>();
 builder.Services.AddScoped<WorkspaceInvitationService>();
 builder.Services.AddScoped<WorkspaceOwnershipLimitService>();
@@ -38,7 +47,6 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
 else
     builder.Services.AddScoped<IInvitationEmailSender, UnconfiguredInvitationEmailSender>();
-builder.Services.AddScoped<Refresh>();
 
 var app = builder.Build();
 

@@ -378,35 +378,6 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task RefreshTokenPersistence_SurfacesPostgreSqlWriteFailures()
-    {
-        var user = await app.SeedUserAsync("refresh-user", "password");
-        using var login = await app.HttpsClient.PostAsJsonAsync(
-            "/api/auth/login",
-            new { email = user.Email, password = "password" },
-            TestContext.Current.CancellationToken);
-        login.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var invalidResponse = await login.Content.ReadFromJsonAsync<SessionTokens>(
-            cancellationToken: TestContext.Current.CancellationToken);
-        invalidResponse.ShouldNotBeNull();
-        var originalTokenHash = TokenHasher.Hash(invalidResponse.RefreshToken);
-        invalidResponse.UserId = new string('u', 65);
-        invalidResponse.RefreshToken = "replacement-refresh-token";
-
-        await app.WithServiceAsync<Refresh, bool>(
-            async service =>
-            {
-                await Should.ThrowAsync<DbUpdateException>(
-                    () => service.PersistTokenAsync(invalidResponse));
-                return true;
-            });
-
-        var tokenHashes = await app.WithDatabaseAsync(
-            db => db.Tokens.Select(token => token.TokenHash).ToListAsync());
-        tokenHashes.ShouldBe([originalTokenHash]);
-    }
-
-    [Fact]
     public async Task InvitationEndpoints_ValidateBodiesAuthenticationAndShortEmailMasking()
     {
         using var emptyPreview = await app.HttpsClient.PostAsJsonAsync(

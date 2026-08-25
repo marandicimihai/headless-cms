@@ -16,7 +16,7 @@ export default async function WorkspaceBreadcrumbPage({
   }
 
   const { workspaceId } = await params
-  const result = await listMyWorkspaces(session.accessToken)
+  const result = await listMyWorkspaces()
   const workspace = result.ok
     ? result.data.find(
         (item) => item.id.toLowerCase() === workspaceId.toLowerCase(),

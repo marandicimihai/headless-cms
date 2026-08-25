@@ -1,104 +1,74 @@
 import "server-only";
 
-import { decodeJwt, EncryptJWT, jwtDecrypt } from "jose";
-import { TokenResponse } from "../types/auth";
+import type { AuthSession } from "../types/auth";
 import { cookies } from "next/headers";
 
-const COOKIE_NAME = "cms_session";
-const ISSUER = "headless-cms-frontend";
-const AUDIENCE = "headless-cms-frontend";
+export const SESSION_COOKIE_NAME = "cms_session";
 
-function getEncryptionKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-
-  if (!secret) {
-    throw new Error("SESSION_SECRET is not configured");
-  }
-
-  const key = Buffer.from(secret, "base64");
-
-  if (key.length !== 32) {
-    throw new Error("SESSION_SECRET must contain exactly 32 random bytes");
-  }
-
-  return key;
+export async function getSessionCookie(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(SESSION_COOKIE_NAME)?.value ?? null;
 }
 
-export async function createSession(tokens: TokenResponse): Promise<void> {
-  const refreshExpiry = new Date(tokens.refreshExpiry);
+export async function mirrorBackendSessionCookie(
+  setCookieHeader: string,
+  absoluteExpiresAt: string,
+): Promise<void> {
+  const [cookiePair] = setCookieHeader.split(";", 1);
+  const separator = cookiePair.indexOf("=");
 
-  const encrypted = await new EncryptJWT({...tokens})
-    .setProtectedHeader({
-      alg: "dir",
-      enc: "A256GCM",
-    })
-    .setIssuer(ISSUER)
-    .setAudience(AUDIENCE)
-    .setIssuedAt()
-    .setExpirationTime(refreshExpiry)
-    .encrypt(getEncryptionKey());
+  if (
+    separator < 1 ||
+    cookiePair.slice(0, separator).trim() !== SESSION_COOKIE_NAME
+  ) {
+    throw new Error("The backend did not return a valid session cookie");
+  }
 
-  const c = await cookies();
+  const value = cookiePair.slice(separator + 1).trim();
+  const expires = new Date(absoluteExpiresAt);
 
-  c.set(COOKIE_NAME, encrypted, {
+  if (!value || Number.isNaN(expires.getTime())) {
+    throw new Error("The backend returned invalid session metadata");
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, value, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: /(?:^|;)\s*secure(?:;|$)/i.test(setCookieHeader),
     sameSite: "lax",
     path: "/",
-    expires: refreshExpiry,
+    expires,
   });
 }
 
-export async function getSession(): Promise<TokenResponse | null> {
-  const c = await cookies();
-  const encrypted = c.get(COOKIE_NAME)?.value;
+export async function getSession(): Promise<AuthSession | null> {
+  const secret = await getSessionCookie();
 
-  if (!encrypted) {
+  if (!secret) {
     return null;
   }
 
   try {
-    const { payload } = await jwtDecrypt<TokenResponse>(
-      encrypted,
-      getEncryptionKey(),
+    const response = await fetch(
+      `${process.env.BACKEND_URL}/api/auth/session`,
       {
-        issuer: ISSUER,
-        audience: AUDIENCE,
-        keyManagementAlgorithms: ["dir"],
-        contentEncryptionAlgorithms: ["A256GCM"],
+        headers: { Cookie: `${SESSION_COOKIE_NAME}=${secret}` },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       },
     );
-    
-    if (
-      typeof payload.userId !== "string" ||
-      typeof payload.accessToken !== "string" ||
-      typeof payload.refreshToken !== "string" ||
-      typeof payload.accessExpiry !== "string" ||
-      typeof payload.refreshExpiry !== "string"
-    ) {
+
+    if (!response.ok) {
       return null;
     }
 
-    return payload;
+    return await response.json() as AuthSession;
   } catch {
-    // Invalid, modified, expired, or encrypted with another key.
     return null;
   }
 }
 
 export async function deleteSession(): Promise<void> {
-  const c = await cookies();
-  c.delete(COOKIE_NAME);
-}
-
-export function getEmail(accessToken: string): string | null {
-  try {
-    const claims = decodeJwt(accessToken);
-
-    return typeof claims.email === "string"
-      ? claims.email
-      : null;
-  } catch {
-    return null;
-  }
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE_NAME);
 }

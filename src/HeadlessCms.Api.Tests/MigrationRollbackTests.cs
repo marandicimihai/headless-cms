@@ -46,4 +46,36 @@ public sealed class MigrationRollbackTests(TestApp app) : TestBase
         var user = await app.SeedUserAsync("after-rollback", "password");
         user.Email.ShouldBe("after-rollback@example.test");
     }
+
+    [Fact]
+    public async Task SessionMigration_DropsLegacyTokensAndHasReversibleDown()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        await app.WithDatabaseAsync(async db =>
+        {
+            var migrations = db.Database.GetMigrations().ToList();
+            migrations.Count.ShouldBeGreaterThan(1);
+            (await TableAsync(db, "AuthSessions", ct)).ShouldBe("\"AuthSessions\"");
+            (await TableAsync(db, "Tokens", ct)).ShouldBeNull();
+
+            var migrator = db.GetService<IMigrator>();
+            await migrator.MigrateAsync(migrations[^2], ct);
+            (await TableAsync(db, "AuthSessions", ct)).ShouldBeNull();
+            (await TableAsync(db, "Tokens", ct)).ShouldBe("\"Tokens\"");
+
+            await migrator.MigrateAsync(cancellationToken: ct);
+            (await TableAsync(db, "AuthSessions", ct)).ShouldBe("\"AuthSessions\"");
+            (await TableAsync(db, "Tokens", ct)).ShouldBeNull();
+            return true;
+        });
+    }
+
+    private static Task<string?> TableAsync(
+        ApplicationDbContext db,
+        string tableName,
+        CancellationToken ct) =>
+        db.Database.SqlQuery<string?>(
+                $"SELECT to_regclass({$"public.\"{tableName}\""})::text AS \"Value\"")
+            .SingleAsync(ct);
 }

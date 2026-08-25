@@ -53,7 +53,7 @@ export default async function WorkspacePage({
   }
 
   const { workspaceId } = await params
-  const workspaceResult = await listMyWorkspaces(session.accessToken)
+  const workspaceResult = await listMyWorkspaces()
 
   if (!workspaceResult.ok) {
     return (
@@ -102,8 +102,8 @@ export default async function WorkspacePage({
   const isOwner = role === "Owner"
   const [membersResult, invitationsResult] = isOwner
     ? await Promise.all([
-        listWorkspaceMembers(session.accessToken, resolvedWorkspaceId),
-        listPendingWorkspaceInvitations(session.accessToken, resolvedWorkspaceId),
+        listWorkspaceMembers(resolvedWorkspaceId),
+        listPendingWorkspaceInvitations(resolvedWorkspaceId),
       ])
     : [null, null]
 
