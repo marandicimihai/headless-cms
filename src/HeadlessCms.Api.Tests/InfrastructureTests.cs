@@ -70,10 +70,10 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     }
 
     [Theory]
-    [InlineData(null, "https://localhost/invitations/accept")]
+    [InlineData(null, "http://localhost:3000/auth/invitations/accept")]
     [InlineData(
-        "https://cms.example.test/accept",
-        "https://cms.example.test/accept")]
+        "https://cms.example.test",
+        "https://cms.example.test/auth/invitations/accept")]
     public async Task LoggingInvitationEmailSender_LogsEscapedInvitationUrl(
         string? configuredBaseUrl,
         string expectedBaseUrl)
@@ -81,7 +81,7 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
         var logger = new RecordingLogger<LoggingInvitationEmailSender>();
         var configurationValues = new Dictionary<string, string?>();
         if (configuredBaseUrl is not null)
-            configurationValues["Workspaces:InvitationUrl"] = configuredBaseUrl;
+            configurationValues["Frontend:BaseUrl"] = configuredBaseUrl;
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(configurationValues)
             .Build();

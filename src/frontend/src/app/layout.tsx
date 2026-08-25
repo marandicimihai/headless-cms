@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="dark">
         <TooltipProvider>
           {children}
-          <Toaster position="bottom-left" />
+          <Toaster position="bottom-right" />
         </TooltipProvider>
       </body>
     </html>

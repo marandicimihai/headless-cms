@@ -329,7 +329,7 @@ export function WorkspaceManagement({
           </Alert>
         ) : invitations.length ? (
           <div className="overflow-hidden rounded-xl border">
-            <Table className="min-w-[36rem]">
+            <Table className="min-w-[44rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>
@@ -337,6 +337,9 @@ export function WorkspaceManagement({
                   </TableHead>
                   <TableHead>
                     Sent
+                  </TableHead>
+                  <TableHead>
+                    Expires
                   </TableHead>
                   <TableHead className="text-right">
                     Access
@@ -350,12 +353,10 @@ export function WorkspaceManagement({
                       {invitation.email}
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-0.5">
-                        <p>{formatDate(invitation.createdAt)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Expires {formatDate(invitation.expiresAt)}
-                        </p>
-                      </div>
+                      {formatDate(invitation.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(invitation.expiresAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="outline">{roleLabel(invitation.role)}</Badge>
@@ -372,7 +373,7 @@ export function WorkspaceManagement({
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border">
-            <Table className="min-w-[36rem]">
+            <Table className="min-w-[44rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>
@@ -380,6 +381,9 @@ export function WorkspaceManagement({
                   </TableHead>
                   <TableHead>
                     Sent
+                  </TableHead>
+                  <TableHead>
+                    Expires
                   </TableHead>
                   <TableHead className="text-right">
                     Access
@@ -389,7 +393,7 @@ export function WorkspaceManagement({
               <TableBody>
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={4}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     There are no pending invitations.

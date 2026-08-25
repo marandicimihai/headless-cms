@@ -35,8 +35,8 @@ async function requireSession() {
 }
 
 function refreshWorkspace(workspaceId: string) {
-  revalidatePath("/workspaces")
-  revalidatePath(`/workspaces/${workspaceId}`)
+  revalidatePath("/")
+  revalidatePath(`/workspaces/${workspaceId}`, "layout")
 }
 
 export async function renameWorkspaceAction(

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation"
 
-import { DashboardBreadcrumbTrail } from "@/components/dashboard/dashboard-breadcrumb"
+import { DashboardBreadcrumbTrail } from "@/app/(dashboard)/workspaces/[workspaceId]/dashboard-breadcrumb"
 import { getSession } from "@/lib/api/session"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
-export default async function WorkspaceBreadcrumbPage({
+export default async function WorkspaceManagementBreadcrumbPage({
   params,
 }: {
   params: Promise<{ workspaceId: string }>
@@ -26,8 +26,11 @@ export default async function WorkspaceBreadcrumbPage({
   return (
     <DashboardBreadcrumbTrail
       items={[
-        { label: "Workspaces", href: "/workspaces" },
-        { label: workspace?.name ?? "Workspace" },
+        {
+          label: workspace?.name ?? "Workspace",
+          href: `/workspaces/${workspaceId}`,
+        },
+        { label: "Manage" },
       ]}
     />
   )

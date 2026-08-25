@@ -42,6 +42,20 @@ describe("backend session cookie", () => {
     )
   })
 
+  it("uses the cookie expiry when an endpoint does not return session metadata", async () => {
+    await mirrorBackendSessionCookie(
+      "cms_session=opaque-secret; Path=/; Expires=Mon, 24 Aug 2027 12:00:00 GMT; Secure; HttpOnly; SameSite=Lax",
+    )
+
+    expect(cookieStore.set).toHaveBeenCalledWith(
+      "cms_session",
+      "opaque-secret",
+      expect.objectContaining({
+        expires: new Date("2027-08-24T12:00:00Z"),
+      }),
+    )
+  })
+
   it("verifies dashboard sessions by forwarding only the opaque cookie", async () => {
     cookieStore.get.mockReturnValue({ value: "opaque-secret" })
     const fetchMock = vi.fn(async (

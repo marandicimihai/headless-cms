@@ -11,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 
 export type DashboardBreadcrumbItem = {
   label: string
@@ -27,7 +28,7 @@ export function DashboardBreadcrumbTrail({
 
     return (
       <Fragment key={`${item.href ?? "current"}-${item.label}`}>
-        <BreadcrumbSeparator />
+        {index > 0 ? <BreadcrumbSeparator /> : null}
         <BreadcrumbItem>
           {isCurrentPage || !item.href ? (
             <BreadcrumbPage>{item.label}</BreadcrumbPage>
@@ -44,15 +45,13 @@ export function DashboardBreadcrumbTrail({
 
 export function DashboardBreadcrumb({ children }: { children: ReactNode }) {
   return (
-    <footer className="relative z-10 shrink-0 border-t bg-background px-4 py-3 shadow-[0_-2px_4px_-2px_var(--border)] md:px-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href="/" />}>Home</BreadcrumbLink>
-          </BreadcrumbItem>
+    <div className="relative z-10 flex h-9 shrink-0 items-center gap-1 border-b bg-background px-2 md:px-6">
+      <SidebarTrigger className="md:hidden" />
+      <Breadcrumb className="min-w-0 overflow-x-auto">
+        <BreadcrumbList className="flex-nowrap text-xs">
           {children}
         </BreadcrumbList>
       </Breadcrumb>
-    </footer>
+    </div>
   )
 }

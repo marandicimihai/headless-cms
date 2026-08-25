@@ -66,7 +66,7 @@ export default function NewWorkspacePage() {
             <Button
               nativeButton={false}
               variant="ghost"
-              render={<Link href="/workspaces" />}
+              render={<Link href="/" />}
             >
               Cancel
             </Button>

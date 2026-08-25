@@ -13,6 +13,10 @@ opaque HttpOnly `cms_session` cookie, server-side API helpers forward it
 automatically, dashboard access is verified with `GET /api/auth/session`, and
 logout revokes the backend session before clearing the browser cookie.
 
+Invitation links open `/auth/invitations/accept?token=...`. A new invitee sets
+a password there and is signed in automatically. An existing user can sign in
+from that page and is returned to the invitation to join the workspace.
+
 First, run the development server:
 
 ```bash

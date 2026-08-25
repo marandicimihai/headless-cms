@@ -193,7 +193,11 @@ user's sessions.
 The workspace invitation model stores only a hash of each single-use token.
 Resending rotates the token, and accepted, expired, or revoked invitations
 cannot be reused. Development logs invitation URLs; production must register an
-`IInvitationEmailSender` implementation.
+`IInvitationEmailSender` implementation. Invitation URLs use
+`Frontend:BaseUrl` and point to
+`/auth/invitations/accept?token={single-use-token}`. New invitees create their
+password on that page and are signed in automatically; invitees with an
+existing account sign in before accepting the invitation.
 
 The workspace ownership limit defaults to `10` in `appsettings.json`. Override
 `Workspaces:MaximumOwnedWorkspaces` in local configuration or with the
@@ -205,7 +209,7 @@ Required production configuration:
 Auth__AdminEmail
 Auth__AdminPassword
 ConnectionStrings__DefaultConnection
-Workspaces__InvitationUrl
+Frontend__BaseUrl
 ```
 
 ## Dynamic content

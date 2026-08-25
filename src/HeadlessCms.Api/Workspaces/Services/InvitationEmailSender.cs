@@ -23,9 +23,9 @@ public sealed class LoggingInvitationEmailSender(
         string token,
         CancellationToken ct = default)
     {
-        var baseUrl = configuration["Workspaces:InvitationUrl"]
-                      ?? "https://localhost/invitations/accept";
-        var url = $"{baseUrl}?token={Uri.EscapeDataString(token)}";
+        var frontendBaseUrl = configuration["Frontend:BaseUrl"]
+                              ?? throw new InvalidOperationException("Frontend:BaseUrl is not configured.");
+        var url = BuildInvitationUrl(frontendBaseUrl, token);
 
         logger.LogInformation(
             "Development invitation for {Email} to {WorkspaceName} as {Role}: {InvitationUrl}",
@@ -35,6 +35,15 @@ public sealed class LoggingInvitationEmailSender(
             url);
 
         return Task.CompletedTask;
+    }
+
+    private static string BuildInvitationUrl(string frontendBaseUrl, string token)
+    {
+        var baseUri = new Uri(frontendBaseUrl, UriKind.Absolute);
+        var invitationUri = new Uri(baseUri, "/auth/invitations/accept");
+        var separator = invitationUri.Query.Length == 0 ? "?" : "&";
+
+        return $"{invitationUri}{separator}token={Uri.EscapeDataString(token)}";
     }
 }
 

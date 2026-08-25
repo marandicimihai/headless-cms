@@ -12,7 +12,7 @@ export async function getSessionCookie(): Promise<string | null> {
 
 export async function mirrorBackendSessionCookie(
   setCookieHeader: string,
-  absoluteExpiresAt: string,
+  absoluteExpiresAt?: string,
 ): Promise<void> {
   const [cookiePair] = setCookieHeader.split(";", 1);
   const separator = cookiePair.indexOf("=");
@@ -25,7 +25,9 @@ export async function mirrorBackendSessionCookie(
   }
 
   const value = cookiePair.slice(separator + 1).trim();
-  const expires = new Date(absoluteExpiresAt);
+  const expires = absoluteExpiresAt
+    ? new Date(absoluteExpiresAt)
+    : expiresFromCookie(setCookieHeader);
 
   if (!value || Number.isNaN(expires.getTime())) {
     throw new Error("The backend returned invalid session metadata");
@@ -39,6 +41,12 @@ export async function mirrorBackendSessionCookie(
     path: "/",
     expires,
   });
+}
+
+function expiresFromCookie(setCookieHeader: string): Date {
+  const expiresAttribute = /(?:^|;)\s*expires=([^;]+)/i.exec(setCookieHeader)?.[1];
+
+  return expiresAttribute ? new Date(expiresAttribute) : new Date(Number.NaN);
 }
 
 export async function getSession(): Promise<AuthSession | null> {

@@ -28,5 +28,23 @@ export async function loginAction(
     loginResponse.data.setCookieHeader,
     loginResponse.data.session.absoluteExpiresAt,
   )
-  redirect("/")
+  redirect(invitationReturnPath(String(formData.get("returnTo") ?? "")) ?? "/")
+}
+
+function invitationReturnPath(value: string): string | null {
+  if (!value.startsWith("/")) {
+    return null
+  }
+
+  const target = new URL(value, "https://frontend.invalid")
+
+  if (
+    target.origin !== "https://frontend.invalid" ||
+    target.pathname !== "/auth/invitations/accept" ||
+    !target.searchParams.get("token")
+  ) {
+    return null
+  }
+
+  return `${target.pathname}?${target.searchParams.toString()}`
 }
