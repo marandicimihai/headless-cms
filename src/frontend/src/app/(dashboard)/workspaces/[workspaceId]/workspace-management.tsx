@@ -7,10 +7,22 @@ import {
   changeWorkspaceMemberRoleAction,
   inviteWorkspaceMemberAction,
   renameWorkspaceAction,
+  resendWorkspaceInvitationAction,
+  revokeWorkspaceInvitationAction,
 } from "./actions"
 import type { WorkspaceActionState } from "./actions"
 import { useActionToast } from "@/hooks/use-action-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
@@ -216,6 +228,71 @@ function MemberRoleForm({
   )
 }
 
+function InvitationActions({
+  workspaceId,
+  invitation,
+}: {
+  workspaceId: string
+  invitation: WorkspaceInvitation
+}) {
+  const resendAction = resendWorkspaceInvitationAction.bind(
+    null,
+    workspaceId,
+    invitation.id,
+  )
+  const revokeAction = revokeWorkspaceInvitationAction.bind(
+    null,
+    workspaceId,
+    invitation.id,
+  )
+  const [resendState, resendFormAction, resendPending] = useActionState(
+    resendAction,
+    initialWorkspaceActionState,
+  )
+  const [revokeState, revokeFormAction, revokePending] = useActionState(
+    revokeAction,
+    initialWorkspaceActionState,
+  )
+
+  useActionToast(resendState)
+  useActionToast(revokeState)
+
+  return (
+    <div className="flex justify-end gap-2">
+      <form action={resendFormAction}>
+        <Button type="submit" variant="outline" size="sm" disabled={resendPending}>
+          {resendPending ? "Resending..." : "Resend"}
+        </Button>
+      </form>
+      <AlertDialog>
+        <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+          Revoke
+        </AlertDialogTrigger>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invitation.email} will no longer be able to use this invitation link.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form id={`revoke-invitation-${invitation.id}`} action={revokeFormAction} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revokePending}>Cancel</AlertDialogCancel>
+            <Button
+              type="submit"
+              form={`revoke-invitation-${invitation.id}`}
+              variant="destructive"
+              disabled={revokePending}
+            >
+              {revokePending ? "Revoking..." : "Revoke invitation"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
 export function WorkspaceManagement({
   workspaceId,
   workspaceName,
@@ -344,6 +421,9 @@ export function WorkspaceManagement({
                   <TableHead className="text-right">
                     Access
                   </TableHead>
+                  <TableHead className="text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -353,13 +433,19 @@ export function WorkspaceManagement({
                       {invitation.email}
                     </TableCell>
                     <TableCell>
-                      {formatDate(invitation.createdAt)}
+                      {formatDate(invitation.lastSentAt ?? invitation.createdAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(invitation.expiresAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="outline">{roleLabel(invitation.role)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <InvitationActions
+                        workspaceId={workspaceId}
+                        invitation={invitation}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -388,12 +474,15 @@ export function WorkspaceManagement({
                   <TableHead className="text-right">
                     Access
                   </TableHead>
+                  <TableHead className="text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     There are no pending invitations.

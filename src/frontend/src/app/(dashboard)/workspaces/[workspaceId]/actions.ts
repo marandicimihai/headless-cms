@@ -8,6 +8,8 @@ import {
   changeWorkspaceMemberRole,
   createWorkspaceInvitation,
   renameWorkspace,
+  resendWorkspaceInvitation,
+  revokeWorkspaceInvitation,
 } from "@/lib/api/workspaces"
 import type { ApiError } from "@/lib/types/general"
 
@@ -89,6 +91,48 @@ export async function inviteWorkspaceMemberAction(
   return {
     status: "success",
     message: `Invitation sent to ${result.data.email}.`,
+    fieldErrors: {},
+  }
+}
+
+export async function resendWorkspaceInvitationAction(
+  workspaceId: string,
+  invitationId: string,
+  previousState: WorkspaceActionState,
+  formData: FormData,
+): Promise<WorkspaceActionState> {
+  void previousState
+  void formData
+  await requireSession()
+  const result = await resendWorkspaceInvitation(workspaceId, invitationId)
+
+  if (!result.ok) return errorState(result.error)
+
+  refreshWorkspace(workspaceId)
+  return {
+    status: "success",
+    message: `Invitation resent to ${result.data.email}.`,
+    fieldErrors: {},
+  }
+}
+
+export async function revokeWorkspaceInvitationAction(
+  workspaceId: string,
+  invitationId: string,
+  previousState: WorkspaceActionState,
+  formData: FormData,
+): Promise<WorkspaceActionState> {
+  void previousState
+  void formData
+  await requireSession()
+  const result = await revokeWorkspaceInvitation(workspaceId, invitationId)
+
+  if (!result.ok) return errorState(result.error)
+
+  refreshWorkspace(workspaceId)
+  return {
+    status: "success",
+    message: "Invitation revoked.",
     fieldErrors: {},
   }
 }

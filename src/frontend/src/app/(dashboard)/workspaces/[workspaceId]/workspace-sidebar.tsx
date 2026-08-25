@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowLeft, LayoutDashboard, Settings } from "lucide-react"
+import { ArrowLeft, FolderKanban, LayoutDashboard, Settings } from "lucide-react"
 
 import {
   Sidebar,
@@ -30,9 +30,11 @@ export function WorkspaceSidebar({
   const { isMobile, setOpenMobile, state } = useSidebar()
   const isWorkspaceIdentityHidden = !isMobile && state === "collapsed"
   const workspaceHref = `/workspaces/${workspaceId}`
+  const projectsHref = `${workspaceHref}/projects`
   const manageHref = `${workspaceHref}/manage`
   const navigation = [
     { title: "Preview", href: workspaceHref, icon: LayoutDashboard },
+    { title: "Projects", href: projectsHref, icon: FolderKanban },
     { title: "Manage", href: manageHref, icon: Settings },
   ]
 

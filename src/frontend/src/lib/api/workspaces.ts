@@ -76,6 +76,32 @@ export async function createWorkspaceInvitation(
   )
 }
 
+export async function resendWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<ApiResult<WorkspaceInvitation>> {
+  return apiFetch<WorkspaceInvitation>(
+    `/api/workspaces/${workspaceId}/invitations/${encodeURIComponent(invitationId)}/resend`,
+    {
+      method: "POST",
+      cache: "no-store",
+    },
+  )
+}
+
+export async function revokeWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<ApiResult<void>> {
+  return apiFetch<void>(
+    `/api/workspaces/${workspaceId}/invitations/${encodeURIComponent(invitationId)}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  )
+}
+
 export async function changeWorkspaceMemberRole(
   workspaceId: string,
   userId: string,

@@ -41,4 +41,15 @@ describe("authenticated API forwarding", () => {
     expect(result.ok).toBe(false)
     expect(fetchMock).toHaveBeenCalledOnce()
   })
+
+  it("accepts successful no-content responses for delete operations", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await apiFetch<void>("/api/workspaces/1/projects/2", {
+      method: "DELETE",
+    })
+
+    expect(result).toEqual({ ok: true, data: undefined })
+  })
 })
