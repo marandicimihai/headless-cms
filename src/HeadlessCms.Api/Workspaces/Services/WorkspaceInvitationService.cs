@@ -39,7 +39,8 @@ public class WorkspaceInvitationService(
     ApplicationDbContext db,
     IConfiguration configuration,
     IPasswordHasher<User> passwordHasher,
-    IInvitationEmailSender emailSender)
+    IInvitationEmailSender emailSender,
+    WorkspaceAccessService workspaceAccess)
 {
     public async Task<CreatedWorkspaceInvitation> CreateInvitationAsync(
         string ownerUserId,
@@ -54,14 +55,11 @@ public class WorkspaceInvitationService(
         var workspace = await db.Workspaces.SingleOrDefaultAsync(candidate => candidate.Id == workspaceId, ct)
                      ?? throw NotFound("Workspace not found.");
 
-        var ownerMembership = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.UserId == ownerUserId &&
-                membership.WorkspaceId == workspaceId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
-
-        if (!ownerMembership)
+        if (await workspaceAccess.ResolveAsync(
+                ownerUserId,
+                workspaceId,
+                WorkspaceAccessRoles.Owners,
+                ct) is null)
             throw Forbidden("Only a workspace owner can invite users.");
 
         var normalizedEmail = EmailNormalizer.Normalize(email);

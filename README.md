@@ -215,8 +215,8 @@ Frontend__BaseUrl
 ## Dynamic content
 
 Content types belong to projects, and projects belong to workspaces. Entry data
-uses versioned relational definitions with PostgreSQL `jsonb` values. Creating
-a content type does not create a .NET class, PostgreSQL table, or migration.
+uses relational field definitions with PostgreSQL `jsonb` values. Creating a
+content type does not create a .NET class, PostgreSQL table, or migration.
 
 The workflow is:
 
@@ -237,6 +237,7 @@ GET  /api/workspaces/{workspaceId}/projects/{projectId}/content-types
 POST /api/workspaces/{workspaceId}/projects/{projectId}/content-types
 GET  /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}
 PUT  /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}
+DELETE /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}
 
 GET    /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries
 POST   /api/workspaces/{workspaceId}/projects/{projectId}/content-types/{contentTypeKey}/entries
@@ -303,11 +304,17 @@ typed sorting, and declared-field filters:
 Text fields support `eq` and `contains`; number fields support `eq`, `gt`,
 `gte`, `lt`, and `lte`; boolean fields support `eq`.
 
-Updating a definition creates an immutable schema version. New entries use the
-latest version, while existing entries continue validating against the version
-with which they were created. Reusing a field key with a different type is
-rejected. Content type keys are unique within a project, so separate projects
-can independently define a content type with the same key.
+Each content type has one current schema, and every entry conforms to it.
+Updating a definition migrates all of that type's entries in one transaction:
+removed fields are deleted from entry data, defaults fill missing values, and
+the entire update is rejected if any entry cannot satisfy the proposed schema.
+Existing field keys cannot change type. Deleting a content type also deletes
+all of its fields and entries. Content type keys are unique within a project,
+so separate projects can independently define a content type with the same key.
+
+The `ResetDynamicContentToSingleSchema` development migration intentionally
+discards existing content types, fields, and entries while preserving projects,
+workspaces, memberships, and authentication data.
 
 ## Build and Test
 

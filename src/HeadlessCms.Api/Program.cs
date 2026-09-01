@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using HeadlessCms.Api.Auth;
 using HeadlessCms.Api.Auth.Models;
@@ -26,7 +27,8 @@ builder.Services
     .AddAuthorization()
     .AddFastEndpoints();
 builder.Services.ConfigureHttpJsonOptions(
-    options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    options => options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
 
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -61,7 +63,8 @@ app.UseAuthentication()
        {
            c.Endpoints.RoutePrefix = "api";
            c.Errors.UseProblemDetails();
-           c.Serializer.Options.Converters.Add(new JsonStringEnumConverter());
+           c.Serializer.Options.Converters.Add(
+               new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
        });
 app.Run();
 

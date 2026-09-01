@@ -70,7 +70,6 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     }
 
     [Theory]
-    [InlineData(null, "http://localhost:3000/auth/invitations/accept")]
     [InlineData(
         "https://cms.example.test",
         "https://cms.example.test/auth/invitations/accept")]
@@ -148,7 +147,8 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
             configuration,
             scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),
-            scope.ServiceProvider.GetRequiredService<IInvitationEmailSender>());
+            scope.ServiceProvider.GetRequiredService<IInvitationEmailSender>(),
+            scope.ServiceProvider.GetRequiredService<WorkspaceAccessService>());
         var pendingInvitation = new WorkspaceInvitation
         {
             ExpiresAt = DateTime.UtcNow.AddHours(1)

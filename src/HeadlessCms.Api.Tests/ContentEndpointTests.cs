@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FastEndpoints;
 using FastEndpoints.Security;
 using FastEndpoints.Testing;
@@ -18,6 +19,17 @@ namespace HeadlessCms.Api.Tests;
 [Collection<TestAppCollection>]
 public sealed class ContentEndpointTests(TestApp app) : TestBase
 {
+    private static readonly JsonSerializerOptions JsonOptions =
+        new(JsonSerializerDefaults.Web)
+        {
+            Converters =
+            {
+                new JsonStringEnumConverter(
+                    JsonNamingPolicy.CamelCase,
+                    allowIntegerValues: false)
+            }
+        };
+
     protected override async ValueTask SetupAsync()
     {
         await app.ResetDatabaseAsync();
@@ -40,11 +52,11 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
         createType.StatusCode.ShouldBe(HttpStatusCode.Created);
         var type = await createType.Content.ReadFromJsonAsync<CreateContentTypeResponse>(
+            JsonOptions,
             cancellationToken: ct);
         type.ShouldNotBeNull();
         type.Key.ShouldBe("article");
         type.ProjectId.ShouldBe(project.Id);
-        type.Version.ShouldBe(1);
         type.Fields.Count.ShouldBe(3);
 
         var first = await CreateEntryAsync(
@@ -58,7 +70,6 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new { title = "Second", views = 125, published = true });
 
-        first.SchemaVersion.ShouldBe(1);
         second.Data.GetProperty("views").GetInt32().ShouldBe(125);
 
         var invalid = await SendAsync(
@@ -78,6 +89,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token);
         list.StatusCode.ShouldBe(HttpStatusCode.OK);
         var page = await list.Content.ReadFromJsonAsync<ListContentEntriesResponse>(
+            JsonOptions,
             cancellationToken: ct);
         page.ShouldNotBeNull();
         page.Total.ShouldBe(1);
@@ -188,7 +200,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task DefinitionUpdates_AreVersionedAndDoNotChangeOldEntryValidation()
+    public async Task DefinitionUpdates_MigrateExistingEntriesToTheCurrentSchema()
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "password");
@@ -219,25 +231,34 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                     new { key = "title", name = "Title", type = "text", required = true },
                     new { key = "views", name = "Views", type = "number" },
                     new { key = "published", name = "Published", type = "boolean", required = true },
-                    new { key = "summary", name = "Summary", type = "text", required = true }
+                    new
+                    {
+                        key = "summary",
+                        name = "Summary",
+                        type = "text",
+                        required = true,
+                        settings = new { @default = "No summary" }
+                    }
                 }
             });
 
         updateType.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var versionTwo = await updateType.Content.ReadFromJsonAsync<UpdateContentTypeResponse>(
+        var updatedType = await updateType.Content.ReadFromJsonAsync<UpdateContentTypeResponse>(
+            JsonOptions,
             cancellationToken: ct);
-        versionTwo.ShouldNotBeNull();
-        versionTwo.Version.ShouldBe(2);
+        updatedType.ShouldNotBeNull();
+        updatedType.Fields.Count.ShouldBe(4);
 
-        var invalidNewEntry = await SendAsync(
-            HttpMethod.Post,
-            EntriesPath(workspace.Id, project.Id),
-            token,
-            new
-            {
-                data = new { title = "New", views = 2, published = true }
-            });
-        invalidNewEntry.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var migrated = await SendAsync(
+            HttpMethod.Get,
+            $"{EntriesPath(workspace.Id, project.Id)}/{oldEntry.Id}",
+            token);
+        migrated.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var migratedEntry = await migrated.Content.ReadFromJsonAsync<GetContentEntryResponse>(
+            JsonOptions,
+            cancellationToken: ct);
+        migratedEntry.ShouldNotBeNull();
+        migratedEntry.Data.GetProperty("summary").GetString().ShouldBe("No summary");
 
         var updateOldEntry = await SendAsync(
             HttpMethod.Put,
@@ -245,13 +266,20 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new
             {
-                data = new { title = "Still old", views = 3, published = true }
+                data = new
+                {
+                    title = "Uses current schema",
+                    views = 3,
+                    published = true,
+                    summary = "Migrated"
+                }
             });
         updateOldEntry.StatusCode.ShouldBe(HttpStatusCode.OK);
         var updated = await updateOldEntry.Content.ReadFromJsonAsync<UpdateContentEntryResponse>(
+            JsonOptions,
             cancellationToken: ct);
         updated.ShouldNotBeNull();
-        updated.SchemaVersion.ShouldBe(1);
+        updated.Data.GetProperty("summary").GetString().ShouldBe("Migrated");
 
         var incompatible = await SendAsync(
             HttpMethod.Put,
@@ -266,6 +294,150 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                 }
             });
         incompatible.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DefinitionUpdate_RollsBackWhenExistingEntriesCannotSatisfyIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("owner", "password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var project = await SeedProjectAsync(workspace.Id);
+        var token = await LoginAsync("owner", "password");
+
+        await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            ArticleDefinition());
+        var entry = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Existing", views = 1, published = false });
+
+        var rejected = await SendAsync(
+            HttpMethod.Put,
+            ContentTypePath(workspace.Id, project.Id),
+            token,
+            new
+            {
+                name = "Changed article",
+                fields = new object[]
+                {
+                    new { key = "title", name = "Title", type = "text", required = true },
+                    new { key = "views", name = "Views", type = "number" },
+                    new { key = "published", name = "Published", type = "boolean", required = true },
+                    new { key = "summary", name = "Summary", type = "text", required = true }
+                }
+            });
+
+        rejected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var definition = await SendAsync(
+            HttpMethod.Get,
+            ContentTypePath(workspace.Id, project.Id),
+            token);
+        var current = await definition.Content.ReadFromJsonAsync<GetContentTypeResponse>(
+            JsonOptions,
+            cancellationToken: ct);
+        current.ShouldNotBeNull();
+        current.Name.ShouldBe("Article");
+        current.Fields.Select(field => field.Key).ShouldNotContain("summary");
+
+        var stored = await SendAsync(
+            HttpMethod.Get,
+            $"{EntriesPath(workspace.Id, project.Id)}/{entry.Id}",
+            token);
+        var unchanged = await stored.Content.ReadFromJsonAsync<GetContentEntryResponse>(
+            JsonOptions,
+            cancellationToken: ct);
+        unchanged.ShouldNotBeNull();
+        unchanged.Data.TryGetProperty("summary", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task DefinitionUpdate_RemovesDeletedFieldsFromEveryEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var editor = await app.SeedUserAsync("editor", "password");
+        var workspace = await app.SeedWorkspaceAsync((editor, WorkspaceRole.Editor));
+        var project = await SeedProjectAsync(workspace.Id);
+        var token = await LoginAsync("editor", "password");
+
+        await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            ArticleDefinition());
+        var entry = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Existing", views = 1, published = false });
+
+        var update = await SendAsync(
+            HttpMethod.Put,
+            ContentTypePath(workspace.Id, project.Id),
+            token,
+            new
+            {
+                name = "Article",
+                fields = new object[]
+                {
+                    new { key = "title", name = "Headline", type = "text", required = true },
+                    new { key = "published", name = "Published", type = "boolean", required = true }
+                }
+            });
+
+        update.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var response = await SendAsync(
+            HttpMethod.Get,
+            $"{EntriesPath(workspace.Id, project.Id)}/{entry.Id}",
+            token);
+        var migrated = await response.Content.ReadFromJsonAsync<GetContentEntryResponse>(
+            JsonOptions,
+            cancellationToken: ct);
+        migrated.ShouldNotBeNull();
+        migrated.Data.TryGetProperty("views", out _).ShouldBeFalse();
+        migrated.Data.GetProperty("title").GetString().ShouldBe("Existing");
+    }
+
+    [Fact]
+    public async Task OwnerCanDeleteContentTypeAndItsEntries()
+    {
+        var owner = await app.SeedUserAsync("owner", "password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var project = await SeedProjectAsync(workspace.Id);
+        var token = await LoginAsync("owner", "password");
+
+        await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            ArticleDefinition());
+        await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Delete me", views = 1, published = false });
+
+        var deleted = await SendAsync(
+            HttpMethod.Delete,
+            ContentTypePath(workspace.Id, project.Id),
+            token);
+
+        deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var stored = await app.WithDatabaseAsync(async db => new
+        {
+            Types = await db.ContentTypes.CountAsync(),
+            Fields = await db.ContentFields.CountAsync(),
+            Entries = await db.ContentEntries.CountAsync()
+        });
+        stored.Types.ShouldBe(0);
+        stored.Fields.ShouldBe(0);
+        stored.Entries.ShouldBe(0);
     }
 
     private static object ArticleDefinition() =>
@@ -314,6 +486,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             TestContext.Current.CancellationToken);
         response.StatusCode.ShouldBe(HttpStatusCode.Created, responseBody);
         var entry = await response.Content.ReadFromJsonAsync<CreateContentEntryResponse>(
+            JsonOptions,
             cancellationToken: TestContext.Current.CancellationToken);
         entry.ShouldNotBeNull();
         return entry;

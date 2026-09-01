@@ -23,12 +23,9 @@ public class ContentType
     [StringLength(100)]
     public string Name { get; set; } = default!;
 
-    public Guid? CurrentVersionId { get; set; }
-    public ContentTypeVersion? CurrentVersion { get; set; }
-
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public List<ContentTypeVersion> Versions { get; set; } = [];
+    public List<ContentField> Fields { get; set; } = [];
     public List<ContentEntry> Entries { get; set; } = [];
 }

@@ -59,8 +59,14 @@ public sealed class MigrationRollbackTests(TestApp app) : TestBase
             (await TableAsync(db, "AuthSessions", ct)).ShouldBe("\"AuthSessions\"");
             (await TableAsync(db, "Tokens", ct)).ShouldBeNull();
 
+            var sessionMigrationIndex = migrations.FindIndex(
+                migration => migration.EndsWith(
+                    "MigrateJwtAuthenticationToDatabaseSessions",
+                    StringComparison.Ordinal));
+            sessionMigrationIndex.ShouldBeGreaterThan(0);
+
             var migrator = db.GetService<IMigrator>();
-            await migrator.MigrateAsync(migrations[^2], ct);
+            await migrator.MigrateAsync(migrations[sessionMigrationIndex - 1], ct);
             (await TableAsync(db, "AuthSessions", ct)).ShouldBeNull();
             (await TableAsync(db, "Tokens", ct)).ShouldBe("\"Tokens\"");
 

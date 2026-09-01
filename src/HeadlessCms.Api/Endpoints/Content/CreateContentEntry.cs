@@ -2,22 +2,16 @@ using System.Text.Json;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class CreateContentEntry(
     ContentEntryService entries,
-    ApplicationDbContext db,
     WorkspaceAccessService workspaceAccess)
     : Endpoint<CreateContentEntryRequest, CreateContentEntryResponse>
 {
-    private static readonly IReadOnlySet<WorkspaceRole> Writers =
-        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor]);
-
     public override void Configure()
     {
         Post(
@@ -28,7 +22,11 @@ public sealed class CreateContentEntry(
 
     public override async Task HandleAsync(CreateContentEntryRequest request, CancellationToken ct)
     {
-        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Writers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Writers,
+                ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -41,7 +39,7 @@ public sealed class CreateContentEntry(
                 request.ProjectId,
                 request.ContentTypeKey,
                 request.Data,
-                ParseStatus(request.Status),
+                request.Status,
                 ct);
 
             if (entry is null)
@@ -50,15 +48,7 @@ public sealed class CreateContentEntry(
                 return;
             }
 
-            var schemaVersion = await db.ContentTypeVersions
-                .Where(version =>
-                    version.WorkspaceId == request.WorkspaceId &&
-                    version.ProjectId == request.ProjectId &&
-                    version.Id == entry.ContentTypeVersionId)
-                .Select(version => version.Version)
-                .SingleAsync(ct);
-
-            var response = ToResponse(entry, schemaVersion);
+            var response = ToResponse(entry);
             entry.Dispose();
 
             await Send.CreatedAtAsync<GetContentEntry>(
@@ -80,20 +70,11 @@ public sealed class CreateContentEntry(
         }
     }
 
-    internal static bool TryParseStatus(string value) =>
-        Enum.TryParse<ContentEntryStatus>(value, true, out _);
-
-    private static ContentEntryStatus ParseStatus(string value) =>
-        Enum.Parse<ContentEntryStatus>(value, true);
-
-    private static CreateContentEntryResponse ToResponse(
-        ContentEntry entry,
-        int schemaVersion) =>
+    private static CreateContentEntryResponse ToResponse(ContentEntry entry) =>
         new()
         {
             Id = entry.Id,
-            SchemaVersion = schemaVersion,
-            Status = entry.Status.ToString().ToLowerInvariant(),
+            Status = entry.Status,
             Data = entry.Data.RootElement.Clone(),
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.UpdatedAt
@@ -106,14 +87,13 @@ public sealed class CreateContentEntryRequest
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
     public JsonElement Data { get; init; }
-    public string Status { get; init; } = "draft";
+    public ContentEntryStatus Status { get; init; } = ContentEntryStatus.Draft;
 }
 
 public sealed class CreateContentEntryResponse
 {
     public Guid Id { get; init; }
-    public int SchemaVersion { get; init; }
-    public required string Status { get; init; }
+    public required ContentEntryStatus Status { get; init; }
     public JsonElement Data { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -127,7 +107,7 @@ public sealed class CreateContentEntryRequestValidator : Validator<CreateContent
             .Must(data => data.ValueKind == JsonValueKind.Object)
             .WithMessage("Data must be a JSON object.");
         RuleFor(request => request.Status)
-            .Must(CreateContentEntry.TryParseStatus)
+            .IsInEnum()
             .WithMessage("Status must be draft or published.");
     }
 }

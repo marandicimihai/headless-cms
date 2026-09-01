@@ -15,9 +15,6 @@ public class ContentEntry : IDisposable
     public Guid ContentTypeId { get; set; }
     public ContentType ContentType { get; set; } = default!;
 
-    public Guid ContentTypeVersionId { get; set; }
-    public ContentTypeVersion ContentTypeVersion { get; set; } = default!;
-
     [Required]
     [Column(TypeName = "jsonb")]
     public JsonDocument Data { get; set; } = default!;

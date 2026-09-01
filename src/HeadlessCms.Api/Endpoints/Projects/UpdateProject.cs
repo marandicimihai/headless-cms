@@ -47,15 +47,19 @@ public sealed class UpdateProject(
 
     public override async Task HandleAsync(UpdateProjectRequest request, CancellationToken ct)
     {
-        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
+        var access = await workspaceAccess.ResolveAsync(
+            User,
+            request.WorkspaceId,
+            WorkspaceAccessRoles.Members,
+            ct);
 
-        if (membership is null)
+        if (access is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        if (membership.Role is not (WorkspaceRole.Owner or WorkspaceRole.Editor))
+        if (!WorkspaceAccessRoles.Writers.Contains(access.Role))
         {
             await Send.ForbiddenAsync(ct);
             return;

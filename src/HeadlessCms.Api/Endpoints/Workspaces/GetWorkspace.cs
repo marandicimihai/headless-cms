@@ -24,14 +24,18 @@ public sealed class GetWorkspace(
         WorkspaceRole? role = null;
         if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)))
         {
-            var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
-            if (membership is null)
+            var access = await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Members,
+                ct);
+            if (access is null)
             {
                 await Send.NotFoundAsync(ct);
                 return;
             }
 
-            role = membership.Role;
+            role = access.Role;
         }
 
         var response = await db.Workspaces

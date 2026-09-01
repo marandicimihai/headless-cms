@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -14,9 +15,7 @@ public sealed record ContentFieldInput(
     bool Nullable,
     JsonElement Settings);
 
-public sealed record ContentTypeDefinition(
-    ContentType ContentType,
-    ContentTypeVersion Version);
+public sealed record ContentTypeDefinition(ContentType ContentType);
 
 public class ContentDefinitionService(
     ApplicationDbContext db,
@@ -51,9 +50,7 @@ public class ContentDefinitionService(
                 $"Content type '{key}' already exists in this project.");
         }
 
-        ValidateFields(fields);
-
-        await using var transaction = await BeginTransactionIfSupportedAsync(ct);
+        var normalizedFields = ValidateAndCreateFields(workspaceId, projectId, fields);
         var now = DateTime.UtcNow;
         var contentType = new ContentType
         {
@@ -66,20 +63,15 @@ public class ContentDefinitionService(
             UpdatedAt = now
         };
 
+        foreach (var field in normalizedFields)
+        {
+            field.ContentTypeId = contentType.Id;
+            contentType.Fields.Add(field);
+        }
+
         db.ContentTypes.Add(contentType);
         await db.SaveChangesAsync(ct);
-
-        var version = CreateVersion(contentType, 1, fields, now);
-        db.ContentTypeVersions.Add(version);
-        await db.SaveChangesAsync(ct);
-
-        contentType.CurrentVersionId = version.Id;
-        await db.SaveChangesAsync(ct);
-
-        if (transaction is not null)
-            await transaction.CommitAsync(ct);
-
-        return new ContentTypeDefinition(contentType, version);
+        return new ContentTypeDefinition(contentType);
     }
 
     public async Task<ContentTypeDefinition?> UpdateAsync(
@@ -90,8 +82,126 @@ public class ContentDefinitionService(
         IReadOnlyCollection<ContentFieldInput> fields,
         CancellationToken ct = default)
     {
-        ValidateFields(fields);
+        var proposedFields = ValidateAndCreateFields(workspaceId, projectId, fields);
+        var contentType = await db.ContentTypes
+            .Include(candidate => candidate.Fields)
+            .Include(candidate => candidate.Entries)
+            .SingleOrDefaultAsync(
+                candidate =>
+                    candidate.WorkspaceId == workspaceId &&
+                    candidate.ProjectId == projectId &&
+                    candidate.Key == key,
+                ct);
 
+        if (contentType is null)
+            return null;
+
+        var existingByKey = contentType.Fields.ToDictionary(
+            field => field.Key,
+            StringComparer.Ordinal);
+
+        foreach (var proposed in proposedFields)
+        {
+            if (existingByKey.TryGetValue(proposed.Key, out var existing) &&
+                existing.Type != proposed.Type)
+            {
+                throw new ContentValidationException(
+                    $"Field '{proposed.Key}' is declared as " +
+                    $"'{existing.Type.ToString().ToLowerInvariant()}' and cannot change type.");
+            }
+        }
+
+        await using var transaction = await BeginTransactionIfSupportedAsync(ct);
+        var proposedKeys = proposedFields
+            .Select(field => field.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        var now = DateTime.UtcNow;
+        var replacedDocuments = new List<JsonDocument>();
+
+        foreach (var entry in contentType.Entries)
+        {
+            var migratedData = JsonNode.Parse(entry.Data.RootElement.GetRawText())?.AsObject()
+                ?? throw new ContentValidationException("Entry data must be a JSON object.");
+
+            foreach (var propertyName in migratedData.Select(property => property.Key).ToList())
+            {
+                if (!proposedKeys.Contains(propertyName))
+                    migratedData.Remove(propertyName);
+            }
+
+            JsonDocument validatedData;
+            try
+            {
+                validatedData = documentValidator.Validate(
+                    JsonSerializer.SerializeToElement(migratedData),
+                    proposedFields);
+            }
+            catch (ContentValidationException exception)
+            {
+                throw new ContentValidationException(
+                    exception.Errors
+                        .Select(error => $"Entry '{entry.Id}': {error}")
+                        .ToList());
+            }
+
+            if (entry.Data.RootElement.GetRawText() == validatedData.RootElement.GetRawText())
+            {
+                validatedData.Dispose();
+                continue;
+            }
+
+            var previousData = entry.Data;
+            entry.Data = validatedData;
+            entry.UpdatedAt = now;
+            replacedDocuments.Add(previousData);
+        }
+
+        var removedFields = contentType.Fields
+            .Where(field => !proposedKeys.Contains(field.Key))
+            .ToList();
+        db.ContentFields.RemoveRange(removedFields);
+
+        foreach (var proposed in proposedFields)
+        {
+            if (existingByKey.TryGetValue(proposed.Key, out var existing))
+            {
+                existing.Name = proposed.Name;
+                existing.Required = proposed.Required;
+                existing.Nullable = proposed.Nullable;
+                existing.Position = proposed.Position;
+                existing.Settings = proposed.Settings.Clone();
+                continue;
+            }
+
+            proposed.ContentTypeId = contentType.Id;
+            proposed.ContentType = contentType;
+            contentType.Fields.Add(proposed);
+            db.ContentFields.Add(proposed);
+        }
+
+        contentType.Name = name;
+        contentType.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+
+        if (transaction is not null)
+            await transaction.CommitAsync(ct);
+
+        foreach (var document in replacedDocuments)
+            document.Dispose();
+
+        contentType.Fields = contentType.Fields
+            .Where(field => proposedKeys.Contains(field.Key))
+            .OrderBy(field => field.Position)
+            .ToList();
+        return new ContentTypeDefinition(contentType);
+    }
+
+    public async Task<bool> DeleteAsync(
+        Guid workspaceId,
+        Guid projectId,
+        string key,
+        CancellationToken ct = default)
+    {
         var contentType = await db.ContentTypes.SingleOrDefaultAsync(
             candidate =>
                 candidate.WorkspaceId == workspaceId &&
@@ -100,55 +210,11 @@ public class ContentDefinitionService(
             ct);
 
         if (contentType is null)
-            return null;
+            return false;
 
-        var historicalTypes = await db.ContentFields
-            .Where(field =>
-                field.WorkspaceId == workspaceId &&
-                field.ProjectId == projectId &&
-                field.ContentTypeVersion.ContentTypeId == contentType.Id)
-            .Select(field => new { field.Key, field.Type })
-            .Distinct()
-            .ToListAsync(ct);
-
-        var historicalByKey = historicalTypes.ToDictionary(
-            item => item.Key,
-            item => item.Type,
-            StringComparer.Ordinal);
-
-        foreach (var field in fields)
-        {
-            if (historicalByKey.TryGetValue(field.Key, out var historicalType) &&
-                historicalType != field.Type)
-            {
-                throw new ContentValidationException(
-                    $"Field '{field.Key}' was previously declared as " +
-                    $"'{historicalType.ToString().ToLowerInvariant()}' and cannot change type.");
-            }
-        }
-
-        await using var transaction = await BeginTransactionIfSupportedAsync(ct);
-        var nextVersion = await db.ContentTypeVersions
-            .Where(version =>
-                version.WorkspaceId == workspaceId &&
-                version.ProjectId == projectId &&
-                version.ContentTypeId == contentType.Id)
-            .MaxAsync(version => version.Version, ct) + 1;
-
-        var now = DateTime.UtcNow;
-        var version = CreateVersion(contentType, nextVersion, fields, now);
-        db.ContentTypeVersions.Add(version);
+        db.ContentTypes.Remove(contentType);
         await db.SaveChangesAsync(ct);
-
-        contentType.Name = name;
-        contentType.CurrentVersionId = version.Id;
-        contentType.UpdatedAt = now;
-        await db.SaveChangesAsync(ct);
-
-        if (transaction is not null)
-            await transaction.CommitAsync(ct);
-
-        return new ContentTypeDefinition(contentType, version);
+        return true;
     }
 
     public async Task<ContentTypeDefinition?> GetCurrentAsync(
@@ -159,6 +225,7 @@ public class ContentDefinitionService(
     {
         var contentType = await db.ContentTypes
             .AsNoTracking()
+            .Include(candidate => candidate.Fields.OrderBy(field => field.Position))
             .SingleOrDefaultAsync(
                 candidate =>
                     candidate.WorkspaceId == workspaceId &&
@@ -166,21 +233,7 @@ public class ContentDefinitionService(
                     candidate.Key == key,
                 ct);
 
-        if (contentType?.CurrentVersionId is null)
-            return null;
-
-        var version = await db.ContentTypeVersions
-            .AsNoTracking()
-            .Include(candidate => candidate.Fields.OrderBy(field => field.Position))
-            .SingleAsync(
-                candidate =>
-                    candidate.WorkspaceId == workspaceId &&
-                    candidate.ProjectId == projectId &&
-                    candidate.ContentTypeId == contentType.Id &&
-                    candidate.Id == contentType.CurrentVersionId,
-                ct);
-
-        return new ContentTypeDefinition(contentType, version);
+        return contentType is null ? null : new ContentTypeDefinition(contentType);
     }
 
     public async Task<IReadOnlyList<ContentTypeDefinition>> ListCurrentAsync(
@@ -195,42 +248,22 @@ public class ContentDefinitionService(
             throw new ContentNotFoundException("Project not found.");
         }
 
-        var contentTypes = await db.ContentTypes
-            .AsNoTracking()
-            .Where(contentType =>
-                contentType.WorkspaceId == workspaceId &&
-                contentType.ProjectId == projectId)
-            .OrderBy(contentType => contentType.Name)
-            .ToListAsync(ct);
-
-        if (contentTypes.Count == 0)
-            return [];
-
-        var currentVersionIds = contentTypes
-            .Where(contentType => contentType.CurrentVersionId.HasValue)
-            .Select(contentType => contentType.CurrentVersionId!.Value)
-            .ToList();
-
-        var versions = await db.ContentTypeVersions
-            .AsNoTracking()
-            .Include(version => version.Fields.OrderBy(field => field.Position))
-            .Where(version =>
-                version.WorkspaceId == workspaceId &&
-                version.ProjectId == projectId &&
-                currentVersionIds.Contains(version.Id))
-            .ToDictionaryAsync(version => version.Id, ct);
-
-        return contentTypes
-            .Where(contentType =>
-                contentType.CurrentVersionId.HasValue &&
-                versions.ContainsKey(contentType.CurrentVersionId.Value))
-            .Select(contentType => new ContentTypeDefinition(
-                contentType,
-                versions[contentType.CurrentVersionId!.Value]))
+        return (await db.ContentTypes
+                .AsNoTracking()
+                .Include(contentType => contentType.Fields.OrderBy(field => field.Position))
+                .Where(contentType =>
+                    contentType.WorkspaceId == workspaceId &&
+                    contentType.ProjectId == projectId)
+                .OrderBy(contentType => contentType.Name)
+                .ToListAsync(ct))
+            .Select(contentType => new ContentTypeDefinition(contentType))
             .ToList();
     }
 
-    private void ValidateFields(IReadOnlyCollection<ContentFieldInput> fields)
+    private List<ContentField> ValidateAndCreateFields(
+        Guid workspaceId,
+        Guid projectId,
+        IReadOnlyCollection<ContentFieldInput> fields)
     {
         if (fields.Count == 0)
             throw new ContentValidationException("At least one field is required.");
@@ -242,51 +275,31 @@ public class ContentDefinitionService(
         if (duplicate is not null)
             throw new ContentValidationException($"Field key '{duplicate.Key}' is duplicated.");
 
-        foreach (var field in fields)
-        {
-            var settings = NormalizeSettings(field.Settings);
-            documentValidator.ValidateFieldSettings(
-                field.Type,
-                field.Nullable,
-                field.Key,
-                settings);
-        }
-    }
-
-    private static ContentTypeVersion CreateVersion(
-        ContentType contentType,
-        int versionNumber,
-        IReadOnlyCollection<ContentFieldInput> fields,
-        DateTime createdAt)
-    {
-        var version = new ContentTypeVersion
-        {
-            Id = Guid.NewGuid(),
-            WorkspaceId = contentType.WorkspaceId,
-            ProjectId = contentType.ProjectId,
-            ContentTypeId = contentType.Id,
-            Version = versionNumber,
-            CreatedAt = createdAt
-        };
-
-        version.Fields = fields
-            .Select((field, position) => new ContentField
+        return fields
+            .Select((field, position) =>
             {
-                Id = Guid.NewGuid(),
-                WorkspaceId = contentType.WorkspaceId,
-                ProjectId = contentType.ProjectId,
-                ContentTypeVersionId = version.Id,
-                Key = field.Key,
-                Name = field.Name,
-                Type = field.Type,
-                Required = field.Required,
-                Nullable = field.Nullable,
-                Position = position,
-                Settings = NormalizeSettings(field.Settings)
+                var settings = NormalizeSettings(field.Settings);
+                documentValidator.ValidateFieldSettings(
+                    field.Type,
+                    field.Nullable,
+                    field.Key,
+                    settings);
+
+                return new ContentField
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    ProjectId = projectId,
+                    Key = field.Key,
+                    Name = field.Name,
+                    Type = field.Type,
+                    Required = field.Required,
+                    Nullable = field.Nullable,
+                    Position = position,
+                    Settings = settings
+                };
             })
             .ToList();
-
-        return version;
     }
 
     private static JsonElement NormalizeSettings(JsonElement settings) =>

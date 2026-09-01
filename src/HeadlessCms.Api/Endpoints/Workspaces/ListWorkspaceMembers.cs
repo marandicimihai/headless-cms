@@ -1,12 +1,14 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class ListWorkspaceMembers(ApplicationDbContext db)
+public sealed class ListWorkspaceMembers(
+    ApplicationDbContext db,
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListWorkspaceMembersRequest, ListWorkspaceMembersResponse>
 {
     public override void Configure()
@@ -19,7 +21,11 @@ public sealed class ListWorkspaceMembers(ApplicationDbContext db)
         ListWorkspaceMembersRequest request,
         CancellationToken ct)
     {
-        if (!await IsOwnerAsync(User.ClaimValue("sub")!, request.WorkspaceId, ct))
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Owners,
+                ct) is null)
         {
             await Send.NotFoundAsync(ct);
             return;
@@ -49,14 +55,6 @@ public sealed class ListWorkspaceMembers(ApplicationDbContext db)
 
         Response = new ListWorkspaceMembersResponse(items, page, size, total);
     }
-
-    private Task<bool> IsOwnerAsync(string userId, Guid workspaceId, CancellationToken ct) =>
-        db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == workspaceId &&
-                membership.UserId == userId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
 
     private static (int Page, int Size) NormalizePage(int page, int size) =>
         (Math.Max(page, 1), Math.Clamp(size, 1, 100));

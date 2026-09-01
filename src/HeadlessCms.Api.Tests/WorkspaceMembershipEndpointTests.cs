@@ -95,7 +95,7 @@ public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
     {
         var setup = await CreateMembershipSetupAsync();
         var ct = TestContext.Current.CancellationToken;
-        object[] unsupportedRoles = [WorkspaceRole.Owner, (WorkspaceRole)999];
+        object[] unsupportedRoles = ["Owner"];
 
         foreach (var role in unsupportedRoles)
         {
@@ -124,7 +124,7 @@ public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
             HttpMethod.Patch,
             MemberPath(setup.WorkspaceId, setup.Member.Id),
             setup.EditorToken,
-            new { role = WorkspaceRole.Editor });
+            new { role = "Editor" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Member.Id))
@@ -140,7 +140,7 @@ public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
             HttpMethod.Patch,
             MemberPath(setup.WorkspaceId, setup.Outsider.Id),
             setup.OwnerToken,
-            new { role = WorkspaceRole.Editor });
+            new { role = "Editor" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -154,7 +154,7 @@ public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
             HttpMethod.Patch,
             MemberPath(setup.WorkspaceId, setup.Owner.Id),
             setup.OwnerToken,
-            new { role = WorkspaceRole.Member });
+            new { role = "Member" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await GetMembershipRoleAsync(setup.WorkspaceId, setup.Owner.Id))

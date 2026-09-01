@@ -15,7 +15,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<WorkspaceInvitation> WorkspaceInvitations { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<ContentType> ContentTypes { get; set; }
-    public DbSet<ContentTypeVersion> ContentTypeVersions { get; set; }
     public DbSet<ContentField> ContentFields { get; set; }
     public DbSet<ContentEntry> ContentEntries { get; set; }
 
@@ -107,69 +106,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasPrincipalKey(project => new { project.WorkspaceId, project.Id })
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<ContentTypeVersion>()
-            .HasAlternateKey(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.ContentTypeId,
-                version.Id
-            });
-
-        modelBuilder.Entity<ContentTypeVersion>()
-            .HasAlternateKey(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.Id
-            });
-
-        modelBuilder.Entity<ContentTypeVersion>()
-            .HasIndex(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.ContentTypeId,
-                version.Version
-            })
-            .IsUnique();
-
-        modelBuilder.Entity<ContentTypeVersion>()
-            .HasOne(version => version.ContentType)
-            .WithMany(contentType => contentType.Versions)
-            .HasForeignKey(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.ContentTypeId
-            })
-            .HasPrincipalKey(contentType => new
-            {
-                contentType.WorkspaceId,
-                contentType.ProjectId,
-                contentType.Id
-            })
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ContentType>()
-            .HasOne(contentType => contentType.CurrentVersion)
-            .WithMany()
-            .HasForeignKey(contentType => new
-            {
-                contentType.WorkspaceId,
-                contentType.ProjectId,
-                contentType.Id,
-                contentType.CurrentVersionId
-            })
-            .HasPrincipalKey(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.ContentTypeId,
-                version.Id
-            })
-            .OnDelete(DeleteBehavior.Restrict);
-
         modelBuilder.Entity<ContentField>()
             .Property(field => field.Type)
             .HasConversion<string>()
@@ -180,25 +116,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             {
                 field.WorkspaceId,
                 field.ProjectId,
-                field.ContentTypeVersionId,
+                field.ContentTypeId,
                 field.Key
             })
             .IsUnique();
 
         modelBuilder.Entity<ContentField>()
-            .HasOne(field => field.ContentTypeVersion)
-            .WithMany(version => version.Fields)
+            .HasOne(field => field.ContentType)
+            .WithMany(contentType => contentType.Fields)
             .HasForeignKey(field => new
             {
                 field.WorkspaceId,
                 field.ProjectId,
-                field.ContentTypeVersionId
+                field.ContentTypeId
             })
-            .HasPrincipalKey(version => new
+            .HasPrincipalKey(contentType => new
             {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.Id
+                contentType.WorkspaceId,
+                contentType.ProjectId,
+                contentType.Id
             })
             .OnDelete(DeleteBehavior.Cascade);
 
@@ -233,25 +169,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 contentType.Id
             })
             .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ContentEntry>()
-            .HasOne(entry => entry.ContentTypeVersion)
-            .WithMany(version => version.Entries)
-            .HasForeignKey(entry => new
-            {
-                entry.WorkspaceId,
-                entry.ProjectId,
-                entry.ContentTypeId,
-                entry.ContentTypeVersionId
-            })
-            .HasPrincipalKey(version => new
-            {
-                version.WorkspaceId,
-                version.ProjectId,
-                version.ContentTypeId,
-                version.Id
-            })
-            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ContentEntry>()
             .HasOne<Workspace>()

@@ -1,22 +1,16 @@
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class GetContentEntry(
     ContentEntryService entries,
-    ApplicationDbContext db,
     WorkspaceAccessService workspaceAccess)
     : Endpoint<GetContentEntryRequest, GetContentEntryResponse>
 {
-    private static readonly IReadOnlySet<WorkspaceRole> Readers =
-        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
-
     public override void Configure()
     {
         Get(
@@ -27,7 +21,11 @@ public sealed class GetContentEntry(
 
     public override async Task HandleAsync(GetContentEntryRequest request, CancellationToken ct)
     {
-        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Members,
+                ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -46,26 +44,15 @@ public sealed class GetContentEntry(
             return;
         }
 
-        var schemaVersion = await db.ContentTypeVersions
-            .Where(version =>
-                version.WorkspaceId == request.WorkspaceId &&
-                version.ProjectId == request.ProjectId &&
-                version.Id == entry.ContentTypeVersionId)
-            .Select(version => version.Version)
-            .SingleAsync(ct);
-
-        Response = ToResponse(entry, schemaVersion);
+        Response = ToResponse(entry);
         entry.Dispose();
     }
 
-    private static GetContentEntryResponse ToResponse(
-        ContentEntry entry,
-        int schemaVersion) =>
+    private static GetContentEntryResponse ToResponse(ContentEntry entry) =>
         new()
         {
             Id = entry.Id,
-            SchemaVersion = schemaVersion,
-            Status = entry.Status.ToString().ToLowerInvariant(),
+            Status = entry.Status,
             Data = entry.Data.RootElement.Clone(),
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.UpdatedAt
@@ -83,8 +70,7 @@ public sealed class GetContentEntryRequest
 public sealed class GetContentEntryResponse
 {
     public Guid Id { get; init; }
-    public int SchemaVersion { get; init; }
-    public required string Status { get; init; }
+    public required ContentEntryStatus Status { get; init; }
     public JsonElement Data { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }

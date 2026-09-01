@@ -33,9 +33,11 @@ public sealed class GetProject(
 
     public override async Task HandleAsync(GetProjectRequest request, CancellationToken ct)
     {
-        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
-
-        if (membership is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Members,
+                ct) is null)
         {
             await Send.NotFoundAsync(ct);
             return;

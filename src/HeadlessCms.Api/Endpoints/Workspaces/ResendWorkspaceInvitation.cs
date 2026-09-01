@@ -1,5 +1,4 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
@@ -10,7 +9,8 @@ namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class ResendWorkspaceInvitation(
     ApplicationDbContext db,
-    WorkspaceInvitationService invitations)
+    WorkspaceInvitationService invitations,
+    WorkspaceAccessService workspaceAccess)
     : EndpointWithoutRequest<ResendWorkspaceInvitationResponse>
 {
     public override void Configure()
@@ -54,13 +54,11 @@ public sealed class ResendWorkspaceInvitation(
         if (invitation is null)
             return null;
 
-        var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == workspaceId &&
-                membership.UserId == userId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
+        var isOwner = await workspaceAccess.ResolveAsync(
+            User,
+            workspaceId,
+            WorkspaceAccessRoles.Owners,
+            ct) is not null;
         if (isOwner)
             return invitation;
 

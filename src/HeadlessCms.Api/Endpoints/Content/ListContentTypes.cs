@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
@@ -10,9 +11,6 @@ public sealed class ListContentTypes(
     WorkspaceAccessService workspaceAccess)
     : Endpoint<ListContentTypesRequest, IReadOnlyList<ListContentTypesItemResponse>>
 {
-    private static readonly IReadOnlySet<WorkspaceRole> Readers =
-        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
-
     public override void Configure()
     {
         Get("workspaces/{workspaceId:guid}/projects/{projectId:guid}/content-types");
@@ -21,7 +19,11 @@ public sealed class ListContentTypes(
 
     public override async Task HandleAsync(ListContentTypesRequest request, CancellationToken ct)
     {
-        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Members,
+                ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -50,16 +52,15 @@ public sealed class ListContentTypes(
             ProjectId = definition.ContentType.ProjectId,
             Key = definition.ContentType.Key,
             Name = definition.ContentType.Name,
-            Version = definition.Version.Version,
             CreatedAt = definition.ContentType.CreatedAt,
             UpdatedAt = definition.ContentType.UpdatedAt,
-            Fields = definition.Version.Fields
+            Fields = definition.ContentType.Fields
                 .OrderBy(field => field.Position)
                 .Select(field => new ListContentTypesFieldResponse
                 {
                     Key = field.Key,
                     Name = field.Name,
-                    Type = field.Type.ToString().ToLowerInvariant(),
+                    Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,
                     Position = field.Position,
@@ -81,7 +82,6 @@ public sealed class ListContentTypesItemResponse
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
     public required string Name { get; init; }
-    public int Version { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public required IReadOnlyList<ListContentTypesFieldResponse> Fields { get; init; }
@@ -91,7 +91,7 @@ public sealed class ListContentTypesFieldResponse
 {
     public required string Key { get; init; }
     public required string Name { get; init; }
-    public required string Type { get; init; }
+    public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
     public int Position { get; init; }

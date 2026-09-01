@@ -10,39 +10,48 @@ public sealed record WorkspaceAccessContext(
     string UserId,
     WorkspaceRole Role);
 
+public static class WorkspaceAccessRoles
+{
+    public static IReadOnlySet<WorkspaceRole> Members { get; } =
+        new HashSet<WorkspaceRole>(
+            [WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
+
+    public static IReadOnlySet<WorkspaceRole> Writers { get; } =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor]);
+
+    public static IReadOnlySet<WorkspaceRole> Owners { get; } =
+        new HashSet<WorkspaceRole>([WorkspaceRole.Owner]);
+}
+
 public class WorkspaceAccessService(ApplicationDbContext db)
 {
-    public static bool CanReadContent(WorkspaceMembership membership) => true;
-
-    public static bool CanWriteContent(WorkspaceMembership membership) =>
-        membership.Role is WorkspaceRole.Owner or WorkspaceRole.Editor;
-
-    public Task<WorkspaceMembership?> FindMembershipAsync(
-        ClaimsPrincipal principal,
-        Guid workspaceId,
-        CancellationToken ct = default)
-    {
-        var userId = principal.FindFirstValue("sub");
-
-        if (userId is null)
-            return Task.FromResult<WorkspaceMembership?>(null);
-
-        return db.WorkspaceMemberships
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                membership =>
-                    membership.UserId == userId &&
-                    membership.WorkspaceId == workspaceId,
-                ct);
-    }
-
-    public async Task<WorkspaceAccessContext?> ResolveAsync(
+    public Task<WorkspaceAccessContext?> ResolveAsync(
         ClaimsPrincipal principal,
         Guid workspaceId,
         IReadOnlySet<WorkspaceRole> allowedRoles,
         CancellationToken ct = default)
     {
-        var membership = await FindMembershipAsync(principal, workspaceId, ct);
+        var userId = principal.FindFirstValue("sub");
+
+        if (userId is null)
+            return Task.FromResult<WorkspaceAccessContext?>(null);
+
+        return ResolveAsync(userId, workspaceId, allowedRoles, ct);
+    }
+
+    public async Task<WorkspaceAccessContext?> ResolveAsync(
+        string userId,
+        Guid workspaceId,
+        IReadOnlySet<WorkspaceRole> allowedRoles,
+        CancellationToken ct = default)
+    {
+        var membership = await db.WorkspaceMemberships
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                candidate =>
+                    candidate.UserId == userId &&
+                    candidate.WorkspaceId == workspaceId,
+                ct);
 
         if (membership is null || !allowedRoles.Contains(membership.Role))
             return null;

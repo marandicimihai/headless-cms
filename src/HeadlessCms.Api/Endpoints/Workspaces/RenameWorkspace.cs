@@ -24,14 +24,18 @@ public sealed class RenameWorkspace(
         WorkspaceRole? currentRole = null;
         if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)))
         {
-            var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
-            if (membership?.Role != WorkspaceRole.Owner)
+            var access = await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Owners,
+                ct);
+            if (access is null)
             {
                 await Send.NotFoundAsync(ct);
                 return;
             }
 
-            currentRole = membership.Role;
+            currentRole = access.Role;
         }
 
         var workspace = await db.Workspaces.SingleOrDefaultAsync(

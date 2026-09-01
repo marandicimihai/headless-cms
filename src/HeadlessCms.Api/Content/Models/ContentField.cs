@@ -12,8 +12,8 @@ public class ContentField
     public Guid WorkspaceId { get; set; }
     public Guid ProjectId { get; set; }
 
-    public Guid ContentTypeVersionId { get; set; }
-    public ContentTypeVersion ContentTypeVersion { get; set; } = default!;
+    public Guid ContentTypeId { get; set; }
+    public ContentType ContentType { get; set; } = default!;
 
     [Required]
     [StringLength(64)]

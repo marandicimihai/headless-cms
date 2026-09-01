@@ -1,5 +1,4 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
@@ -10,7 +9,8 @@ namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class RevokeWorkspaceInvitation(
     ApplicationDbContext db,
-    WorkspaceInvitationService invitations)
+    WorkspaceInvitationService invitations,
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<RevokeWorkspaceInvitationRequest>
 {
     public override void Configure()
@@ -53,13 +53,11 @@ public sealed class RevokeWorkspaceInvitation(
         if (invitation is null)
             return null;
 
-        var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == request.WorkspaceId &&
-                membership.UserId == userId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
+        var isOwner = await workspaceAccess.ResolveAsync(
+            User,
+            request.WorkspaceId,
+            WorkspaceAccessRoles.Owners,
+            ct) is not null;
         if (isOwner)
             return invitation;
 

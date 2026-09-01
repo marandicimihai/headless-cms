@@ -42,7 +42,7 @@ public class ContentEntryService(
         if (definition is null)
             return null;
 
-        var validatedData = documentValidator.Validate(data, definition.Version.Fields);
+        var validatedData = documentValidator.Validate(data, definition.ContentType.Fields);
         var now = DateTime.UtcNow;
         var entry = new ContentEntry
         {
@@ -50,7 +50,6 @@ public class ContentEntryService(
             WorkspaceId = workspaceId,
             ProjectId = projectId,
             ContentTypeId = definition.ContentType.Id,
-            ContentTypeVersionId = definition.Version.Id,
             Data = validatedData,
             Status = status,
             CreatedAt = now,
@@ -105,7 +104,7 @@ public class ContentEntryService(
             .Where(field =>
                 field.WorkspaceId == workspaceId &&
                 field.ProjectId == projectId &&
-                field.ContentTypeVersionId == entry.ContentTypeVersionId)
+                field.ContentTypeId == entry.ContentTypeId)
             .OrderBy(field => field.Position)
             .ToListAsync(ct);
 
@@ -158,7 +157,7 @@ public class ContentEntryService(
         if (definition is null)
             return null;
 
-        var fields = definition.Version.Fields.ToDictionary(
+        var fields = definition.ContentType.Fields.ToDictionary(
             field => field.Key,
             StringComparer.Ordinal);
 

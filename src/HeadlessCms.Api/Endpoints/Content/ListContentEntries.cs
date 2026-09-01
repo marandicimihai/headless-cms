@@ -3,22 +3,16 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class ListContentEntries(
     ContentEntryService entries,
-    ApplicationDbContext db,
     WorkspaceAccessService workspaceAccess)
     : Endpoint<ListContentEntriesRequest, ListContentEntriesResponse>
 {
-    private static readonly IReadOnlySet<WorkspaceRole> Readers =
-        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor, WorkspaceRole.Member]);
-
     private static readonly Regex FilterPattern = new(
         @"^filter\[(?<field>[a-z][a-z0-9_]*)\]\[(?<operator>[a-z]+)\]$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -33,7 +27,11 @@ public sealed class ListContentEntries(
 
     public override async Task HandleAsync(ListContentEntriesRequest request, CancellationToken ct)
     {
-        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Readers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Members,
+                ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -48,7 +46,7 @@ public sealed class ListContentEntries(
                 new ContentEntryQuery(
                     ParseFilters(HttpContext.Request.Query),
                     request.Sort,
-                    request.Status is null ? null : ParseStatus(request.Status),
+                    request.Status,
                     request.Page,
                     request.PageSize),
                 ct);
@@ -59,22 +57,10 @@ public sealed class ListContentEntries(
                 return;
             }
 
-            var versionIds = page.Items
-                .Select(entry => entry.ContentTypeVersionId)
-                .Distinct()
-                .ToList();
-            var versions = await db.ContentTypeVersions
-                .Where(version =>
-                    version.WorkspaceId == request.WorkspaceId &&
-                    version.ProjectId == request.ProjectId &&
-                    versionIds.Contains(version.Id))
-                .ToDictionaryAsync(version => version.Id, version => version.Version, ct);
-
             Response = new ListContentEntriesResponse
             {
                 Items = page.Items
-                    .Select(entry =>
-                        ToResponse(entry, versions[entry.ContentTypeVersionId]))
+                    .Select(ToResponse)
                     .ToList(),
                 Total = page.Total,
                 Page = page.Page,
@@ -92,20 +78,11 @@ public sealed class ListContentEntries(
         }
     }
 
-    internal static bool TryParseStatus(string value) =>
-        Enum.TryParse<ContentEntryStatus>(value, true, out _);
-
-    private static ContentEntryStatus ParseStatus(string value) =>
-        Enum.Parse<ContentEntryStatus>(value, true);
-
-    private static ListContentEntriesItemResponse ToResponse(
-        ContentEntry entry,
-        int schemaVersion) =>
+    private static ListContentEntriesItemResponse ToResponse(ContentEntry entry) =>
         new()
         {
             Id = entry.Id,
-            SchemaVersion = schemaVersion,
-            Status = entry.Status.ToString().ToLowerInvariant(),
+            Status = entry.Status,
             Data = entry.Data.RootElement.Clone(),
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.UpdatedAt
@@ -146,7 +123,7 @@ public sealed class ListContentEntriesRequest
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
     public string? Sort { get; init; }
-    public string? Status { get; init; }
+    public ContentEntryStatus? Status { get; init; }
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 25;
 }
@@ -162,8 +139,7 @@ public sealed class ListContentEntriesResponse
 public sealed class ListContentEntriesItemResponse
 {
     public Guid Id { get; init; }
-    public int SchemaVersion { get; init; }
-    public required string Status { get; init; }
+    public required ContentEntryStatus Status { get; init; }
     public JsonElement Data { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -176,7 +152,8 @@ public sealed class ListContentEntriesRequestValidator : Validator<ListContentEn
         RuleFor(request => request.Page).GreaterThan(0);
         RuleFor(request => request.PageSize).InclusiveBetween(1, 100);
         RuleFor(request => request.Status)
-            .Must(status => status is null || ListContentEntries.TryParseStatus(status))
+            .IsInEnum()
+            .When(request => request.Status.HasValue)
             .WithMessage("Status must be draft or published.");
     }
 }

@@ -28,7 +28,7 @@ public sealed class CreateProjectRequestValidator : Validator<CreateProjectReque
     {
         RuleFor(request => request.Name)
             .NotEmpty()
-            .Must(name => name is not null && name.Trim().Length is >= 3 and <= 100)
+            .Must(name => name?.Trim().Length is >= 3 and <= 100)
             .WithMessage("Name must contain between 3 and 100 characters.");
     }
 }
@@ -46,15 +46,19 @@ public sealed class CreateProject(
 
     public override async Task HandleAsync(CreateProjectRequest request, CancellationToken ct)
     {
-        var membership = await workspaceAccess.FindMembershipAsync(User, request.WorkspaceId, ct);
+        var access = await workspaceAccess.ResolveAsync(
+            User,
+            request.WorkspaceId,
+            WorkspaceAccessRoles.Members,
+            ct);
 
-        if (membership is null)
+        if (access is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        if (membership.Role is not (WorkspaceRole.Owner or WorkspaceRole.Editor))
+        if (!WorkspaceAccessRoles.Writers.Contains(access.Role))
         {
             await Send.ForbiddenAsync(ct);
             return;

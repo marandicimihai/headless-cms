@@ -1,12 +1,14 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
+using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class RemoveWorkspaceMember(ApplicationDbContext db)
+public sealed class RemoveWorkspaceMember(
+    ApplicationDbContext db,
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<RemoveWorkspaceMemberRequest>
 {
     public override void Configure()
@@ -19,8 +21,11 @@ public sealed class RemoveWorkspaceMember(ApplicationDbContext db)
         RemoveWorkspaceMemberRequest request,
         CancellationToken ct)
     {
-        var ownerId = User.ClaimValue("sub")!;
-        if (!await IsOwnerAsync(ownerId, request.WorkspaceId, ct))
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Owners,
+                ct) is null)
         {
             await Send.NotFoundAsync(ct);
             return;
@@ -42,14 +47,6 @@ public sealed class RemoveWorkspaceMember(ApplicationDbContext db)
         await db.SaveChangesAsync(ct);
         await Send.NoContentAsync(ct);
     }
-
-    private Task<bool> IsOwnerAsync(string userId, Guid workspaceId, CancellationToken ct) =>
-        db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == workspaceId &&
-                membership.UserId == userId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
 }
 
 public sealed class RemoveWorkspaceMemberRequest

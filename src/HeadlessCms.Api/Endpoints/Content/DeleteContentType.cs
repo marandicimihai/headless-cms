@@ -4,20 +4,20 @@ using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
 
-public sealed class DeleteContentEntry(
-    ContentEntryService entries,
+public sealed class DeleteContentType(
+    ContentDefinitionService definitions,
     WorkspaceAccessService workspaceAccess)
-    : Endpoint<DeleteContentEntryRequest>
+    : Endpoint<DeleteContentTypeRequest>
 {
     public override void Configure()
     {
         Delete(
             "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
-            "content-types/{contentTypeKey}/entries/{entryId:guid}");
+            "content-types/{contentTypeKey}");
         Claims("sub");
     }
 
-    public override async Task HandleAsync(DeleteContentEntryRequest request, CancellationToken ct)
+    public override async Task HandleAsync(DeleteContentTypeRequest request, CancellationToken ct)
     {
         if (await workspaceAccess.ResolveAsync(
                 User,
@@ -29,11 +29,10 @@ public sealed class DeleteContentEntry(
             return;
         }
 
-        if (!await entries.DeleteAsync(
+        if (!await definitions.DeleteAsync(
                 request.WorkspaceId,
                 request.ProjectId,
                 request.ContentTypeKey,
-                request.EntryId,
                 ct))
         {
             await Send.NotFoundAsync(ct);
@@ -44,10 +43,9 @@ public sealed class DeleteContentEntry(
     }
 }
 
-public sealed class DeleteContentEntryRequest
+public sealed class DeleteContentTypeRequest
 {
     public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
-    public Guid EntryId { get; init; }
 }

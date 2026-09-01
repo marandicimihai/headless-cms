@@ -1,5 +1,4 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
@@ -8,7 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
-public sealed class ListWorkspaceInvitations(ApplicationDbContext db)
+public sealed class ListWorkspaceInvitations(
+    ApplicationDbContext db,
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListWorkspaceInvitationsRequest, ListWorkspaceInvitationsResponse>
 {
     public override void Configure()
@@ -22,13 +23,11 @@ public sealed class ListWorkspaceInvitations(ApplicationDbContext db)
         CancellationToken ct)
     {
         var isAdmin = User.IsInRole(nameof(PlatformRole.PlatformAdmin));
-        var userId = User.ClaimValue("sub")!;
-        var isOwner = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == request.WorkspaceId &&
-                membership.UserId == userId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
+        var isOwner = await workspaceAccess.ResolveAsync(
+            User,
+            request.WorkspaceId,
+            WorkspaceAccessRoles.Owners,
+            ct) is not null;
 
         if (!isAdmin && !isOwner)
         {

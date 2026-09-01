@@ -14,9 +14,6 @@ public sealed class CreateContentType(
 {
     private const string KeyPattern = "^[a-z][a-z0-9_]*$";
 
-    private static readonly IReadOnlySet<WorkspaceRole> Writers =
-        new HashSet<WorkspaceRole>([WorkspaceRole.Owner, WorkspaceRole.Editor]);
-
     public override void Configure()
     {
         Post("workspaces/{workspaceId:guid}/projects/{projectId:guid}/content-types");
@@ -25,7 +22,11 @@ public sealed class CreateContentType(
 
     public override async Task HandleAsync(CreateContentTypeRequest request, CancellationToken ct)
     {
-        if (await workspaceAccess.ResolveAsync(User, request.WorkspaceId, Writers, ct) is null)
+        if (await workspaceAccess.ResolveAsync(
+                User,
+                request.WorkspaceId,
+                WorkspaceAccessRoles.Writers,
+                ct) is null)
         {
             await Send.ForbiddenAsync(ct);
             return;
@@ -67,9 +68,6 @@ public sealed class CreateContentType(
         }
     }
 
-    internal static bool TryParseFieldType(string value) =>
-        Enum.TryParse<ContentFieldType>(value, true, out _);
-
     internal static string FieldKeyPattern => KeyPattern;
 
     private static IReadOnlyList<ContentFieldInput> ToInputs(
@@ -77,7 +75,7 @@ public sealed class CreateContentType(
         fields.Select(field => new ContentFieldInput(
                 field.Key,
                 field.Name.Trim(),
-                Enum.Parse<ContentFieldType>(field.Type, true),
+                field.Type,
                 field.Required,
                 field.Nullable,
                 field.Settings))
@@ -90,16 +88,15 @@ public sealed class CreateContentType(
             ProjectId = definition.ContentType.ProjectId,
             Key = definition.ContentType.Key,
             Name = definition.ContentType.Name,
-            Version = definition.Version.Version,
             CreatedAt = definition.ContentType.CreatedAt,
             UpdatedAt = definition.ContentType.UpdatedAt,
-            Fields = definition.Version.Fields
+            Fields = definition.ContentType.Fields
                 .OrderBy(field => field.Position)
                 .Select(field => new CreateContentTypeFieldResponse
                 {
                     Key = field.Key,
                     Name = field.Name,
-                    Type = field.Type.ToString().ToLowerInvariant(),
+                    Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,
                     Position = field.Position,
@@ -122,7 +119,7 @@ public sealed class CreateContentTypeFieldRequest
 {
     public required string Key { get; init; }
     public required string Name { get; init; }
-    public required string Type { get; init; }
+    public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
     public JsonElement Settings { get; init; }
@@ -134,7 +131,6 @@ public sealed class CreateContentTypeResponse
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
     public required string Name { get; init; }
-    public int Version { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public required IReadOnlyList<CreateContentTypeFieldResponse> Fields { get; init; }
@@ -144,7 +140,7 @@ public sealed class CreateContentTypeFieldResponse
 {
     public required string Key { get; init; }
     public required string Name { get; init; }
-    public required string Type { get; init; }
+    public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
     public int Position { get; init; }
@@ -183,7 +179,7 @@ public sealed class CreateContentTypeFieldRequestValidator
             .Must(name => name.Trim().Length is >= 1 and <= 100)
             .WithMessage("Field name must contain between 1 and 100 characters.");
         RuleFor(request => request.Type)
-            .Must(CreateContentType.TryParseFieldType)
+            .IsInEnum()
             .WithMessage("Type must be text, number, or boolean.");
         RuleFor(request => request.Settings)
             .Must(settings =>

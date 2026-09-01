@@ -1,5 +1,4 @@
 using FastEndpoints;
-using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
@@ -10,7 +9,8 @@ namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class TransferWorkspaceOwnership(
     ApplicationDbContext db,
-    WorkspaceOwnershipLimitService ownershipLimits)
+    WorkspaceOwnershipLimitService ownershipLimits,
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<
         TransferWorkspaceOwnershipRequest,
         IReadOnlyList<TransferWorkspaceOwnershipMemberResponse>>
@@ -25,13 +25,23 @@ public sealed class TransferWorkspaceOwnership(
         TransferWorkspaceOwnershipRequest request,
         CancellationToken ct)
     {
-        var ownerId = User.ClaimValue("sub")!;
+        var access = await workspaceAccess.ResolveAsync(
+            User,
+            request.WorkspaceId,
+            WorkspaceAccessRoles.Owners,
+            ct);
+        if (access is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
         var owner = await db.WorkspaceMemberships
             .Include(membership => membership.User)
             .SingleOrDefaultAsync(
                 membership =>
                     membership.WorkspaceId == request.WorkspaceId &&
-                    membership.UserId == ownerId &&
+                    membership.UserId == access.UserId &&
                     membership.Role == WorkspaceRole.Owner,
                 ct);
         var nextOwner = await db.WorkspaceMemberships
