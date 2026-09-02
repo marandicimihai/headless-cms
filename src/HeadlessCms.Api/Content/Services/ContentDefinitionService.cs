@@ -9,7 +9,6 @@ namespace HeadlessCms.Api.Content.Services;
 
 public sealed record ContentFieldInput(
     string Key,
-    string Name,
     ContentFieldType Type,
     bool Required,
     bool Nullable,
@@ -28,7 +27,6 @@ public class ContentDefinitionService(
         Guid workspaceId,
         Guid projectId,
         string key,
-        string name,
         IReadOnlyCollection<ContentFieldInput> fields,
         CancellationToken ct = default)
     {
@@ -58,7 +56,6 @@ public class ContentDefinitionService(
             WorkspaceId = workspaceId,
             ProjectId = projectId,
             Key = key,
-            Name = name,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -78,7 +75,6 @@ public class ContentDefinitionService(
         Guid workspaceId,
         Guid projectId,
         string key,
-        string name,
         IReadOnlyCollection<ContentFieldInput> fields,
         CancellationToken ct = default)
     {
@@ -165,7 +161,6 @@ public class ContentDefinitionService(
         {
             if (existingByKey.TryGetValue(proposed.Key, out var existing))
             {
-                existing.Name = proposed.Name;
                 existing.Required = proposed.Required;
                 existing.Nullable = proposed.Nullable;
                 existing.Position = proposed.Position;
@@ -179,7 +174,6 @@ public class ContentDefinitionService(
             db.ContentFields.Add(proposed);
         }
 
-        contentType.Name = name;
         contentType.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
 
@@ -254,7 +248,7 @@ public class ContentDefinitionService(
                 .Where(contentType =>
                     contentType.WorkspaceId == workspaceId &&
                     contentType.ProjectId == projectId)
-                .OrderBy(contentType => contentType.Name)
+                .OrderBy(contentType => contentType.Key)
                 .ToListAsync(ct))
             .Select(contentType => new ContentTypeDefinition(contentType))
             .ToList();
@@ -291,7 +285,6 @@ public class ContentDefinitionService(
                     WorkspaceId = workspaceId,
                     ProjectId = projectId,
                     Key = field.Key,
-                    Name = field.Name,
                     Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,

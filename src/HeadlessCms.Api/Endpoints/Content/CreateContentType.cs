@@ -38,7 +38,6 @@ public sealed class CreateContentType(
                 request.WorkspaceId,
                 request.ProjectId,
                 request.Key,
-                request.Name.Trim(),
                 ToInputs(request.Fields),
                 ct);
 
@@ -74,7 +73,6 @@ public sealed class CreateContentType(
         IEnumerable<CreateContentTypeFieldRequest> fields) =>
         fields.Select(field => new ContentFieldInput(
                 field.Key,
-                field.Name.Trim(),
                 field.Type,
                 field.Required,
                 field.Nullable,
@@ -87,7 +85,6 @@ public sealed class CreateContentType(
             Id = definition.ContentType.Id,
             ProjectId = definition.ContentType.ProjectId,
             Key = definition.ContentType.Key,
-            Name = definition.ContentType.Name,
             CreatedAt = definition.ContentType.CreatedAt,
             UpdatedAt = definition.ContentType.UpdatedAt,
             Fields = definition.ContentType.Fields
@@ -95,7 +92,6 @@ public sealed class CreateContentType(
                 .Select(field => new CreateContentTypeFieldResponse
                 {
                     Key = field.Key,
-                    Name = field.Name,
                     Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,
@@ -111,14 +107,12 @@ public sealed class CreateContentTypeRequest
     public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required List<CreateContentTypeFieldRequest> Fields { get; init; }
 }
 
 public sealed class CreateContentTypeFieldRequest
 {
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
@@ -130,7 +124,6 @@ public sealed class CreateContentTypeResponse
     public Guid Id { get; init; }
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public required IReadOnlyList<CreateContentTypeFieldResponse> Fields { get; init; }
@@ -139,7 +132,6 @@ public sealed class CreateContentTypeResponse
 public sealed class CreateContentTypeFieldResponse
 {
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
@@ -155,10 +147,6 @@ public sealed class CreateContentTypeRequestValidator : Validator<CreateContentT
             .NotEmpty()
             .MaximumLength(64)
             .Matches(CreateContentType.FieldKeyPattern);
-        RuleFor(request => request.Name)
-            .NotEmpty()
-            .Must(name => name.Trim().Length is >= 3 and <= 100)
-            .WithMessage("Name must contain between 3 and 100 characters.");
         RuleFor(request => request.Fields).NotEmpty();
         RuleForEach(request => request.Fields)
             .SetValidator(new CreateContentTypeFieldRequestValidator());
@@ -174,10 +162,6 @@ public sealed class CreateContentTypeFieldRequestValidator
             .NotEmpty()
             .MaximumLength(64)
             .Matches(CreateContentType.FieldKeyPattern);
-        RuleFor(request => request.Name)
-            .NotEmpty()
-            .Must(name => name.Trim().Length is >= 1 and <= 100)
-            .WithMessage("Field name must contain between 1 and 100 characters.");
         RuleFor(request => request.Type)
             .IsInEnum()
             .WithMessage("Type must be text, number, or boolean.");

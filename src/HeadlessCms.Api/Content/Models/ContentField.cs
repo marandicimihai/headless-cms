@@ -19,10 +19,6 @@ public class ContentField
     [StringLength(64)]
     public string Key { get; set; } = default!;
 
-    [Required]
-    [StringLength(100)]
-    public string Name { get; set; } = default!;
-
     public ContentFieldType Type { get; set; }
     public bool Required { get; set; }
     public bool Nullable { get; set; }

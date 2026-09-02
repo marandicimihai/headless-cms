@@ -51,9 +51,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             ArticleDefinition());
 
         createType.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var type = await createType.Content.ReadFromJsonAsync<CreateContentTypeResponse>(
-            JsonOptions,
-            cancellationToken: ct);
+        var createTypeBody = await createType.Content.ReadAsStringAsync(ct);
+        using var createTypeJson = JsonDocument.Parse(createTypeBody);
+        createTypeJson.RootElement.TryGetProperty("name", out _).ShouldBeFalse();
+        createTypeJson.RootElement.GetProperty("fields")[0]
+            .TryGetProperty("name", out _).ShouldBeFalse();
+        var type = JsonSerializer.Deserialize<CreateContentTypeResponse>(
+            createTypeBody,
+            JsonOptions);
         type.ShouldNotBeNull();
         type.Key.ShouldBe("article");
         type.ProjectId.ShouldBe(project.Id);
@@ -225,16 +230,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new
             {
-                name = "Article",
                 fields = new object[]
                 {
-                    new { key = "title", name = "Title", type = "text", required = true },
-                    new { key = "views", name = "Views", type = "number" },
-                    new { key = "published", name = "Published", type = "boolean", required = true },
+                    new { key = "title", type = "text", required = true },
+                    new { key = "views", type = "number" },
+                    new { key = "published", type = "boolean", required = true },
                     new
                     {
                         key = "summary",
-                        name = "Summary",
                         type = "text",
                         required = true,
                         settings = new { @default = "No summary" }
@@ -287,10 +290,9 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new
             {
-                name = "Article",
                 fields = new object[]
                 {
-                    new { key = "title", name = "Title", type = "number", required = true }
+                    new { key = "title", type = "number", required = true }
                 }
             });
         incompatible.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -322,13 +324,12 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new
             {
-                name = "Changed article",
                 fields = new object[]
                 {
-                    new { key = "title", name = "Title", type = "text", required = true },
-                    new { key = "views", name = "Views", type = "number" },
-                    new { key = "published", name = "Published", type = "boolean", required = true },
-                    new { key = "summary", name = "Summary", type = "text", required = true }
+                    new { key = "title", type = "text", required = true },
+                    new { key = "views", type = "number" },
+                    new { key = "published", type = "boolean", required = true },
+                    new { key = "summary", type = "text", required = true }
                 }
             });
 
@@ -342,7 +343,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             JsonOptions,
             cancellationToken: ct);
         current.ShouldNotBeNull();
-        current.Name.ShouldBe("Article");
+        current.Key.ShouldBe("article");
         current.Fields.Select(field => field.Key).ShouldNotContain("summary");
 
         var stored = await SendAsync(
@@ -382,11 +383,10 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new
             {
-                name = "Article",
                 fields = new object[]
                 {
-                    new { key = "title", name = "Headline", type = "text", required = true },
-                    new { key = "published", name = "Published", type = "boolean", required = true }
+                    new { key = "title", type = "text", required = true },
+                    new { key = "published", type = "boolean", required = true }
                 }
             });
 
@@ -444,27 +444,23 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         new
         {
             key = "article",
-            name = "Article",
             fields = new object[]
             {
                 new
                 {
                     key = "title",
-                    name = "Title",
                     type = "text",
                     required = true
                 },
                 new
                 {
                     key = "views",
-                    name = "Views",
                     type = "number",
                     settings = new { @default = 0 }
                 },
                 new
                 {
                     key = "published",
-                    name = "Published",
                     type = "boolean",
                     required = true
                 }

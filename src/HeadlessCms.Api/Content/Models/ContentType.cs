@@ -19,10 +19,6 @@ public class ContentType
     [StringLength(64)]
     public string Key { get; set; } = default!;
 
-    [Required]
-    [StringLength(100)]
-    public string Name { get; set; } = default!;
-
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

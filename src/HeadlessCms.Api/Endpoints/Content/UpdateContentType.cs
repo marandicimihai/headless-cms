@@ -2,7 +2,6 @@ using System.Text.Json;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
@@ -40,7 +39,6 @@ public sealed class UpdateContentType(
                 request.WorkspaceId,
                 request.ProjectId,
                 request.ContentTypeKey,
-                request.Name.Trim(),
                 ToInputs(request.Fields),
                 ct);
 
@@ -66,7 +64,6 @@ public sealed class UpdateContentType(
         IEnumerable<UpdateContentTypeFieldRequest> fields) =>
         fields.Select(field => new ContentFieldInput(
                 field.Key,
-                field.Name.Trim(),
                 field.Type,
                 field.Required,
                 field.Nullable,
@@ -79,7 +76,6 @@ public sealed class UpdateContentType(
             Id = definition.ContentType.Id,
             ProjectId = definition.ContentType.ProjectId,
             Key = definition.ContentType.Key,
-            Name = definition.ContentType.Name,
             CreatedAt = definition.ContentType.CreatedAt,
             UpdatedAt = definition.ContentType.UpdatedAt,
             Fields = definition.ContentType.Fields
@@ -87,7 +83,6 @@ public sealed class UpdateContentType(
                 .Select(field => new UpdateContentTypeFieldResponse
                 {
                     Key = field.Key,
-                    Name = field.Name,
                     Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,
@@ -103,14 +98,12 @@ public sealed class UpdateContentTypeRequest
     public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
-    public required string Name { get; init; }
     public required List<UpdateContentTypeFieldRequest> Fields { get; init; }
 }
 
 public sealed class UpdateContentTypeFieldRequest
 {
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
@@ -122,7 +115,6 @@ public sealed class UpdateContentTypeResponse
     public Guid Id { get; init; }
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public required IReadOnlyList<UpdateContentTypeFieldResponse> Fields { get; init; }
@@ -131,7 +123,6 @@ public sealed class UpdateContentTypeResponse
 public sealed class UpdateContentTypeFieldResponse
 {
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
@@ -147,10 +138,6 @@ public sealed class UpdateContentTypeRequestValidator : Validator<UpdateContentT
             .NotEmpty()
             .MaximumLength(64)
             .Matches(UpdateContentType.FieldKeyPattern);
-        RuleFor(request => request.Name)
-            .NotEmpty()
-            .Must(name => name.Trim().Length is >= 3 and <= 100)
-            .WithMessage("Name must contain between 3 and 100 characters.");
         RuleFor(request => request.Fields).NotEmpty();
         RuleForEach(request => request.Fields)
             .SetValidator(new UpdateContentTypeFieldRequestValidator());
@@ -166,10 +153,6 @@ public sealed class UpdateContentTypeFieldRequestValidator
             .NotEmpty()
             .MaximumLength(64)
             .Matches(UpdateContentType.FieldKeyPattern);
-        RuleFor(request => request.Name)
-            .NotEmpty()
-            .Must(name => name.Trim().Length is >= 1 and <= 100)
-            .WithMessage("Field name must contain between 1 and 100 characters.");
         RuleFor(request => request.Type)
             .IsInEnum()
             .WithMessage("Type must be text, number, or boolean.");

@@ -51,7 +51,6 @@ public sealed class ListContentTypes(
             Id = definition.ContentType.Id,
             ProjectId = definition.ContentType.ProjectId,
             Key = definition.ContentType.Key,
-            Name = definition.ContentType.Name,
             CreatedAt = definition.ContentType.CreatedAt,
             UpdatedAt = definition.ContentType.UpdatedAt,
             Fields = definition.ContentType.Fields
@@ -59,7 +58,6 @@ public sealed class ListContentTypes(
                 .Select(field => new ListContentTypesFieldResponse
                 {
                     Key = field.Key,
-                    Name = field.Name,
                     Type = field.Type,
                     Required = field.Required,
                     Nullable = field.Nullable,
@@ -81,7 +79,6 @@ public sealed class ListContentTypesItemResponse
     public Guid Id { get; init; }
     public Guid ProjectId { get; init; }
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public required IReadOnlyList<ListContentTypesFieldResponse> Fields { get; init; }
@@ -90,7 +87,6 @@ public sealed class ListContentTypesItemResponse
 public sealed class ListContentTypesFieldResponse
 {
     public required string Key { get; init; }
-    public required string Name { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
     public bool Nullable { get; init; }
