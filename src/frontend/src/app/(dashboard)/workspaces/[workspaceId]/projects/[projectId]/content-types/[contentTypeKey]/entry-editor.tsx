@@ -65,8 +65,10 @@ export function EntryEditor({
         <Field>
           <FieldLabel>Status</FieldLabel>
           <Select name="status" defaultValue={entry?.status ?? "draft"} required>
-            <SelectTrigger className="w-full">
-              <SelectValue />
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              {(value) => (value === "published" ? "Published" : "Draft")}
+            </SelectValue>
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
               <SelectItem value="draft">Draft</SelectItem>
@@ -110,7 +112,6 @@ function EntryField({
   const id = `entry-field-${field.key}`
   const required = field.required && !field.nullable
   const name = `field:${field.key}`
-  const description = `${field.type}${field.required ? " · required" : ""}${field.nullable ? " · allows null" : ""}`
 
   if (field.type === "boolean") {
     const selected =
@@ -121,19 +122,20 @@ function EntryField({
         <FieldLabel htmlFor={id}>{field.key}</FieldLabel>
         <Select name={name} defaultValue={selected} required={required}>
           <SelectTrigger id={id} className="w-full">
-            <SelectValue
-              placeholder={field.nullable ? "No value" : "Choose a value"}
-            />
+            <SelectValue placeholder="NULL">
+              {(value) =>
+                value === "true" ? "True" : value === "false" ? "False" : "NULL"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent align="start" alignItemWithTrigger={false}>
             {field.nullable ? (
-              <SelectItem value="">No value</SelectItem>
+              <SelectItem value="">NULL</SelectItem>
             ) : null}
             <SelectItem value="true">True</SelectItem>
             <SelectItem value="false">False</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">{description}</p>
         <FieldError errors={error.map((message) => ({ message }))} />
       </Field>
     )
@@ -150,13 +152,10 @@ function EntryField({
         name={name}
         type={field.type === "number" ? "number" : "text"}
         defaultValue={inputValue}
+        placeholder="NULL"
         required={required}
         step={field.type === "number" ? "any" : undefined}
       />
-      <p className="text-xs text-muted-foreground">
-        {description}
-        {field.nullable ? "; leave empty to save null" : ""}
-      </p>
       <FieldError errors={error.map((message) => ({ message }))} />
     </Field>
   )

@@ -5,7 +5,7 @@ import { getProject } from "@/lib/api/projects"
 import { getSession } from "@/lib/api/session"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
-export default async function EditEntryBreadcrumbPage({
+export default async function EditContentTypeBreadcrumbPage({
   params,
 }: {
   params: Promise<{
@@ -42,9 +42,9 @@ export default async function EditEntryBreadcrumbPage({
         { label: "Content", href: `${projectHref}/content` },
         {
           label: contentTypeKey,
-          href: `/workspaces/${workspaceId}/projects/${projectId}/content-types/${contentTypeKey}`,
+          href: `${projectHref}/content-types/${contentTypeKey}`,
         },
-        { label: "Edit entry" },
+        { label: "Edit content type" },
       ]}
     />
   )

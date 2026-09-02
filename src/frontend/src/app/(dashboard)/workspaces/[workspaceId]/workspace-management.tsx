@@ -143,7 +143,7 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
           <FieldLabel htmlFor="invitation-role">Access</FieldLabel>
           <Select name="role" defaultValue="member" required>
             <SelectTrigger id="invitation-role" className="w-full">
-              <SelectValue />
+              <SelectValue>Read only</SelectValue>
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
               <SelectItem showIndicator={false} value="member">
@@ -213,7 +213,9 @@ function MemberRoleForm({
             size="sm"
             className="w-28"
           >
-            <SelectValue />
+            <SelectValue>
+              {(value) => (value === "editor" ? "Editor" : "Read only")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="member">Read only</SelectItem>
@@ -345,7 +347,7 @@ export function WorkspaceManagement({
             <AlertDescription>{membersError}</AlertDescription>
           </Alert>
         ) : members.length ? (
-          <div className="overflow-hidden rounded-xl border">
+          <div className="overflow-x-auto rounded-xl border">
             <Table className="min-w-[36rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -405,7 +407,7 @@ export function WorkspaceManagement({
             <AlertDescription>{invitationsError}</AlertDescription>
           </Alert>
         ) : invitations.length ? (
-          <div className="overflow-hidden rounded-xl border">
+          <div className="overflow-x-auto rounded-xl border">
             <Table className="min-w-[44rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -458,7 +460,7 @@ export function WorkspaceManagement({
             ) : null}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border">
+          <div className="overflow-x-auto rounded-xl border">
             <Table className="min-w-[44rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

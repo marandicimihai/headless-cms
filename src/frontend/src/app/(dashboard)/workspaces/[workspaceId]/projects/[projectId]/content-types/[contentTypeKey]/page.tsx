@@ -40,6 +40,7 @@ export default async function ContentTypePage({
   const canWrite =
     workspace?.currentRole === "owner" || workspace?.currentRole === "editor"
   const projectHref = `/workspaces/${workspaceId}/projects/${projectId}`
+  const contentHref = `${projectHref}/content`
   const contentTypeHref = `${projectHref}/content-types/${contentTypeKey}`
 
   if (!typeResult.ok) {
@@ -62,9 +63,9 @@ export default async function ContentTypePage({
           <Button
             nativeButton={false}
             variant="outline"
-            render={<Link href={projectHref} />}
+            render={<Link href={contentHref} />}
           >
-            Back to project
+            Back to content
           </Button>
         </div>
       </main>
@@ -88,13 +89,22 @@ export default async function ContentTypePage({
           </p>
         </div>
         {canWrite ? (
-          <Button
-            nativeButton={false}
-            render={<Link href={`${contentTypeHref}/entries/new`} />}
-          >
-            <Plus />
-            Create entry
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              nativeButton={false}
+              variant="outline"
+              render={<Link href={`${contentTypeHref}/edit`} />}
+            >
+              Edit content type
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href={`${contentTypeHref}/entries/new`} />}
+            >
+              <Plus />
+              Create entry
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -102,13 +112,14 @@ export default async function ContentTypePage({
         <h2 id="schema-heading" className="text-sm font-semibold">
           Schema
         </h2>
-        <div className="overflow-hidden border">
-          <Table className="min-w-[40rem]">
+        <div className="overflow-x-auto rounded-xl border">
+          <Table className="min-w-[48rem]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Key</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Rules</TableHead>
+                <TableHead>Default</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -121,6 +132,11 @@ export default async function ContentTypePage({
                   <TableCell className="text-muted-foreground">
                     {field.required ? "Required" : "Optional"}
                     {field.nullable ? " · nullable" : ""}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {Object.prototype.hasOwnProperty.call(field.settings, "default")
+                      ? formatValue(field.settings.default)
+                      : "—"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -148,7 +164,7 @@ export default async function ContentTypePage({
             <AlertDescription>{entriesResult.error.detail}</AlertDescription>
           </Alert>
         ) : entries.length ? (
-          <div className="overflow-auto border">
+          <div className="overflow-x-auto rounded-xl border">
             <Table className="min-w-[44rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -206,7 +222,7 @@ export default async function ContentTypePage({
             </Table>
           </div>
         ) : (
-          <div className="flex min-h-44 flex-col items-center justify-center gap-3 border text-center">
+          <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-xl border text-center">
             <p className="text-sm font-semibold">No entries yet</p>
             <p className="text-sm text-muted-foreground">
               {canWrite

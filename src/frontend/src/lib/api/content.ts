@@ -7,6 +7,7 @@ import type {
   ContentEntryStatus,
   ContentType,
   ContentTypeInput,
+  ContentTypeUpdateInput,
 } from "@/lib/types/content"
 
 import { apiFetch } from "./fetch-utils"
@@ -54,6 +55,19 @@ export async function createContentType(
 ): Promise<ApiResult<ContentType>> {
   return apiFetch<ContentType>(contentTypesPath(workspaceId, projectId), {
     method: "POST",
+    body: JSON.stringify(input),
+    cache: "no-store",
+  })
+}
+
+export async function updateContentType(
+  workspaceId: string,
+  projectId: string,
+  contentTypeKey: string,
+  input: ContentTypeUpdateInput,
+): Promise<ApiResult<ContentType>> {
+  return apiFetch<ContentType>(contentTypePath(workspaceId, projectId, contentTypeKey), {
+    method: "PUT",
     body: JSON.stringify(input),
     cache: "no-store",
   })

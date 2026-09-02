@@ -72,7 +72,7 @@ export default async function ProjectsPage({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : projects.length ? (
-        <div className="overflow-hidden rounded-xl border">
+        <div className="overflow-x-auto rounded-xl border">
           <Table className="min-w-[38rem]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">

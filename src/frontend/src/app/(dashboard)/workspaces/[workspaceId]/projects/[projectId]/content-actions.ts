@@ -8,6 +8,7 @@ import {
   createContentType,
   deleteContentEntry,
   deleteContentType,
+  updateContentType,
   updateContentEntry,
 } from "@/lib/api/content"
 import { getSession } from "@/lib/api/session"
@@ -47,7 +48,10 @@ function typeHref(workspaceId: string, projectId: string, contentTypeKey: string
 function refreshContent(workspaceId: string, projectId: string, contentTypeKey?: string) {
   const projectHref = `/workspaces/${workspaceId}/projects/${projectId}`
   revalidatePath(projectHref)
-  if (contentTypeKey) revalidatePath(typeHref(workspaceId, projectId, contentTypeKey), "layout")
+  revalidatePath(`${projectHref}/content`)
+  if (contentTypeKey) {
+    revalidatePath(typeHref(workspaceId, projectId, contentTypeKey), "layout")
+  }
 }
 
 function isFieldType(value: unknown): value is ContentFieldType {
@@ -65,8 +69,28 @@ function parseDefinition(value: FormDataEntryValue | null): ContentTypeInput | n
     for (const field of definition.fields) {
       if (!field || typeof field !== "object") return null
       const input = field as Partial<ContentFieldInput>
-      if (typeof input.key !== "string" || !isFieldType(input.type) || typeof input.required !== "boolean" || typeof input.nullable !== "boolean") return null
-      fields.push({ key: input.key, type: input.type, required: input.required, nullable: input.nullable, settings: {} })
+      if (
+        typeof input.key !== "string" ||
+        !isFieldType(input.type) ||
+        typeof input.required !== "boolean" ||
+        typeof input.nullable !== "boolean"
+      ) {
+        return null
+      }
+      const settings = input.settings
+      if (
+        settings !== undefined &&
+        (!settings || typeof settings !== "object" || Array.isArray(settings))
+      ) {
+        return null
+      }
+      fields.push({
+        key: input.key,
+        type: input.type,
+        required: input.required,
+        nullable: input.nullable,
+        settings: settings ?? {},
+      })
     }
     return { key: definition.key, fields }
   } catch {
@@ -117,6 +141,31 @@ export async function createContentTypeAction(
   redirect(typeHref(workspaceId, projectId, result.data.key))
 }
 
+export async function updateContentTypeAction(
+  workspaceId: string,
+  projectId: string,
+  contentTypeKey: string,
+  _previousState: ContentActionState,
+  formData: FormData,
+): Promise<ContentActionState> {
+  await requireSession()
+  const definition = parseDefinition(formData.get("definition"))
+  if (!definition) {
+    return {
+      status: "error",
+      message: "The content type form contains invalid data.",
+      fieldErrors: {},
+    }
+  }
+
+  const result = await updateContentType(workspaceId, projectId, contentTypeKey, {
+    fields: definition.fields,
+  })
+  if (!result.ok) return errorState(result.error)
+  refreshContent(workspaceId, projectId, result.data.key)
+  redirect(typeHref(workspaceId, projectId, result.data.key))
+}
+
 export async function deleteContentTypeAction(
   workspaceId: string,
   projectId: string,
@@ -130,7 +179,7 @@ export async function deleteContentTypeAction(
   const result = await deleteContentType(workspaceId, projectId, contentTypeKey)
   if (!result.ok) return errorState(result.error)
   refreshContent(workspaceId, projectId, contentTypeKey)
-  redirect(`/workspaces/${workspaceId}/projects/${projectId}`)
+  redirect(`/workspaces/${workspaceId}/projects/${projectId}/content`)
 }
 
 export async function createContentEntryAction(

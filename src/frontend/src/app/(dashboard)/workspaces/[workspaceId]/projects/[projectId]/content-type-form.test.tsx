@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("./content-actions", () => ({
   createContentTypeAction: vi.fn(),
+  updateContentTypeAction: vi.fn(),
 }))
 
 import { ContentTypeForm } from "./content-type-form"
@@ -22,5 +23,60 @@ describe("ContentTypeForm", () => {
     expect(screen.getByLabelText("Key")).toBeTruthy()
     expect(screen.queryByLabelText("Display name")).toBeNull()
     expect(screen.queryByLabelText("Name")).toBeNull()
+  })
+
+  it("initializes edit mode from the current schema and preserves defaults", () => {
+    const { container } = render(
+      <ContentTypeForm
+        workspaceId="workspace-1"
+        projectId="project-1"
+        mode="edit"
+        initialContentType={{
+          id: "type-1",
+          projectId: "project-1",
+          key: "articles",
+          createdAt: "2026-09-02T00:00:00Z",
+          updatedAt: "2026-09-02T00:00:00Z",
+          fields: [
+            {
+              key: "title",
+              type: "text",
+              required: true,
+              nullable: false,
+              position: 0,
+              settings: { default: "Untitled" },
+            },
+            {
+              key: "featured",
+              type: "boolean",
+              required: false,
+              nullable: true,
+              position: 1,
+              settings: { default: null },
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText("articles", { selector: "output" }).tagName).toBe("OUTPUT")
+    expect(screen.getByText("title", { selector: "output" }).tagName).toBe("OUTPUT")
+    expect(screen.queryByLabelText("Default value")).toBeNull()
+    expect(screen.getByLabelText("Move featured down").getAttribute("disabled")).not.toBeNull()
+
+    const definition = container.querySelector('input[name="definition"]')
+    expect(definition).not.toBeNull()
+    expect(JSON.parse((definition as HTMLInputElement)?.value ?? "{}")).toMatchObject({
+      key: "articles",
+      fields: [
+        { key: "title", settings: { default: "Untitled" } },
+        { key: "featured", settings: { default: null } },
+      ],
+    })
+
+    fireEvent.click(screen.getByLabelText("Move featured up"))
+    expect(JSON.parse((definition as HTMLInputElement)?.value ?? "{}").fields[0].key).toBe(
+      "featured",
+    )
   })
 })

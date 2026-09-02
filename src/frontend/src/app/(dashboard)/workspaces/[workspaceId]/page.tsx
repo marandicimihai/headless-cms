@@ -19,9 +19,9 @@ export default function WorkspacePreviewPage() {
           </p>
         </div>
         <div aria-hidden="true" className="grid gap-4 border-t py-5 md:grid-cols-3">
-          <div className="h-20 rounded-lg bg-muted" />
-          <div className="h-20 rounded-lg bg-muted" />
-          <div className="h-20 rounded-lg bg-muted" />
+          <div className="h-20 rounded-xl bg-muted" />
+          <div className="h-20 rounded-xl bg-muted" />
+          <div className="h-20 rounded-xl bg-muted" />
         </div>
       </section>
     </main>

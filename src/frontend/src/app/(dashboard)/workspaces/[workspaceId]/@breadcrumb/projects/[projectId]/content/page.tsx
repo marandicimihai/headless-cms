@@ -5,20 +5,16 @@ import { getProject } from "@/lib/api/projects"
 import { getSession } from "@/lib/api/session"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
-export default async function EditEntryBreadcrumbPage({
+export default async function ProjectContentBreadcrumbPage({
   params,
 }: {
-  params: Promise<{
-    workspaceId: string
-    projectId: string
-    contentTypeKey: string
-  }>
+  params: Promise<{ workspaceId: string; projectId: string }>
 }) {
-  const { workspaceId, projectId, contentTypeKey } = await params
   const session = await getSession()
 
   if (!session) redirect("/auth/login")
 
+  const { workspaceId, projectId } = await params
   const [workspaceResult, projectResult] = await Promise.all([
     listMyWorkspaces(),
     getProject(workspaceId, projectId),
@@ -28,23 +24,18 @@ export default async function EditEntryBreadcrumbPage({
         (item) => item.id.toLowerCase() === workspaceId.toLowerCase(),
       )
     : undefined
-  const projectHref = `/workspaces/${workspaceId}/projects/${projectId}`
+  const projectsHref = `/workspaces/${workspaceId}/projects`
 
   return (
     <DashboardBreadcrumbTrail
       items={[
         { label: workspace?.name ?? "Workspace", href: `/workspaces/${workspaceId}` },
-        { label: "Projects", href: `/workspaces/${workspaceId}/projects` },
+        { label: "Projects", href: projectsHref },
         {
           label: projectResult.ok ? projectResult.data.name : "Project",
-          href: projectHref,
+          href: `/workspaces/${workspaceId}/projects/${projectId}`,
         },
-        { label: "Content", href: `${projectHref}/content` },
-        {
-          label: contentTypeKey,
-          href: `/workspaces/${workspaceId}/projects/${projectId}/content-types/${contentTypeKey}`,
-        },
-        { label: "Edit entry" },
+        { label: "Content" },
       ]}
     />
   )

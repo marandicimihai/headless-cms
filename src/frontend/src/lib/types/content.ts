@@ -33,6 +33,10 @@ export type ContentTypeInput = {
   fields: ContentFieldInput[]
 }
 
+export type ContentTypeUpdateInput = {
+  fields: ContentFieldInput[]
+}
+
 export type ContentEntry = {
   id: string
   status: ContentEntryStatus
