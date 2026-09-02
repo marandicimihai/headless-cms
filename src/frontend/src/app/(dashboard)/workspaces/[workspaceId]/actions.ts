@@ -69,7 +69,7 @@ export async function inviteWorkspaceMemberAction(
   await requireSession()
   const role = String(formData.get("role") ?? "")
 
-  if (role !== "Editor" && role !== "Member") {
+  if (role !== "editor" && role !== "member") {
     return {
       status: "error",
       message: "Choose editor or read-only access.",
@@ -146,7 +146,7 @@ export async function changeWorkspaceMemberRoleAction(
   await requireSession()
   const role = String(formData.get("role") ?? "")
 
-  if (role !== "Editor" && role !== "Member") {
+  if (role !== "editor" && role !== "member") {
     return {
       status: "error",
       message: "Choose editor or read-only access.",
@@ -165,7 +165,7 @@ export async function changeWorkspaceMemberRoleAction(
   refreshWorkspace(workspaceId)
   return {
     status: "success",
-    message: `${result.data.email} is now ${role === "Member" ? "read only" : "an editor"}.`,
+    message: `${result.data.email} is now ${role === "member" ? "read only" : "an editor"}.`,
     fieldErrors: {},
   }
 }

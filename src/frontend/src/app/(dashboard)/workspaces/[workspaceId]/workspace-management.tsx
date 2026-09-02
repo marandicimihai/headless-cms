@@ -65,7 +65,7 @@ function formatDate(value: string) {
 }
 
 function roleLabel(role: WorkspaceRole) {
-  return role === "Member" ? "Read only" : role
+  return role === "member" ? "Read only" : role === "owner" ? "Owner" : "Editor"
 }
 
 function RenameWorkspaceForm({
@@ -141,15 +141,15 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
         </Field>
         <Field data-invalid={roleErrors.length > 0}>
           <FieldLabel htmlFor="invitation-role">Access</FieldLabel>
-          <Select name="role" defaultValue="Member" required>
+          <Select name="role" defaultValue="member" required>
             <SelectTrigger id="invitation-role" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
-              <SelectItem showIndicator={false} value="Member">
+              <SelectItem showIndicator={false} value="member">
                 Read only
               </SelectItem>
-              <SelectItem showIndicator={false} value="Editor">
+              <SelectItem showIndicator={false} value="editor">
                 Editor
               </SelectItem>
             </SelectContent>
@@ -193,7 +193,7 @@ function MemberRoleForm({
     setRole(member.role)
   }
 
-  if (member.role === "Owner") {
+  if (member.role === "owner") {
     return <Badge>Owner</Badge>
   }
 
@@ -204,7 +204,7 @@ function MemberRoleForm({
           name="role"
           value={role}
           onValueChange={(value) => {
-            if (value === "Member" || value === "Editor") setRole(value)
+            if (value === "member" || value === "editor") setRole(value)
           }}
           required
         >
@@ -216,8 +216,8 @@ function MemberRoleForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Member">Read only</SelectItem>
-            <SelectItem value="Editor">Editor</SelectItem>
+            <SelectItem value="member">Read only</SelectItem>
+            <SelectItem value="editor">Editor</SelectItem>
           </SelectContent>
         </Select>
         <Button type="submit" variant="outline" size="sm" disabled={pending}>

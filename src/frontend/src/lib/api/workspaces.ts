@@ -55,7 +55,7 @@ export async function listPendingWorkspaceInvitations(
   workspaceId: string,
 ): Promise<ApiResult<PagedWorkspaceResponse<WorkspaceInvitation>>> {
   return apiFetch<PagedWorkspaceResponse<WorkspaceInvitation>>(
-    `/api/workspaces/${workspaceId}/invitations?page=1&pageSize=100&status=Pending`,
+    `/api/workspaces/${workspaceId}/invitations?page=1&pageSize=100&status=pending`,
     {
       cache: "no-store",
     },
@@ -64,7 +64,7 @@ export async function listPendingWorkspaceInvitations(
 
 export async function createWorkspaceInvitation(
   workspaceId: string,
-  request: { email: string; role: Exclude<WorkspaceRole, "Owner"> },
+  request: { email: string; role: Exclude<WorkspaceRole, "owner"> },
 ): Promise<ApiResult<WorkspaceInvitation>> {
   return apiFetch<WorkspaceInvitation>(
     `/api/workspaces/${workspaceId}/invitations`,
@@ -105,7 +105,7 @@ export async function revokeWorkspaceInvitation(
 export async function changeWorkspaceMemberRole(
   workspaceId: string,
   userId: string,
-  role: Exclude<WorkspaceRole, "Owner">,
+  role: Exclude<WorkspaceRole, "owner">,
 ): Promise<ApiResult<WorkspaceMember>> {
   return apiFetch<WorkspaceMember>(
     `/api/workspaces/${workspaceId}/members/${encodeURIComponent(userId)}`,

@@ -40,7 +40,7 @@ export default async function ProjectsPage({
       )
     : undefined
   const canManageProjects =
-    workspace?.currentRole === "Owner" || workspace?.currentRole === "Editor"
+    workspace?.currentRole === "owner" || workspace?.currentRole === "editor"
   const projects = projectsResult.ok ? projectsResult.data : []
   const error = projectsResult.ok ? undefined : projectsResult.error.detail
   const projectsHref = `/workspaces/${workspaceId}/projects`

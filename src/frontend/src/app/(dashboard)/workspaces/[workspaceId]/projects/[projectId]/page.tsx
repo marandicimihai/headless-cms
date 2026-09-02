@@ -1,9 +1,11 @@
 import Link from "next/link"
-import { CircleAlert } from "lucide-react"
+import { CircleAlert, Database, Plus } from "lucide-react"
 
 import { ProjectManagement } from "./project-management"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { listContentTypes } from "@/lib/api/content"
 import { getProject } from "@/lib/api/projects"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
@@ -23,9 +25,10 @@ export default async function ProjectPage({
   params: Promise<{ workspaceId: string; projectId: string }>
 }) {
   const { workspaceId, projectId } = await params
-  const [workspaceResult, projectResult] = await Promise.all([
+  const [workspaceResult, projectResult, contentTypesResult] = await Promise.all([
     listMyWorkspaces(),
     getProject(workspaceId, projectId),
+    listContentTypes(workspaceId, projectId),
   ])
   const workspace = workspaceResult.ok
     ? workspaceResult.data.find(
@@ -44,7 +47,9 @@ export default async function ProjectPage({
     return (
       <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Project unavailable</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Project unavailable
+          </h1>
           <p className="text-sm text-muted-foreground">
             The project could not be loaded.
           </p>
@@ -69,13 +74,16 @@ export default async function ProjectPage({
 
   const project = projectResult.data
   const canManageProjects =
-    workspace.currentRole === "Owner" || workspace.currentRole === "Editor"
+    workspace.currentRole === "owner" || workspace.currentRole === "editor"
+  const contentTypes = contentTypesResult.ok ? contentTypesResult.data : []
 
   return (
     <main className="flex flex-1 flex-col gap-8 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
-        <p className="text-sm text-muted-foreground">Project details and access.</p>
+        <p className="text-sm text-muted-foreground">
+          Project details and access.
+        </p>
       </div>
 
       <dl className="grid gap-4 border-y py-5 sm:grid-cols-2">
@@ -89,6 +97,68 @@ export default async function ProjectPage({
         </div>
       </dl>
 
+      <section className="space-y-4" aria-labelledby="content-types-heading">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 id="content-types-heading" className="text-lg font-semibold">
+              Content types
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Define schemas, then add and manage entries.
+            </p>
+          </div>
+          {canManageProjects ? (
+            <Button
+              nativeButton={false}
+              render={
+                <Link href={`${projectsHref}/${project.id}/content-types/new`} />
+              }
+            >
+              <Plus />
+              Create content type
+            </Button>
+          ) : null}
+        </div>
+
+        {!contentTypesResult.ok ? (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertTitle>Unable to load content types</AlertTitle>
+            <AlertDescription>{contentTypesResult.error.detail}</AlertDescription>
+          </Alert>
+        ) : contentTypes.length ? (
+          <div className="divide-y border">
+            {contentTypes.map((contentType) => (
+              <Link
+                key={contentType.id}
+                href={`${projectsHref}/${project.id}/content-types/${contentType.key}`}
+                className="flex items-center justify-between gap-4 p-4 outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
+                <div>
+                  <h3 className="font-mono text-sm font-medium">{contentType.key}</h3>
+                </div>
+                <Badge variant="outline">
+                  {contentType.fields.length}{" "}
+                  {contentType.fields.length === 1 ? "field" : "fields"}
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-52 flex-col items-center justify-center gap-3 border text-center">
+            <Database className="size-7 text-muted-foreground" />
+            <div>
+              <h3 className="text-sm font-semibold">No content types yet</h3>
+              <p className="text-sm text-muted-foreground">
+                {canManageProjects
+                  ? "Create a schema to start entering content."
+                  : "This project has no content schemas yet."}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
       {canManageProjects ? (
         <ProjectManagement
           workspaceId={workspaceId}
@@ -101,7 +171,8 @@ export default async function ProjectPage({
             Project access
           </h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            You have read-only workspace access. Owners and editors can rename or delete this project.
+            You have read-only workspace access. Owners and editors can rename or
+            delete this project.
           </p>
         </section>
       )}

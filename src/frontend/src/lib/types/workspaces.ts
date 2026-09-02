@@ -1,4 +1,4 @@
-export type WorkspaceRole = "Owner" | "Editor" | "Member"
+export type WorkspaceRole = "owner" | "editor" | "member"
 
 export type WorkspaceSummary = {
   id: string
@@ -17,10 +17,10 @@ export type WorkspaceMember = {
 }
 
 export type WorkspaceInvitationStatus =
-  | "Pending"
-  | "Accepted"
-  | "Expired"
-  | "Revoked"
+  | "pending"
+  | "accepted"
+  | "expired"
+  | "revoked"
 
 export type WorkspaceInvitation = {
   id: string

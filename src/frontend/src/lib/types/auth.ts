@@ -9,14 +9,14 @@ export type AuthSession = {
 export type InvitationPreview = {
   workspaceName: string;
   maskedEmail: string;
-  role: "Owner" | "Editor" | "Member";
+  role: "owner" | "editor" | "member";
   expiresAt: string;
 }
 
 export type InvitationMembership = {
   workspaceId: string;
   workspaceName: string;
-  role: "Owner" | "Editor" | "Member";
+  role: "owner" | "editor" | "member";
   joinedAt: string;
 }
 

@@ -20,9 +20,9 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 })
 
 const roleLabels: Record<WorkspaceRole, string> = {
-  Owner: "Owner",
-  Editor: "Editor",
-  Member: "Read only",
+  owner: "Owner",
+  editor: "Editor",
+  member: "Read only",
 }
 
 function formatCreatedAt(createdAt: string) {
@@ -34,8 +34,8 @@ function formatCreatedAt(createdAt: string) {
 }
 
 function roleBadgeVariant(role: WorkspaceRole | null) {
-  if (role === "Owner") return "default" as const
-  if (role === "Editor") return "secondary" as const
+  if (role === "owner") return "default" as const
+  if (role === "editor") return "secondary" as const
   return "outline" as const
 }
 
@@ -52,21 +52,21 @@ export default async function DashboardPage() {
     {
       title: "Owner",
       value:
-        workspaces?.filter((workspace) => workspace.currentRole === "Owner")
+        workspaces?.filter((workspace) => workspace.currentRole === "owner")
           .length ?? 0,
       description: "Full workspace management",
     },
     {
       title: "Editor",
       value:
-        workspaces?.filter((workspace) => workspace.currentRole === "Editor")
+        workspaces?.filter((workspace) => workspace.currentRole === "editor")
           .length ?? 0,
       description: "Content management access",
     },
     {
       title: "Read only",
       value:
-        workspaces?.filter((workspace) => workspace.currentRole === "Member")
+        workspaces?.filter((workspace) => workspace.currentRole === "member")
           .length ?? 0,
       description: "View-only content access",
     },

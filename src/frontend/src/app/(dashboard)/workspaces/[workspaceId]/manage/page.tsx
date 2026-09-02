@@ -21,9 +21,9 @@ const roleDetails: Record<
   WorkspaceRole,
   { label: string; summary: string }
 > = {
-  Owner: { label: "Owner", summary: "Full access" },
-  Editor: { label: "Editor", summary: "Can manage projects and content" },
-  Member: { label: "Read only", summary: "View-only access" },
+  owner: { label: "Owner", summary: "Full access" },
+  editor: { label: "Editor", summary: "Can manage projects and content" },
+  member: { label: "Read only", summary: "View-only access" },
 }
 
 function formatCreatedAt(createdAt: string) {
@@ -91,7 +91,7 @@ export default async function WorkspaceManagementPage({
   const role = workspace.currentRole
   const resolvedWorkspaceId = workspace.id
   const details = roleDetails[role]
-  const isOwner = role === "Owner"
+  const isOwner = role === "owner"
   const [membersResult, invitationsResult] = isOwner
     ? await Promise.all([
         listWorkspaceMembers(resolvedWorkspaceId),
@@ -117,9 +117,9 @@ export default async function WorkspaceManagementPage({
           </div>
           <Badge
             variant={
-              role === "Owner"
+              role === "owner"
                 ? "default"
-                : role === "Editor"
+                : role === "editor"
                   ? "secondary"
                   : "outline"
             }

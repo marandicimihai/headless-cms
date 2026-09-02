@@ -19,7 +19,7 @@ export default async function NewProjectPage({
       )
     : undefined
   const canManageProjects =
-    workspace?.currentRole === "Owner" || workspace?.currentRole === "Editor"
+    workspace?.currentRole === "owner" || workspace?.currentRole === "editor"
   const projectsHref = `/workspaces/${workspaceId}/projects`
 
   if (!workspaceResult.ok) {

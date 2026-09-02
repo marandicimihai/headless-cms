@@ -79,7 +79,7 @@ export function DashboardHeader({
           }
         >
           <Avatar className="size-8 rounded-lg">
-            <AvatarFallback className="rounded-lg">MC</AvatarFallback>
+            <AvatarFallback className="rounded-lg">{email.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="hidden text-left leading-tight md:grid">
             <span className="max-w-48 truncate text-sm font-medium">{email}</span>

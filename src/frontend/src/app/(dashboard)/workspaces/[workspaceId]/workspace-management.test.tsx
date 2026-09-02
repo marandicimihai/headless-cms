@@ -17,7 +17,7 @@ import type { WorkspaceInvitation, WorkspaceMember } from "@/lib/types/workspace
 const member: WorkspaceMember = {
   userId: "user-1",
   email: "member@example.test",
-  role: "Member",
+  role: "member",
   joinedAt: "2026-08-24T12:00:00Z",
 }
 
@@ -25,8 +25,8 @@ const invitation: WorkspaceInvitation = {
   id: "invitation-1",
   workspaceId: "workspace-1",
   email: "invitee@example.test",
-  role: "Member",
-  status: "Pending",
+  role: "member",
+  status: "pending",
   createdAt: "2026-08-24T12:00:00Z",
   expiresAt: "2026-08-27T12:00:00Z",
   lastSentAt: "2026-08-24T12:00:00Z",
@@ -57,7 +57,7 @@ describe("WorkspaceManagement", () => {
       <WorkspaceManagement
         workspaceId="workspace-1"
         workspaceName="Renamed workspace"
-        members={[{ ...member, role: "Editor" }]}
+        members={[{ ...member, role: "editor" }]}
         invitations={[]}
         memberTotal={1}
         invitationTotal={0}
@@ -73,7 +73,7 @@ describe("WorkspaceManagement", () => {
     const memberRoleInput = roleInputs.item(roleInputs.length - 1)
 
     expect(nameInput?.value).toBe("Renamed workspace")
-    expect(memberRoleInput.value).toBe("Editor")
+    expect(memberRoleInput.value).toBe("editor")
     expect(
       consoleError.mock.calls.some((call) =>
         call.some((value) =>
