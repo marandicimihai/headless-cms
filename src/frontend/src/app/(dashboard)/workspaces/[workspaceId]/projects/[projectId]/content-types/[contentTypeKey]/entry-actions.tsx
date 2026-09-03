@@ -92,7 +92,7 @@ export function EntryActions({
               This permanently removes the entry. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <form id={deleteFormId} action={formAction} />
+          <form id={deleteFormId} action={formAction} noValidate />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
             <Button

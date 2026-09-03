@@ -32,7 +32,7 @@ export function CreateProjectForm({ workspaceId }: { workspaceId: string }) {
   useActionToast(state)
 
   return (
-    <form action={formAction} className="max-w-xl">
+    <form action={formAction} className="max-w-xl" noValidate>
       <FieldGroup>
         <Field data-invalid={nameErrors.length > 0}>
           <FieldLabel htmlFor="project-name">Project name</FieldLabel>

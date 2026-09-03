@@ -3,8 +3,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/hooks/use-action-toast", () => ({
-  useActionToast: vi.fn(),
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
+
+vi.mock("sonner", () => ({
+  toast: { error: toastError, success: vi.fn() },
 }))
 
 import { EntryEditor } from "./entry-editor"
@@ -12,6 +14,7 @@ import { EntryEditor } from "./entry-editor"
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  toastError.mockClear()
 })
 
 describe("EntryEditor", () => {
@@ -43,7 +46,8 @@ describe("EntryEditor", () => {
 
     const title = screen.getByLabelText(/title/)
     const summary = screen.getByLabelText("summary")
-    expect(title.getAttribute("required")).not.toBeNull()
+    expect(container.querySelector("form")?.noValidate).toBe(true)
+    expect(title.getAttribute("required")).toBeNull()
     expect(container.querySelector(".text-destructive")?.textContent?.trim()).toBe("*")
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Null" }))
@@ -81,5 +85,36 @@ describe("EntryEditor", () => {
     await waitFor(() => expect(action).toHaveBeenCalled())
     expect(submitted?.get("null:summary")).toBe("on")
     expect(submitted?.get("field:summary")).toBeNull()
+  })
+
+  it("uses a grouped toast instead of native validation for empty required fields", () => {
+    const action = vi.fn(async () => ({
+      status: "idle" as const,
+      message: null,
+      fieldErrors: {},
+    }))
+    const { container } = render(
+      <EntryEditor
+        workspaceId="workspace-1"
+        projectId="project-1"
+        contentTypeKey="articles"
+        fields={[
+          { key: "title", type: "text", required: true, position: 0, settings: {} },
+          {
+            key: "published",
+            type: "boolean",
+            required: true,
+            position: 1,
+            settings: {},
+          },
+        ]}
+        action={action}
+      />,
+    )
+
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement)
+
+    expect(action).not.toHaveBeenCalled()
+    expect(toastError).toHaveBeenCalledWith("Required fields: title, published")
   })
 })

@@ -1,12 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { useActionState, useState } from "react"
+import { type FormEvent, useActionState, useState } from "react"
 
 import type { ContentActionState } from "../../content-actions"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -15,7 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useActionToast } from "@/hooks/use-action-toast"
+import {
+  showContentValidationToasts,
+  useContentActionToast,
+  validateContentEntry,
+} from "@/lib/content-validation"
 import type { ContentEntry, ContentField } from "@/lib/types/content"
 
 const initialState: ContentActionState = {
@@ -43,33 +47,41 @@ export function EntryEditor({
   ) => Promise<ContentActionState>
 }) {
   const [state, formAction, pending] = useActionState(action, initialState)
-  useActionToast(state)
+  useContentActionToast(state)
   const contentTypeHref =
     `/workspaces/${workspaceId}/projects/${projectId}/content-types/${contentTypeKey}`
 
+  function validateBeforeSubmit(event: FormEvent<HTMLFormElement>) {
+    const issues = validateContentEntry(fields, new FormData(event.currentTarget))
+    if (issues.length === 0) return
+
+    event.preventDefault()
+    showContentValidationToasts(issues)
+  }
+
   return (
-    <form action={formAction} className="max-w-2xl">
+    <form
+      action={formAction}
+      className="max-w-2xl"
+      noValidate
+      onSubmit={validateBeforeSubmit}
+    >
       <FieldGroup>
         {fields.map((field) => (
           <EntryField
             key={field.key}
             field={field}
             value={entry?.data[field.key]}
-            error={
-              state.fieldErrors[`data.${field.key}`] ??
-              state.fieldErrors[field.key] ??
-              []
-            }
           />
         ))}
 
         <Field>
           <FieldLabel>Status</FieldLabel>
-          <Select name="status" defaultValue={entry?.status ?? "draft"} required>
-          <SelectTrigger className="w-full">
-            <SelectValue>
-              {(value) => (value === "published" ? "Published" : "Draft")}
-            </SelectValue>
+          <Select name="status" defaultValue={entry?.status ?? "draft"}>
+            <SelectTrigger className="w-full">
+              <SelectValue>
+                {(value) => (value === "published" ? "Published" : "Draft")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
               <SelectItem value="draft">Draft</SelectItem>
@@ -77,12 +89,6 @@ export function EntryEditor({
             </SelectContent>
           </Select>
         </Field>
-
-        {state.message ? (
-          <p className="text-sm text-destructive" role="alert">
-            {state.message}
-          </p>
-        ) : null}
 
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={pending}>
@@ -104,14 +110,11 @@ export function EntryEditor({
 function EntryField({
   field,
   value,
-  error,
 }: {
   field: ContentField
   value: unknown
-  error: string[]
 }) {
   const id = `entry-field-${field.key}`
-  const required = field.required
   const name = `field:${field.key}`
   const [isNull, setIsNull] = useState(value === null)
 
@@ -119,9 +122,9 @@ function EntryField({
     const selected = typeof value === "boolean" ? String(value) : undefined
 
     return (
-      <Field data-invalid={error.length > 0}>
+      <Field>
         <EntryFieldLabel field={field} htmlFor={id} />
-        <Select name={name} defaultValue={selected} required={required}>
+        <Select name={name} defaultValue={selected}>
           <SelectTrigger id={id} className="w-full">
             <SelectValue placeholder={field.required ? "Choose a value" : "Use default"}>
               {(value) =>
@@ -134,7 +137,6 @@ function EntryField({
             <SelectItem value="false">False</SelectItem>
           </SelectContent>
         </Select>
-        <FieldError errors={error.map((message) => ({ message }))} />
       </Field>
     )
   }
@@ -143,7 +145,7 @@ function EntryField({
     typeof value === "string" || typeof value === "number" ? String(value) : ""
 
   return (
-    <Field data-invalid={error.length > 0}>
+    <Field>
       <EntryFieldLabel field={field} htmlFor={id} />
       <div className="relative">
         <Input
@@ -152,7 +154,6 @@ function EntryField({
           type={field.type === "number" ? "number" : "text"}
           defaultValue={inputValue}
           disabled={field.type === "text" && !field.required && isNull}
-          required={required}
           step={field.type === "number" ? "any" : undefined}
           className={field.type === "text" && !field.required ? "pr-16" : undefined}
         />
@@ -171,7 +172,6 @@ function EntryField({
           </label>
         ) : null}
       </div>
-      <FieldError errors={error.map((message) => ({ message }))} />
     </Field>
   )
 }

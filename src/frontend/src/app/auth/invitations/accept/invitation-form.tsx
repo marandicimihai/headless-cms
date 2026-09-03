@@ -41,7 +41,7 @@ export function InvitationForm({
   const passwordErrors = state.error?.fieldErrors.password ?? []
 
   return (
-    <form action={formAction} className="w-full">
+    <form action={formAction} className="w-full" noValidate>
       <FieldGroup>
         <input name="token" type="hidden" value={token} />
         <div className="space-y-1">

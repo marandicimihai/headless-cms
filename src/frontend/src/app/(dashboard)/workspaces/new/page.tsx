@@ -40,7 +40,7 @@ export default function NewWorkspacePage() {
         </h1>
       </div>
 
-      <form action={formAction} className="max-w-xl">
+      <form action={formAction} className="max-w-xl" noValidate>
         <FieldGroup>
           <Field data-invalid={nameErrors.length > 0}>
             <FieldLabel htmlFor="name">Workspace name</FieldLabel>

@@ -66,7 +66,11 @@ export function ProjectManagement({
   return (
     <div className="space-y-10">
       <section aria-labelledby="rename-project-heading" className="space-y-4">
-          <form action={renameFormAction} className="max-w-2xl space-y-4">
+          <form
+            action={renameFormAction}
+            className="max-w-2xl space-y-4"
+            noValidate
+          >
           <Field data-invalid={nameErrors.length > 0}>
             <FieldLabel htmlFor="project-name">Project name</FieldLabel>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -106,7 +110,12 @@ export function ProjectManagement({
                 Type the project name to continue.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <form id="delete-project-form" action={deleteFormAction} className="space-y-2">
+            <form
+              id="delete-project-form"
+              action={deleteFormAction}
+              className="space-y-2"
+              noValidate
+            >
               <Field data-invalid={confirmationErrors.length > 0}>
                 <FieldLabel htmlFor="delete-project-confirmation">
                   Project name

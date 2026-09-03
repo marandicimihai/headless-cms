@@ -97,7 +97,7 @@ function RenameWorkspaceForm({
   }
 
   return (
-    <form action={formAction} className="max-w-2xl space-y-4">
+    <form action={formAction} className="max-w-2xl space-y-4" noValidate>
       <Field data-invalid={nameErrors.length > 0}>
         <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -130,8 +130,8 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
   const roleErrors = state.fieldErrors.role ?? []
 
   return (
-    <form action={formAction} className="max-w-2xl space-y-4">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-end">
+    <form action={formAction} className="max-w-2xl space-y-4" noValidate>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-start">
         <Field data-invalid={emailErrors.length > 0}>
           <FieldLabel htmlFor="invitation-email">Email address</FieldLabel>
           <Input
@@ -159,7 +159,7 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
           </Select>
           <FieldError errors={roleErrors.map((message) => ({ message }))} />
         </Field>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" className="sm:mt-7" disabled={pending}>
           {pending ? "Sending..." : "Send invitation"}
         </Button>
       </div>
@@ -198,7 +198,11 @@ function MemberRoleForm({
 
   return (
     <div>
-      <form action={formAction} className="flex items-center justify-end gap-2">
+      <form
+        action={formAction}
+        className="flex items-center justify-end gap-2"
+        noValidate
+      >
         <Select
           name="role"
           value={role}
@@ -263,7 +267,7 @@ function InvitationActions({
 
   return (
     <>
-      <form id={resendFormId} action={resendFormAction} />
+      <form id={resendFormId} action={resendFormAction} noValidate />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -305,7 +309,7 @@ function InvitationActions({
               {invitation.email} will no longer be able to use this invitation link.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <form id={revokeFormId} action={revokeFormAction} />
+          <form id={revokeFormId} action={revokeFormAction} noValidate />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={revokePending}>Cancel</AlertDialogCancel>
             <Button

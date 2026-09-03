@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
-import { useActionState, useState } from "react"
+import { type FormEvent, useActionState, useState } from "react"
 
 import {
   createContentTypeAction,
@@ -11,7 +11,7 @@ import {
 } from "./content-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -20,7 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useActionToast } from "@/hooks/use-action-toast"
+import {
+  showContentValidationToasts,
+  useContentActionToast,
+  validateContentType,
+} from "@/lib/content-validation"
 import type {
   ContentField,
   ContentFieldInput,
@@ -106,7 +110,7 @@ export function ContentTypeForm({
         )
       : createContentTypeAction.bind(null, workspaceId, projectId)
   const [state, formAction, pending] = useActionState(action, initialState)
-  useActionToast(state)
+  useContentActionToast(state)
   const definition = JSON.stringify({ key, fields })
   const originalFields = initialContentType?.fields ?? []
   const originalByKey = new Map(originalFields.map((field) => [field.key, field]))
@@ -115,6 +119,14 @@ export function ContentTypeForm({
     return original && original.type !== field.type
   })
   const actionLabel = mode === "edit" ? "Save changes" : "Create content type"
+
+  function validateBeforeSubmit(event: FormEvent<HTMLFormElement>) {
+    const issues = validateContentType(key, fields)
+    if (issues.length === 0) return
+
+    event.preventDefault()
+    showContentValidationToasts(issues)
+  }
 
   function updateField(index: number, update: Partial<ContentFieldInput>) {
     setFields((current) =>
@@ -166,10 +178,15 @@ export function ContentTypeForm({
   }
 
   return (
-    <form action={formAction} className="max-w-5xl space-y-8">
+    <form
+      action={formAction}
+      className="max-w-5xl space-y-8"
+      noValidate
+      onSubmit={validateBeforeSubmit}
+    >
       <input type="hidden" name="definition" value={definition} />
 
-      <Field data-invalid={(state.fieldErrors.key ?? []).length > 0}>
+      <Field>
         <FieldLabel htmlFor="content-type-key">Content type key</FieldLabel>
         {mode === "edit" ? (
           <output
@@ -184,14 +201,9 @@ export function ContentTypeForm({
             value={key}
             onChange={(event) => setKey(event.target.value)}
             placeholder="articles"
-            pattern="[a-z][a-z0-9_]*"
             maxLength={64}
-            required
           />
         )}
-        <FieldError
-          errors={(state.fieldErrors.key ?? []).map((message) => ({ message }))}
-        />
       </Field>
 
       {mode === "edit" && changedTypes ? (
@@ -234,7 +246,7 @@ export function ContentTypeForm({
                 key={index}
                 className="space-y-4 rounded-xl border p-4"
               >
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto] md:items-end">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto] md:items-start">
                   <Field>
                     <FieldLabel htmlFor={`field-key-${index}`}>Key</FieldLabel>
                     {mode === "edit" && existingField ? (
@@ -252,9 +264,7 @@ export function ContentTypeForm({
                         onChange={(event) =>
                           updateField(index, { key: event.target.value })
                         }
-                        pattern="[a-z][a-z0-9_]*"
                         maxLength={64}
-                        required
                       />
                     ) : null}
                   </Field>
@@ -284,6 +294,7 @@ export function ContentTypeForm({
 
                   <Button
                     type="button"
+                    className="md:mt-7"
                     variant={field.required ? "default" : "outline"}
                     size="sm"
                     aria-pressed={field.required}

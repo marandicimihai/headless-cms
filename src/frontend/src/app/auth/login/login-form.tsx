@@ -34,7 +34,7 @@ export default function LoginForm({ returnTo }: { returnTo?: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction}>
+        <form action={formAction} noValidate>
           <FieldGroup>
             {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
             <Field data-invalid={emailErrors.length > 0}>

@@ -105,7 +105,7 @@ export function ContentTypeActions({
                 This permanently deletes the schema and all of its entries.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <form id={deleteFormId} action={formAction} />
+            <form id={deleteFormId} action={formAction} noValidate />
             <AlertDialogFooter>
               <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
               <AlertDialogAction
