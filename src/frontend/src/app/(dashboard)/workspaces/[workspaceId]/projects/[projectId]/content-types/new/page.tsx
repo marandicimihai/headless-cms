@@ -24,9 +24,6 @@ export default async function NewContentTypePage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Create content type
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Only workspace owners and editors can create schemas.
-          </p>
         </div>
         <Alert>
           <AlertTitle>Read-only workspace access</AlertTitle>
@@ -45,9 +42,6 @@ export default async function NewContentTypePage({
         <h1 className="text-2xl font-semibold tracking-tight">
           Create content type
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Fields become the validated structure for every entry.
-        </p>
       </div>
       <ContentTypeForm workspaceId={workspaceId} projectId={projectId} />
     </main>

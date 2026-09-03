@@ -1,8 +1,7 @@
 import Link from "next/link"
 import { CircleAlert, Plus } from "lucide-react"
 
-import { DeleteContentTypeButton } from "./delete-content-type-button"
-import { DeleteEntryButton } from "./delete-entry-button"
+import { EntryActions } from "./entry-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -50,9 +49,6 @@ export default async function ContentTypePage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Content type unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            The schema could not be loaded.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />
@@ -84,9 +80,6 @@ export default async function ContentTypePage({
               {contentType.key}
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {contentType.fields.length} fields define this entry schema.
-          </p>
         </div>
         {canWrite ? (
           <div className="flex flex-wrap gap-2">
@@ -148,7 +141,7 @@ export default async function ContentTypePage({
       <section className="space-y-4" aria-labelledby="entries-heading">
         <div className="flex items-center justify-between">
           <div>
-            <h2 id="entries-heading" className="text-lg font-semibold">
+            <h2 id="entries-heading" className="text-sm font-semibold">
               Entries
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -165,15 +158,17 @@ export default async function ContentTypePage({
           </Alert>
         ) : entries.length ? (
           <div className="overflow-x-auto rounded-xl border">
-            <Table className="min-w-[44rem]">
+            <Table className="min-w-max">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   {contentType.fields.map((field) => (
-                    <TableHead key={field.key}>{field.key}</TableHead>
+                    <TableHead key={field.key} className="min-w-40">
+                      {field.key}
+                    </TableHead>
                   ))}
-                  <TableHead>Status</TableHead>
+                  <TableHead className="min-w-28">Status</TableHead>
                   {canWrite ? (
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-12 min-w-12" />
                   ) : null}
                 </TableRow>
               </TableHeader>
@@ -181,11 +176,11 @@ export default async function ContentTypePage({
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     {contentType.fields.map((field) => (
-                      <TableCell key={field.key}>
-                        {formatValue(entry.data[field.key])}
+                      <TableCell key={field.key} className="min-w-40">
+                        {formatEntryValue(entry.data[field.key])}
                       </TableCell>
                     ))}
-                    <TableCell>
+                    <TableCell className="min-w-28">
                       <Badge
                         variant={
                           entry.status === "published" ? "default" : "secondary"
@@ -196,18 +191,8 @@ export default async function ContentTypePage({
                     </TableCell>
                     {canWrite ? (
                       <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            nativeButton={false}
-                            variant="ghost"
-                            size="sm"
-                            render={
-                              <Link href={`${contentTypeHref}/entries/${entry.id}`} />
-                            }
-                          >
-                            Edit
-                          </Button>
-                          <DeleteEntryButton
+                        <div className="flex justify-end">
+                          <EntryActions
                             workspaceId={workspaceId}
                             projectId={projectId}
                             contentTypeKey={contentType.key}
@@ -242,20 +227,6 @@ export default async function ContentTypePage({
         )}
       </section>
 
-      {canWrite ? (
-        <section className="border-t pt-8">
-          <h2 className="text-sm font-semibold">Delete content type</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Deleting this schema permanently removes every entry that uses it.
-          </p>
-          <DeleteContentTypeButton
-            workspaceId={workspaceId}
-            projectId={projectId}
-            contentTypeKey={contentType.key}
-            contentTypeKeyLabel={contentType.key}
-          />
-        </section>
-      ) : null}
     </main>
   )
 }
@@ -264,4 +235,9 @@ function formatValue(value: unknown) {
   if (value === null || value === undefined) return "—"
   if (typeof value === "boolean") return value ? "True" : "False"
   return String(value)
+}
+
+function formatEntryValue(value: unknown) {
+  if (value === null || value === undefined) return "NULL"
+  return formatValue(value)
 }

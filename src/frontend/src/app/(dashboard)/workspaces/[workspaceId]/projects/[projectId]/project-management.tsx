@@ -88,17 +88,11 @@ export function ProjectManagement({
         </form>
       </section>
 
-      <section
-        aria-labelledby="delete-project-heading"
-        className="space-y-4 border-t pt-8"
-      >
+      <section aria-labelledby="delete-project-heading" className="space-y-4">
         <div>
           <h2 id="delete-project-heading" className="text-sm font-semibold">
             Delete project
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Deleting a project permanently removes its content types and entries.
-          </p>
         </div>
         <AlertDialog onOpenChange={(open) => !open && setConfirmation("")}>
           <AlertDialogTrigger render={<Button variant="destructive" />}>

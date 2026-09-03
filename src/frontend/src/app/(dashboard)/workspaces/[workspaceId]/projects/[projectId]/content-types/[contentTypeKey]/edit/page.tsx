@@ -27,9 +27,6 @@ export default async function EditContentTypePage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Content type unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            The schema could not be loaded for editing.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />
@@ -53,10 +50,10 @@ export default async function EditContentTypePage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Edit content type
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Only workspace owners and editors can update schemas.
-          </p>
         </div>
+        <Alert>
+          <AlertTitle>Read-only workspace access</AlertTitle>
+        </Alert>
       </main>
     )
   }
@@ -67,9 +64,6 @@ export default async function EditContentTypePage({
         <h1 className="text-2xl font-semibold tracking-tight">
           Edit {typeResult.data.key} content type
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Update fields, ordering, validation rules, and defaults.
-        </p>
       </div>
       <ContentTypeForm
         workspaceId={workspaceId}

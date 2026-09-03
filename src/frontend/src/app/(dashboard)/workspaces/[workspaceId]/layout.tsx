@@ -56,9 +56,6 @@ export default async function WorkspaceLayout({
           <h1 className="text-2xl font-semibold tracking-tight">
             Workspace unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            This workspace is not available to your account.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />

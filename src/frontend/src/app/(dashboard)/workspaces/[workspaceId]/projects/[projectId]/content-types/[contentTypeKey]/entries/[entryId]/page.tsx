@@ -3,6 +3,7 @@ import { listMyWorkspaces } from "@/lib/api/workspaces"
 
 import { updateContentEntryAction } from "../../../../content-actions"
 import { EntryEditor } from "../../entry-editor"
+import { Alert, AlertTitle } from "@/components/ui/alert"
 
 export default async function EditEntryPage({
   params,
@@ -36,10 +37,10 @@ export default async function EditEntryPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Edit entry
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Only workspace owners and editors can edit entries.
-          </p>
         </div>
+        <Alert>
+          <AlertTitle>Read-only workspace access</AlertTitle>
+        </Alert>
       </main>
     )
   }
@@ -50,9 +51,6 @@ export default async function EditEntryPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           Edit {typeResult.data.key} entry
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Update the stored content or publication status.
-        </p>
       </div>
       <EntryEditor
         workspaceId={workspaceId}

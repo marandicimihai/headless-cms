@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
-import { useActionState, useState, type FormEvent } from "react"
+import { useActionState, useRef, useState, type FormEvent } from "react"
 
 import {
   createContentTypeAction,
@@ -10,6 +10,16 @@ import {
   type ContentActionState,
 } from "./content-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -115,6 +125,9 @@ export function ContentTypeForm({
       : createContentTypeAction.bind(null, workspaceId, projectId)
   const [state, formAction, pending] = useActionState(action, initialState)
   useActionToast(state)
+  const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  const confirmedSubmit = useRef(false)
   const definition = JSON.stringify({ key, fields })
   const originalFields = initialContentType?.fields ?? []
   const originalByKey = new Map(originalFields.map((field) => [field.key, field]))
@@ -207,15 +220,28 @@ export function ContentTypeForm({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (!hasDestructiveChanges) return
-    const confirmed = window.confirm(
-      "These schema changes may remove or invalidate data in existing entries. Continue?",
-    )
-    if (!confirmed) event.preventDefault()
+    if (!hasDestructiveChanges || confirmedSubmit.current) {
+      confirmedSubmit.current = false
+      return
+    }
+
+    event.preventDefault()
+    setConfirmationOpen(true)
+  }
+
+  function confirmSubmit() {
+    setConfirmationOpen(false)
+    confirmedSubmit.current = true
+    formRef.current?.requestSubmit()
   }
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="max-w-5xl space-y-8">
+    <form
+      ref={formRef}
+      action={formAction}
+      onSubmit={handleSubmit}
+      className="max-w-5xl space-y-8"
+    >
       <input type="hidden" name="definition" value={definition} />
 
       <Field data-invalid={(state.fieldErrors.key ?? []).length > 0}>
@@ -253,17 +279,6 @@ export function ContentTypeForm({
         </Alert>
       ) : null}
 
-      {mode === "edit" && hasDestructiveChanges ? (
-        <Alert>
-          <AlertTitle>Review schema changes</AlertTitle>
-          <AlertDescription>
-            Removing a field can remove values from existing entries. Adding or
-            tightening a required field needs a valid default or the backend may
-            reject the migration.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <section className="space-y-4" aria-labelledby="content-fields-heading">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -291,7 +306,7 @@ export function ContentTypeForm({
 
             return (
               <div
-                key={`${index}-${field.key}`}
+                key={index}
                 className="space-y-4 rounded-xl border p-4"
               >
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto_auto] md:items-end">
@@ -439,7 +454,7 @@ export function ContentTypeForm({
                   </div>
                 ) : null}
 
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                   <div className="flex items-center gap-1">
                     <Button
                       type="button"
@@ -501,6 +516,23 @@ export function ContentTypeForm({
           Cancel
         </Button>
       </div>
+
+      <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Review schema changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These changes may remove or invalidate data in existing entries.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={confirmSubmit}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   )
 }

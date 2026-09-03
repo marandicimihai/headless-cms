@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render } from "@testing-library/react"
+import { cleanup, fireEvent, render } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("./actions", () => ({
@@ -83,7 +83,7 @@ describe("WorkspaceManagement", () => {
     ).toBe(false)
   })
 
-  it("provides resend and revoke controls for each pending invitation", () => {
+  it("provides resend and revoke controls inside the invitation actions menu", () => {
     const view = render(
       <WorkspaceManagement
         workspaceId="workspace-1"
@@ -95,7 +95,13 @@ describe("WorkspaceManagement", () => {
       />,
     )
 
-    expect(view.getByRole("button", { name: "Resend" })).toBeTruthy()
-    expect(view.getByRole("button", { name: "Revoke" })).toBeTruthy()
+    fireEvent.click(
+      view.getByRole("button", {
+        name: "Open invitation actions for invitee@example.test",
+      }),
+    )
+
+    expect(view.getByRole("menuitem", { name: "Resend" })).toBeTruthy()
+    expect(view.getByRole("menuitem", { name: "Revoke" })).toBeTruthy()
   })
 })

@@ -42,9 +42,6 @@ export default async function NewProjectPage({
       <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Create project</h1>
-          <p className="text-sm text-muted-foreground">
-            Only workspace owners and editors can create projects.
-          </p>
         </div>
         <Alert>
           <CircleAlert />
@@ -70,9 +67,6 @@ export default async function NewProjectPage({
     <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Create project</h1>
-        <p className="text-sm text-muted-foreground">
-          Create a project to organize content types and entries in this workspace.
-        </p>
       </div>
       <CreateProjectForm workspaceId={workspaceId} />
     </main>

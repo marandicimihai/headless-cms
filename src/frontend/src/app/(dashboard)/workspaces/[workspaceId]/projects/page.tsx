@@ -50,9 +50,6 @@ export default async function ProjectsPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-sm text-muted-foreground">
-            Projects keep this workspace&apos;s content structures and entries separate.
-          </p>
         </div>
         {canManageProjects ? (
           <Button

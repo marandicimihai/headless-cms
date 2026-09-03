@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleAlert } from "lucide-react"
+import { CircleAlert, MoreHorizontal } from "lucide-react"
 import { useActionState, useState } from "react"
 
 import {
@@ -21,10 +21,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -143,15 +148,13 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
           <FieldLabel htmlFor="invitation-role">Access</FieldLabel>
           <Select name="role" defaultValue="member" required>
             <SelectTrigger id="invitation-role" className="w-full">
-              <SelectValue>Read only</SelectValue>
+              <SelectValue>
+                {(value) => (value === "editor" ? "Editor" : "Read only")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
-              <SelectItem showIndicator={false} value="member">
-                Read only
-              </SelectItem>
-              <SelectItem showIndicator={false} value="editor">
-                Editor
-              </SelectItem>
+              <SelectItem value="member">Read only</SelectItem>
+              <SelectItem value="editor">Editor</SelectItem>
             </SelectContent>
           </Select>
           <FieldError errors={roleErrors.map((message) => ({ message }))} />
@@ -160,10 +163,6 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
           {pending ? "Sending..." : "Send invitation"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Invitations are emailed to the address above and must be accepted before
-        the person becomes a workspace member.
-      </p>
     </form>
   )
 }
@@ -237,6 +236,7 @@ function InvitationActions({
   workspaceId: string
   invitation: WorkspaceInvitation
 }) {
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
   const resendAction = resendWorkspaceInvitationAction.bind(
     null,
     workspaceId,
@@ -258,18 +258,46 @@ function InvitationActions({
 
   useActionToast(resendState)
   useActionToast(revokeState)
+  const resendFormId = `resend-invitation-${invitation.id}`
+  const revokeFormId = `revoke-invitation-${invitation.id}`
 
   return (
-    <div className="flex justify-end gap-2">
-      <form action={resendFormAction}>
-        <Button type="submit" variant="outline" size="sm" disabled={resendPending}>
-          {resendPending ? "Resending..." : "Resend"}
-        </Button>
-      </form>
-      <AlertDialog>
-        <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
-          Revoke
-        </AlertDialogTrigger>
+    <>
+      <form id={resendFormId} action={resendFormAction} />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              aria-label={`Open invitation actions for ${invitation.email}`}
+              size="icon-sm"
+              variant="ghost"
+            />
+          }
+        >
+          <MoreHorizontal />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-fit">
+          <DropdownMenuItem
+            nativeButton
+            disabled={resendPending}
+            render={<button type="submit" form={resendFormId} />}
+          >
+            {resendPending ? "Resending..." : "Resend"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={revokePending}
+            onClick={() => setRevokeDialogOpen(true)}
+          >
+            Revoke
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog
+        open={revokeDialogOpen}
+        onOpenChange={setRevokeDialogOpen}
+      >
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
@@ -277,12 +305,12 @@ function InvitationActions({
               {invitation.email} will no longer be able to use this invitation link.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <form id={`revoke-invitation-${invitation.id}`} action={revokeFormAction} />
+          <form id={revokeFormId} action={revokeFormAction} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={revokePending}>Cancel</AlertDialogCancel>
             <Button
               type="submit"
-              form={`revoke-invitation-${invitation.id}`}
+              form={revokeFormId}
               variant="destructive"
               disabled={revokePending}
             >
@@ -291,7 +319,7 @@ function InvitationActions({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   )
 }
 
@@ -318,28 +346,20 @@ export function WorkspaceManagement({
     <div className="space-y-10">
       <RenameWorkspaceForm workspaceId={workspaceId} workspaceName={workspaceName} />
 
-      <section aria-labelledby="invite-heading" className="space-y-4 border-t pt-8">
+      <section aria-labelledby="invite-heading" className="space-y-4">
         <div>
           <h2 id="invite-heading" className="text-sm font-semibold">
             Invite people
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Editors can change projects and content. Read-only members can view
-            them but cannot make changes.
-          </p>
         </div>
         <InviteMemberForm workspaceId={workspaceId} />
       </section>
 
-      <section aria-labelledby="members-heading" className="space-y-4 border-t pt-8">
+      <section aria-labelledby="members-heading" className="space-y-4">
         <div>
           <h2 id="members-heading" className="text-sm font-semibold">
             Members
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Owners can change editor and read-only access. The owner role cannot
-            be changed from this member list.
-          </p>
         </div>
         {membersError ? (
           <Alert variant="destructive">
@@ -391,15 +411,12 @@ export function WorkspaceManagement({
 
       <section
         aria-labelledby="invitations-heading"
-        className="space-y-4 border-t pt-8"
+        className="space-y-4"
       >
         <div>
           <h2 id="invitations-heading" className="text-sm font-semibold">
             Pending invitations
           </h2>
-          <p className="text-sm text-muted-foreground">
-            People appear in the member list after accepting their invitation.
-          </p>
         </div>
         {invitationsError ? (
           <Alert variant="destructive">
@@ -420,12 +437,10 @@ export function WorkspaceManagement({
                   <TableHead>
                     Expires
                   </TableHead>
-                  <TableHead className="text-right">
+                  <TableHead>
                     Access
                   </TableHead>
-                  <TableHead className="text-right">
-                    Actions
-                  </TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -440,7 +455,7 @@ export function WorkspaceManagement({
                     <TableCell className="text-muted-foreground">
                       {formatDate(invitation.expiresAt)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Badge variant="outline">{roleLabel(invitation.role)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -473,12 +488,10 @@ export function WorkspaceManagement({
                   <TableHead>
                     Expires
                   </TableHead>
-                  <TableHead className="text-right">
+                  <TableHead>
                     Access
                   </TableHead>
-                  <TableHead className="text-right">
-                    Actions
-                  </TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>

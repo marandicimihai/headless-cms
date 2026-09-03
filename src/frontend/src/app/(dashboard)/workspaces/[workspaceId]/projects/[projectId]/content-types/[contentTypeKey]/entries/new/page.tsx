@@ -3,6 +3,7 @@ import { listMyWorkspaces } from "@/lib/api/workspaces"
 
 import { createContentEntryAction } from "../../../../content-actions"
 import { EntryEditor } from "../../entry-editor"
+import { Alert, AlertTitle } from "@/components/ui/alert"
 
 export default async function NewEntryPage({
   params,
@@ -34,10 +35,10 @@ export default async function NewEntryPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Create entry
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Only workspace owners and editors can create entries.
-          </p>
         </div>
+        <Alert>
+          <AlertTitle>Read-only workspace access</AlertTitle>
+        </Alert>
       </main>
     )
   }
@@ -48,9 +49,6 @@ export default async function NewEntryPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           Create {typeResult.data.key} entry
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Save as a draft or publish when it is ready.
-        </p>
       </div>
       <EntryEditor
         workspaceId={workspaceId}

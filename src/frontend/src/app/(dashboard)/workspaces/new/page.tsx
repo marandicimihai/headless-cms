@@ -38,9 +38,6 @@ export default function NewWorkspacePage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Create workspace
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Create a workspace for your projects and content.
-        </p>
       </div>
 
       <form action={formAction} className="max-w-xl">

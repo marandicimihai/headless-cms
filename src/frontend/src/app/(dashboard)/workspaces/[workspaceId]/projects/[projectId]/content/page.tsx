@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { CircleAlert, Database, Plus } from "lucide-react"
 
+import { ContentTypeActions } from "./content-type-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,9 +61,6 @@ export default async function ProjectContentPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Content unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            The project content could not be loaded.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />
@@ -78,9 +76,6 @@ export default async function ProjectContentPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
-          <p className="text-sm text-muted-foreground">
-            Define content types and manage their entries in {projectResult.data.name}.
-          </p>
         </div>
         {canWrite ? (
           <Button
@@ -101,13 +96,14 @@ export default async function ProjectContentPage({
         </Alert>
       ) : contentTypes.length ? (
         <div className="overflow-x-auto rounded-xl border">
-          <Table className="min-w-[42rem]">
+          <Table className="min-w-[54rem]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Content type</TableHead>
                 <TableHead>Fields</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Last updated</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,6 +123,16 @@ export default async function ProjectContentPage({
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(contentType.updatedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <ContentTypeActions
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        contentTypeKey={contentType.key}
+                        canWrite={canWrite}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

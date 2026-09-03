@@ -25,6 +25,52 @@ describe("ContentTypeForm", () => {
     expect(screen.queryByLabelText("Name")).toBeNull()
   })
 
+  it("keeps the field key focused while editing", () => {
+    render(<ContentTypeForm workspaceId="workspace-1" projectId="project-1" />)
+
+    const keyInput = screen.getByLabelText("Key")
+    keyInput.focus()
+    fireEvent.change(keyInput, { target: { value: "body" } })
+
+    expect(document.activeElement).toBe(keyInput)
+  })
+
+  it("uses an in-page confirmation for destructive schema changes", () => {
+    const browserConfirm = vi.spyOn(window, "confirm")
+
+    render(
+      <ContentTypeForm
+        workspaceId="workspace-1"
+        projectId="project-1"
+        mode="edit"
+        initialContentType={{
+          id: "type-1",
+          projectId: "project-1",
+          key: "articles",
+          createdAt: "2026-09-02T00:00:00Z",
+          updatedAt: "2026-09-02T00:00:00Z",
+          fields: [
+            {
+              key: "title",
+              type: "text",
+              required: true,
+              nullable: false,
+              position: 0,
+              settings: {},
+            },
+          ],
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
+
+    expect(browserConfirm).not.toHaveBeenCalled()
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    expect(screen.getByText("Review schema changes?")).toBeTruthy()
+  })
+
   it("initializes edit mode from the current schema and preserves defaults", () => {
     const { container } = render(
       <ContentTypeForm

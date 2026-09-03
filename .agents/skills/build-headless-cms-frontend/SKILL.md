@@ -28,15 +28,17 @@ Apply these project-specific preferences whenever changing `src/frontend`. Read 
 ## Use a flat, quiet visual language
 
 - Build shadcn-first. Add an official primitive through the shadcn CLI before creating a custom equivalent, and keep generated primitives in `src/frontend/src/components/ui/`.
-- Prefer typography, whitespace, semantic grouping, `border-y`, and `divide-y` over boxed surfaces.
+- Prefer typography, whitespace, and semantic grouping over decorative separators and boxed surfaces. Use `divide-y` only when it clarifies list rows.
 - Do not default management, list, or empty-state pages to Card components, colored panel backgrounds, rings, shadows, or repeated rounded containers.
 - Use cards only when the content genuinely needs discrete visual enclosure, such as an established analytical dashboard pattern.
-- Start pages with a concise `h1` and muted supporting description. Keep page-level Tailwind classes focused on layout, spacing, and responsive placement.
+- Start pages with a concise `h1`; add supporting copy only when it adds context not already conveyed by the heading, controls, alert, or table content. Keep page-level Tailwind classes focused on layout, spacing, and responsive placement.
 - Keep typography compact: reserve larger text sizes for page titles and primary entity names; use semibold or bold weight for secondary emphasis instead of increasing type size, and avoid unnecessary size contrast between a section heading and its supporting copy.
+- Within project screens, keep section headings, form labels, table content, and supporting text at the shared compact `text-sm` size. Use `text-2xl` for page titles and do not introduce `text-lg` section headings without a content hierarchy that requires it.
 - Use existing theme tokens; do not introduce one-off colors or decorative styling.
 - Render collections as semantic lists, tables, or definition lists according to the data rather than as a grid of decorative cards.
 - Use the established project-table treatment for management collections: a `rounded-xl border` shell with horizontal overflow on narrow screens, a shadcn `Table`, muted table header, compact cells, and consistent hover/focus states. Reuse it for projects, content types, schemas, entries, members, invitations, and future management tables.
 - Preserve generated shadcn component styling. For custom page-level bounded surfaces only—such as table shells, empty states, placeholders, schema field groups, and read-only values—use `rounded-xl` to match the project-table radius. Do not introduce sharp-cornered standalone borders; `border-t`, `border-b`, and `border-y` are allowed only as divider lines rather than surfaces.
+- Keep separators sparse. Use borders for table shells, shared navigation chrome, and meaningful content boundaries; rely on spacing and headings for ordinary page sections.
 
 ## Make states purposeful
 

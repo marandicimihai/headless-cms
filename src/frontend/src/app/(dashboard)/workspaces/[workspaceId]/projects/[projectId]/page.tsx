@@ -21,9 +21,6 @@ export default async function ProjectPreviewPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Project unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            The project could not be loaded.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />
@@ -40,12 +37,9 @@ export default async function ProjectPreviewPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           {projectResult.data.name}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          A project overview will appear here as content is added.
-        </p>
       </div>
 
-      <div className="flex flex-col gap-3 border-t py-5 sm:flex-row">
+      <div className="flex flex-col gap-3 py-5 sm:flex-row">
         <Button
           nativeButton={false}
           render={<Link href={`${projectHref}/content`} />}

@@ -19,11 +19,11 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 
 const roleDetails: Record<
   WorkspaceRole,
-  { label: string; summary: string }
+  { label: string }
 > = {
-  owner: { label: "Owner", summary: "Full access" },
-  editor: { label: "Editor", summary: "Can manage projects and content" },
-  member: { label: "Read only", summary: "View-only access" },
+  owner: { label: "Owner" },
+  editor: { label: "Editor" },
+  member: { label: "Read only" },
 }
 
 function formatCreatedAt(createdAt: string) {
@@ -73,9 +73,6 @@ export default async function WorkspaceManagementPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Workspace unavailable
           </h1>
-          <p className="text-sm text-muted-foreground">
-            This workspace is not available to your account.
-          </p>
         </div>
         <Alert variant="destructive">
           <CircleAlert />
@@ -108,10 +105,6 @@ export default async function WorkspaceManagementPage({
               {workspace.name}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {details.summary}
-              <span className="px-1.5" aria-hidden="true">
-                ·
-              </span>
               Created {formatCreatedAt(workspace.createdAt)}
             </p>
           </div>
@@ -150,18 +143,7 @@ export default async function WorkspaceManagementPage({
               : undefined
           }
         />
-      ) : (
-        <section aria-labelledby="management-heading" className="space-y-2">
-          <h2 id="management-heading" className="text-sm font-semibold">
-            Workspace management
-          </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Only the workspace owner can rename this workspace, invite people,
-            or change member access. Contact the owner if your role needs to
-            change.
-          </p>
-        </section>
-      )}
+      ) : null}
     </main>
   )
 }

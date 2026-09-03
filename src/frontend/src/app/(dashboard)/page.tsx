@@ -47,28 +47,24 @@ export default async function DashboardPage() {
     {
       title: "Total workspaces",
       value: workspaces?.length ?? 0,
-      description: "Available to your account",
     },
     {
       title: "Owner",
       value:
         workspaces?.filter((workspace) => workspace.currentRole === "owner")
           .length ?? 0,
-      description: "Full workspace management",
     },
     {
       title: "Editor",
       value:
         workspaces?.filter((workspace) => workspace.currentRole === "editor")
           .length ?? 0,
-      description: "Content management access",
     },
     {
       title: "Read only",
       value:
         workspaces?.filter((workspace) => workspace.currentRole === "member")
           .length ?? 0,
-      description: "View-only content access",
     },
   ]
 
@@ -77,9 +73,6 @@ export default async function DashboardPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            The workspaces available to your account.
-          </p>
         </div>
         {workspaces?.length ? (
           <Button
@@ -100,15 +93,12 @@ export default async function DashboardPage() {
         </Alert>
       ) : workspaces?.length ? (
         <>
-          <dl className="grid gap-6 border-y py-5 sm:grid-cols-2 xl:grid-cols-4">
+          <dl className="grid gap-6 py-5 sm:grid-cols-2 xl:grid-cols-4">
             {summary.map((item) => (
               <div key={item.title} className="space-y-1">
                 <dt className="text-sm text-muted-foreground">{item.title}</dt>
                 <dd className="text-2xl font-semibold tracking-tight">
                   {item.value}
-                </dd>
-                <dd className="text-xs text-muted-foreground">
-                  {item.description}
                 </dd>
               </div>
             ))}
