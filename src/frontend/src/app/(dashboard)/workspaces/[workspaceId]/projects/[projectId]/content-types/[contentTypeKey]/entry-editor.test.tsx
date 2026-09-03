@@ -46,6 +46,7 @@ describe("EntryEditor", () => {
 
     const title = screen.getByLabelText(/title/)
     const summary = screen.getByLabelText("summary")
+    expect(screen.getByText("$status")).toBeTruthy()
     expect(container.querySelector("form")?.noValidate).toBe(true)
     expect(title.getAttribute("required")).toBeNull()
     expect(container.querySelector(".text-destructive")?.textContent?.trim()).toBe("*")

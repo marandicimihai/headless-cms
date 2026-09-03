@@ -88,11 +88,13 @@ export function ContentTypeForm({
   projectId,
   mode = "create",
   initialContentType,
+  onCancel,
 }: {
   workspaceId: string
   projectId: string
   mode?: "create" | "edit"
   initialContentType?: ContentType
+  onCancel?: () => void
 }) {
   const [fields, setFields] = useState<ContentFieldInput[]>(() =>
     initialContentType?.fields.length
@@ -376,13 +378,19 @@ export function ContentTypeForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Saving..." : actionLabel}
         </Button>
-        <Button
-          nativeButton={false}
-          variant="ghost"
-          render={<Link href={`/workspaces/${workspaceId}/projects/${projectId}/content`} />}
-        >
-          Cancel
-        </Button>
+        {onCancel ? (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : (
+          <Button
+            nativeButton={false}
+            variant="ghost"
+            render={<Link href={`/workspaces/${workspaceId}/projects/${projectId}/content`} />}
+          >
+            Cancel
+          </Button>
+        )}
       </div>
 
     </form>

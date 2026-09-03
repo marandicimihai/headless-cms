@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useActionState, useState } from "react"
 import { MoreHorizontal } from "lucide-react"
 
@@ -37,11 +36,13 @@ export function EntryActions({
   projectId,
   contentTypeKey,
   entryId,
+  onEdit,
 }: {
   workspaceId: string
   projectId: string
   contentTypeKey: string
   entryId: string
+  onEdit: () => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const action = deleteContentEntryAction.bind(
@@ -52,7 +53,6 @@ export function EntryActions({
     entryId,
   )
   const [state, formAction, pending] = useActionState(action, initialState)
-  const entryHref = `/workspaces/${workspaceId}/projects/${projectId}/content-types/${contentTypeKey}/entries/${entryId}`
   const deleteFormId = `delete-entry-${entryId}`
 
   useActionToast(state)
@@ -71,10 +71,12 @@ export function EntryActions({
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-auto">
-          <DropdownMenuItem render={<Link href={entryHref} />}>
-            Edit
-          </DropdownMenuItem>
+        <DropdownMenuContent
+          align="end"
+          className="w-auto"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setDeleteDialogOpen(true)}

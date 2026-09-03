@@ -35,6 +35,7 @@ export function EntryEditor({
   fields,
   entry,
   action,
+  onCancel,
 }: {
   workspaceId: string
   projectId: string
@@ -45,6 +46,7 @@ export function EntryEditor({
     state: ContentActionState,
     formData: FormData,
   ) => Promise<ContentActionState>
+  onCancel?: () => void
 }) {
   const [state, formAction, pending] = useActionState(action, initialState)
   useContentActionToast(state)
@@ -76,7 +78,7 @@ export function EntryEditor({
         ))}
 
         <Field>
-          <FieldLabel>Status</FieldLabel>
+          <FieldLabel>$status</FieldLabel>
           <Select name="status" defaultValue={entry?.status ?? "draft"}>
             <SelectTrigger className="w-full">
               <SelectValue>
@@ -94,13 +96,19 @@ export function EntryEditor({
           <Button type="submit" disabled={pending}>
             {pending ? "Saving..." : entry ? "Save entry" : "Create entry"}
           </Button>
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            render={<Link href={contentTypeHref} />}
-          >
-            Cancel
-          </Button>
+          {onCancel ? (
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              nativeButton={false}
+              variant="ghost"
+              render={<Link href={contentTypeHref} />}
+            >
+              Cancel
+            </Button>
+          )}
         </div>
       </FieldGroup>
     </form>
