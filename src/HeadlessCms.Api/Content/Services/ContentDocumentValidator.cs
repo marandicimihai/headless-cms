@@ -15,7 +15,9 @@ public class ContentDocumentValidator
 
         var fieldsByKey = fields.ToDictionary(field => field.Key, StringComparer.Ordinal);
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+        var populatedKeys = new HashSet<string>(StringComparer.Ordinal);
         var errors = new List<string>();
+        var result = new JsonObject();
 
         foreach (var property in data.EnumerateObject())
         {
@@ -31,15 +33,17 @@ public class ContentDocumentValidator
                 continue;
             }
 
-            ValidateValue(field, property.Value, errors);
-        }
+            if (IsMissingOptionalValue(field, property.Value))
+                continue;
 
-        var result = JsonNode.Parse(data.GetRawText())?.AsObject()
-                     ?? throw new ContentValidationException("Data must be a JSON object.");
+            ValidateValue(field, property.Value, errors);
+            populatedKeys.Add(field.Key);
+            result[field.Key] = JsonNode.Parse(property.Value.GetRawText());
+        }
 
         foreach (var field in fields.OrderBy(candidate => candidate.Position))
         {
-            if (seenKeys.Contains(field.Key))
+            if (populatedKeys.Contains(field.Key))
                 continue;
 
             if (TryGetDefault(field.Settings, out var defaultValue))
@@ -61,8 +65,8 @@ public class ContentDocumentValidator
 
     public void ValidateFieldSettings(
         ContentFieldType type,
-        bool nullable,
         string fieldKey,
+        bool required,
         JsonElement settings)
     {
         if (settings.ValueKind != JsonValueKind.Object)
@@ -72,11 +76,14 @@ public class ContentDocumentValidator
         if (!TryGetDefault(settings, out var defaultValue))
             return;
 
+        if (required)
+            throw new ContentValidationException(
+                $"Required field '{fieldKey}' cannot define a default value.");
+
         var field = new ContentField
         {
             Key = fieldKey,
             Type = type,
-            Nullable = nullable
         };
         var errors = new List<string>();
         ValidateValue(field, defaultValue, errors);
@@ -97,19 +104,14 @@ public class ContentDocumentValidator
         return false;
     }
 
+    private static bool IsMissingOptionalValue(ContentField field, JsonElement value) =>
+        !field.Required && value.ValueKind == JsonValueKind.Null;
+
     private static void ValidateValue(
         ContentField field,
         JsonElement value,
         ICollection<string> errors)
     {
-        if (value.ValueKind == JsonValueKind.Null)
-        {
-            if (!field.Nullable)
-                errors.Add($"Field '{field.Key}' cannot be null.");
-
-            return;
-        }
-
         var valid = field.Type switch
         {
             ContentFieldType.Text => value.ValueKind == JsonValueKind.String,

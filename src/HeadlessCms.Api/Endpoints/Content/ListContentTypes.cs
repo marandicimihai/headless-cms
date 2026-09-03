@@ -60,7 +60,6 @@ public sealed class ListContentTypes(
                     Key = field.Key,
                     Type = field.Type,
                     Required = field.Required,
-                    Nullable = field.Nullable,
                     Position = field.Position,
                     Settings = field.Settings.Clone()
                 })
@@ -89,7 +88,6 @@ public sealed class ListContentTypesFieldResponse
     public required string Key { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
-    public bool Nullable { get; init; }
     public int Position { get; init; }
     public JsonElement Settings { get; init; }
 }

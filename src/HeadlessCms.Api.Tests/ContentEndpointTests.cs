@@ -130,6 +130,117 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
+    public async Task ContentTypeDefinition_RemovesUnsupportedFieldSettings()
+    {
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var token = await LoginAsync("owner", "owner-password");
+        var project = await CreateProjectAsync(workspace.Id, token);
+
+        var response = await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            new
+            {
+                key = "article",
+                fields = new[]
+                {
+                    new
+                    {
+                        key = "title",
+                        type = "text",
+                        settings = new { @default = "Untitled", unexpected = true }
+                    }
+                }
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        using var responseJson = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var settings = responseJson.RootElement
+            .GetProperty("fields")[0]
+            .GetProperty("settings");
+        settings.GetProperty("default").GetString().ShouldBe("Untitled");
+        settings.TryGetProperty("unexpected", out _).ShouldBeFalse();
+
+        var persistedSettings = await app.WithDatabaseAsync(async db =>
+            (await db.ContentFields.SingleAsync()).Settings);
+        persistedSettings.GetProperty("default").GetString().ShouldBe("Untitled");
+        persistedSettings.TryGetProperty("unexpected", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task OptionalFields_ReplaceNullAndMissingValuesButPreserveEmptyTextOnCreateAndUpdate()
+    {
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var token = await LoginAsync("owner", "owner-password");
+        var project = await CreateProjectAsync(workspace.Id, token);
+
+        var definition = await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            new
+            {
+                key = "article",
+                fields = new object[]
+                {
+                    new { key = "title", type = "text", required = true },
+                    new
+                    {
+                        key = "summary",
+                        type = "text",
+                        settings = new { @default = "Untitled" }
+                    },
+                    new { key = "published", type = "boolean", required = true }
+                }
+            });
+        definition.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var nullValue = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Null value", summary = (string?)null, published = true });
+        nullValue.Data.GetProperty("summary").GetString().ShouldBe("Untitled");
+
+        var emptyValue = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Empty value", summary = "", published = true });
+        emptyValue.Data.GetProperty("summary").GetString().ShouldBe(string.Empty);
+
+        var whitespaceValue = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Whitespace value", summary = "   ", published = true });
+        whitespaceValue.Data.GetProperty("summary").GetString().ShouldBe("   ");
+
+        var omittedValue = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Omitted value", published = true });
+        omittedValue.Data.GetProperty("summary").GetString().ShouldBe("Untitled");
+
+        var update = await SendAsync(
+            HttpMethod.Put,
+            $"{EntriesPath(workspace.Id, project.Id)}/{nullValue.Id}",
+            token,
+            new { data = new { title = "Updated", published = false } });
+        update.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var updated = await update.Content.ReadFromJsonAsync<UpdateContentEntryResponse>(
+            JsonOptions,
+            cancellationToken: TestContext.Current.CancellationToken);
+        updated.ShouldNotBeNull();
+        updated.Data.GetProperty("summary").GetString().ShouldBe("Untitled");
+    }
+
+    [Fact]
     public async Task Membership_DoesNotGrantAccessToAnotherWorkspace()
     {
         var user = await app.SeedUserAsync("editor", "password");
@@ -239,7 +350,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                     {
                         key = "summary",
                         type = "text",
-                        required = true,
+                        required = false,
                         settings = new { @default = "No summary" }
                     }
                 }

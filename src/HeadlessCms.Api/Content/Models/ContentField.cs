@@ -21,7 +21,6 @@ public class ContentField
 
     public ContentFieldType Type { get; set; }
     public bool Required { get; set; }
-    public bool Nullable { get; set; }
     public int Position { get; set; }
 
     [Column(TypeName = "jsonb")]

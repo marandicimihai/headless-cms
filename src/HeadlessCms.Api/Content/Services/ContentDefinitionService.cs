@@ -11,7 +11,6 @@ public sealed record ContentFieldInput(
     string Key,
     ContentFieldType Type,
     bool Required,
-    bool Nullable,
     JsonElement Settings);
 
 public sealed record ContentTypeDefinition(ContentType ContentType);
@@ -162,7 +161,6 @@ public class ContentDefinitionService(
             if (existingByKey.TryGetValue(proposed.Key, out var existing))
             {
                 existing.Required = proposed.Required;
-                existing.Nullable = proposed.Nullable;
                 existing.Position = proposed.Position;
                 existing.Settings = proposed.Settings.Clone();
                 continue;
@@ -275,8 +273,8 @@ public class ContentDefinitionService(
                 var settings = NormalizeSettings(field.Settings);
                 documentValidator.ValidateFieldSettings(
                     field.Type,
-                    field.Nullable,
                     field.Key,
+                    field.Required,
                     settings);
 
                 return new ContentField
@@ -287,7 +285,6 @@ public class ContentDefinitionService(
                     Key = field.Key,
                     Type = field.Type,
                     Required = field.Required,
-                    Nullable = field.Nullable,
                     Position = position,
                     Settings = settings
                 };
@@ -295,10 +292,19 @@ public class ContentDefinitionService(
             .ToList();
     }
 
-    private static JsonElement NormalizeSettings(JsonElement settings) =>
-        settings.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null
-            ? EmptySettings.Clone()
-            : settings.Clone();
+    private static JsonElement NormalizeSettings(JsonElement settings)
+    {
+        if (settings.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+            return EmptySettings.Clone();
+
+        if (settings.ValueKind != JsonValueKind.Object)
+            return settings.Clone();
+
+        return settings.TryGetProperty("default", out var defaultValue)
+            ? JsonSerializer.SerializeToElement(
+                new Dictionary<string, JsonElement> { ["default"] = defaultValue })
+            : EmptySettings.Clone();
+    }
 
     private async Task<IDbContextTransaction?> BeginTransactionIfSupportedAsync(
         CancellationToken ct)

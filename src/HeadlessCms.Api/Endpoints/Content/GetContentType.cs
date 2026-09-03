@@ -1,7 +1,6 @@
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
-using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
 namespace HeadlessCms.Api.Endpoints.Content;
@@ -61,7 +60,6 @@ public sealed class GetContentType(
                     Key = field.Key,
                     Type = field.Type,
                     Required = field.Required,
-                    Nullable = field.Nullable,
                     Position = field.Position,
                     Settings = field.Settings.Clone()
                 })
@@ -91,7 +89,6 @@ public sealed class GetContentTypeFieldResponse
     public required string Key { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
-    public bool Nullable { get; init; }
     public int Position { get; init; }
     public JsonElement Settings { get; init; }
 }

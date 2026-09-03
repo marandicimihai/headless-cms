@@ -66,7 +66,6 @@ public sealed class UpdateContentType(
                 field.Key,
                 field.Type,
                 field.Required,
-                field.Nullable,
                 field.Settings))
             .ToList();
 
@@ -85,7 +84,6 @@ public sealed class UpdateContentType(
                     Key = field.Key,
                     Type = field.Type,
                     Required = field.Required,
-                    Nullable = field.Nullable,
                     Position = field.Position,
                     Settings = field.Settings.Clone()
                 })
@@ -106,7 +104,6 @@ public sealed class UpdateContentTypeFieldRequest
     public required string Key { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
-    public bool Nullable { get; init; }
     public JsonElement Settings { get; init; }
 }
 
@@ -125,7 +122,6 @@ public sealed class UpdateContentTypeFieldResponse
     public required string Key { get; init; }
     public required ContentFieldType Type { get; init; }
     public bool Required { get; init; }
-    public bool Nullable { get; init; }
     public int Position { get; init; }
     public JsonElement Settings { get; init; }
 }
