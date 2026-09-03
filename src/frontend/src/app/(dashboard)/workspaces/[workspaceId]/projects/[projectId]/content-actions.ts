@@ -72,8 +72,7 @@ function parseDefinition(value: FormDataEntryValue | null): ContentTypeInput | n
       if (
         typeof input.key !== "string" ||
         !isFieldType(input.type) ||
-        typeof input.required !== "boolean" ||
-        typeof input.nullable !== "boolean"
+        typeof input.required !== "boolean"
       ) {
         return null
       }
@@ -88,7 +87,6 @@ function parseDefinition(value: FormDataEntryValue | null): ContentTypeInput | n
         key: input.key,
         type: input.type,
         required: input.required,
-        nullable: input.nullable,
         settings: settings ?? {},
       })
     }
@@ -101,11 +99,26 @@ function parseDefinition(value: FormDataEntryValue | null): ContentTypeInput | n
 function parseEntryData(fields: ContentField[], formData: FormData) {
   const data: Record<string, string | number | boolean | null> = {}
   for (const field of fields) {
-    const value = String(formData.get(`field:${field.key}`) ?? "")
-    if (value === "") {
-      if (field.nullable) data[field.key] = null
+    if (
+      field.type === "text" &&
+      !field.required &&
+      formData.get(`null:${field.key}`) !== null
+    ) {
+      data[field.key] = null
       continue
     }
+
+    const submittedValue = formData.get(`field:${field.key}`)
+    if (submittedValue === null) continue
+    const value = String(submittedValue)
+
+    if (field.type === "text") {
+      data[field.key] = value
+      continue
+    }
+
+    if (value === "") continue
+
     if (field.type === "number") {
       const number = Number(value)
       if (!Number.isFinite(number)) throw new Error(`${field.key} must be a valid number.`)
@@ -113,8 +126,6 @@ function parseEntryData(fields: ContentField[], formData: FormData) {
     } else if (field.type === "boolean") {
       if (value !== "true" && value !== "false") throw new Error(`${field.key} must be true or false.`)
       data[field.key] = value === "true"
-    } else {
-      data[field.key] = value
     }
   }
   return data

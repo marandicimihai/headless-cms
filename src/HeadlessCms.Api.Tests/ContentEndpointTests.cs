@@ -316,7 +316,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task DefinitionUpdates_MigrateExistingEntriesToTheCurrentSchema()
+    public async Task DefinitionUpdates_LeaveExistingEntriesUnchanged()
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "password");
@@ -363,16 +363,18 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         updatedType.ShouldNotBeNull();
         updatedType.Fields.Count.ShouldBe(4);
 
-        var migrated = await SendAsync(
+        var unchangedResponse = await SendAsync(
             HttpMethod.Get,
             $"{EntriesPath(workspace.Id, project.Id)}/{oldEntry.Id}",
             token);
-        migrated.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var migratedEntry = await migrated.Content.ReadFromJsonAsync<GetContentEntryResponse>(
+        unchangedResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var unchangedEntry = await unchangedResponse.Content.ReadFromJsonAsync<GetContentEntryResponse>(
             JsonOptions,
             cancellationToken: ct);
-        migratedEntry.ShouldNotBeNull();
-        migratedEntry.Data.GetProperty("summary").GetString().ShouldBe("No summary");
+        unchangedEntry.ShouldNotBeNull();
+        unchangedEntry.Data.GetRawText().ShouldBe(oldEntry.Data.GetRawText());
+        unchangedEntry.UpdatedAt.ShouldBe(oldEntry.UpdatedAt);
+        unchangedEntry.Data.TryGetProperty("summary", out _).ShouldBeFalse();
 
         var updateOldEntry = await SendAsync(
             HttpMethod.Put,
@@ -410,7 +412,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
     }
 
     [Fact]
-    public async Task DefinitionUpdate_RollsBackWhenExistingEntriesCannotSatisfyIt()
+    public async Task DefinitionUpdate_AllowsSchemaChangesWithoutRewritingExistingEntries()
     {
         var ct = TestContext.Current.CancellationToken;
         var owner = await app.SeedUserAsync("owner", "password");
@@ -429,7 +431,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             token,
             new { title = "Existing", views = 1, published = false });
 
-        var rejected = await SendAsync(
+        var updated = await SendAsync(
             HttpMethod.Put,
             ContentTypePath(workspace.Id, project.Id),
             token,
@@ -444,7 +446,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
                 }
             });
 
-        rejected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        updated.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var definition = await SendAsync(
             HttpMethod.Get,
@@ -455,7 +457,7 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             cancellationToken: ct);
         current.ShouldNotBeNull();
         current.Key.ShouldBe("article");
-        current.Fields.Select(field => field.Key).ShouldNotContain("summary");
+        current.Fields.Select(field => field.Key).ShouldContain("summary");
 
         var stored = await SendAsync(
             HttpMethod.Get,
@@ -465,11 +467,13 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             JsonOptions,
             cancellationToken: ct);
         unchanged.ShouldNotBeNull();
+        unchanged.Data.GetRawText().ShouldBe(entry.Data.GetRawText());
+        unchanged.UpdatedAt.ShouldBe(entry.UpdatedAt);
         unchanged.Data.TryGetProperty("summary", out _).ShouldBeFalse();
     }
 
     [Fact]
-    public async Task DefinitionUpdate_RemovesDeletedFieldsFromEveryEntry()
+    public async Task DefinitionUpdate_LeavesDeletedFieldsInExistingEntries()
     {
         var ct = TestContext.Current.CancellationToken;
         var editor = await app.SeedUserAsync("editor", "password");
@@ -507,12 +511,14 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
             HttpMethod.Get,
             $"{EntriesPath(workspace.Id, project.Id)}/{entry.Id}",
             token);
-        var migrated = await response.Content.ReadFromJsonAsync<GetContentEntryResponse>(
+        var unchanged = await response.Content.ReadFromJsonAsync<GetContentEntryResponse>(
             JsonOptions,
             cancellationToken: ct);
-        migrated.ShouldNotBeNull();
-        migrated.Data.TryGetProperty("views", out _).ShouldBeFalse();
-        migrated.Data.GetProperty("title").GetString().ShouldBe("Existing");
+        unchanged.ShouldNotBeNull();
+        unchanged.Data.GetRawText().ShouldBe(entry.Data.GetRawText());
+        unchanged.UpdatedAt.ShouldBe(entry.UpdatedAt);
+        unchanged.Data.GetProperty("views").GetInt32().ShouldBe(1);
+        unchanged.Data.GetProperty("title").GetString().ShouldBe("Existing");
     }
 
     [Fact]

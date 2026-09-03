@@ -1,9 +1,7 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HeadlessCms.Api.Content.Services;
 
@@ -80,7 +78,6 @@ public class ContentDefinitionService(
         var proposedFields = ValidateAndCreateFields(workspaceId, projectId, fields);
         var contentType = await db.ContentTypes
             .Include(candidate => candidate.Fields)
-            .Include(candidate => candidate.Entries)
             .SingleOrDefaultAsync(
                 candidate =>
                     candidate.WorkspaceId == workspaceId &&
@@ -106,50 +103,10 @@ public class ContentDefinitionService(
             }
         }
 
-        await using var transaction = await BeginTransactionIfSupportedAsync(ct);
         var proposedKeys = proposedFields
             .Select(field => field.Key)
             .ToHashSet(StringComparer.Ordinal);
         var now = DateTime.UtcNow;
-        var replacedDocuments = new List<JsonDocument>();
-
-        foreach (var entry in contentType.Entries)
-        {
-            var migratedData = JsonNode.Parse(entry.Data.RootElement.GetRawText())?.AsObject()
-                ?? throw new ContentValidationException("Entry data must be a JSON object.");
-
-            foreach (var propertyName in migratedData.Select(property => property.Key).ToList())
-            {
-                if (!proposedKeys.Contains(propertyName))
-                    migratedData.Remove(propertyName);
-            }
-
-            JsonDocument validatedData;
-            try
-            {
-                validatedData = documentValidator.Validate(
-                    JsonSerializer.SerializeToElement(migratedData),
-                    proposedFields);
-            }
-            catch (ContentValidationException exception)
-            {
-                throw new ContentValidationException(
-                    exception.Errors
-                        .Select(error => $"Entry '{entry.Id}': {error}")
-                        .ToList());
-            }
-
-            if (entry.Data.RootElement.GetRawText() == validatedData.RootElement.GetRawText())
-            {
-                validatedData.Dispose();
-                continue;
-            }
-
-            var previousData = entry.Data;
-            entry.Data = validatedData;
-            entry.UpdatedAt = now;
-            replacedDocuments.Add(previousData);
-        }
 
         var removedFields = contentType.Fields
             .Where(field => !proposedKeys.Contains(field.Key))
@@ -174,12 +131,6 @@ public class ContentDefinitionService(
 
         contentType.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
-
-        if (transaction is not null)
-            await transaction.CommitAsync(ct);
-
-        foreach (var document in replacedDocuments)
-            document.Dispose();
 
         contentType.Fields = contentType.Fields
             .Where(field => proposedKeys.Contains(field.Key))
@@ -306,11 +257,4 @@ public class ContentDefinitionService(
             : EmptySettings.Clone();
     }
 
-    private async Task<IDbContextTransaction?> BeginTransactionIfSupportedAsync(
-        CancellationToken ct)
-    {
-        return db.Database.IsRelational()
-            ? await db.Database.BeginTransactionAsync(ct)
-            : null;
-    }
 }

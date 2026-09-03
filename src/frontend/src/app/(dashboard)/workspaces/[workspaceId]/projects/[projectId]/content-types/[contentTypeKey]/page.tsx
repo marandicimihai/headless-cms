@@ -124,7 +124,6 @@ export default async function ContentTypePage({
                   <TableCell>{field.type}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {field.required ? "Required" : "Optional"}
-                    {field.nullable ? " · nullable" : ""}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {Object.prototype.hasOwnProperty.call(field.settings, "default")

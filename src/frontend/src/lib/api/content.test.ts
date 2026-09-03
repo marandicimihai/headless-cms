@@ -21,8 +21,7 @@ describe("content API helpers", () => {
         {
           key: "title",
           type: "text" as const,
-          required: true,
-          nullable: false,
+          required: false,
           settings: { default: "Untitled" },
         },
       ],

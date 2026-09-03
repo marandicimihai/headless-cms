@@ -6,7 +6,6 @@ export type ContentField = {
   key: string
   type: ContentFieldType
   required: boolean
-  nullable: boolean
   position: number
   settings: Record<string, unknown>
 }
@@ -24,7 +23,6 @@ export type ContentFieldInput = {
   key: string
   type: ContentFieldType
   required: boolean
-  nullable: boolean
   settings: Record<string, unknown>
 }
 

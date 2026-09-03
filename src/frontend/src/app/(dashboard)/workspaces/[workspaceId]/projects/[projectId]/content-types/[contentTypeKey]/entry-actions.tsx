@@ -10,7 +10,6 @@ import {
 } from "../../content-actions"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -96,18 +95,14 @@ export function EntryActions({
           <form id={deleteFormId} action={formAction} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              render={
-                <Button
-                  type="submit"
-                  form={deleteFormId}
-                  variant="destructive"
-                  disabled={pending}
-                />
-              }
+            <Button
+              type="submit"
+              form={deleteFormId}
+              variant="destructive"
+              disabled={pending}
             >
               {pending ? "Deleting..." : "Delete entry"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

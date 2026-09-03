@@ -35,42 +35,6 @@ describe("ContentTypeForm", () => {
     expect(document.activeElement).toBe(keyInput)
   })
 
-  it("uses an in-page confirmation for destructive schema changes", () => {
-    const browserConfirm = vi.spyOn(window, "confirm")
-
-    render(
-      <ContentTypeForm
-        workspaceId="workspace-1"
-        projectId="project-1"
-        mode="edit"
-        initialContentType={{
-          id: "type-1",
-          projectId: "project-1",
-          key: "articles",
-          createdAt: "2026-09-02T00:00:00Z",
-          updatedAt: "2026-09-02T00:00:00Z",
-          fields: [
-            {
-              key: "title",
-              type: "text",
-              required: true,
-              nullable: false,
-              position: 0,
-              settings: {},
-            },
-          ],
-        }}
-      />,
-    )
-
-    fireEvent.click(screen.getByRole("button", { name: "Add field" }))
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
-
-    expect(browserConfirm).not.toHaveBeenCalled()
-    expect(screen.getByRole("alertdialog")).toBeTruthy()
-    expect(screen.getByText("Review schema changes?")).toBeTruthy()
-  })
-
   it("initializes edit mode from the current schema and preserves defaults", () => {
     const { container } = render(
       <ContentTypeForm
@@ -88,17 +52,15 @@ describe("ContentTypeForm", () => {
               key: "title",
               type: "text",
               required: true,
-              nullable: false,
               position: 0,
-              settings: { default: "Untitled" },
+              settings: {},
             },
             {
               key: "featured",
               type: "boolean",
               required: false,
-              nullable: true,
               position: 1,
-              settings: { default: null },
+              settings: { default: false },
             },
           ],
         }}
@@ -107,7 +69,7 @@ describe("ContentTypeForm", () => {
 
     expect(screen.getByText("articles", { selector: "output" }).tagName).toBe("OUTPUT")
     expect(screen.getByText("title", { selector: "output" }).tagName).toBe("OUTPUT")
-    expect(screen.queryByLabelText("Default value")).toBeNull()
+    expect(screen.getByLabelText("Default value")).toBeTruthy()
     expect(screen.getByLabelText("Move featured down").getAttribute("disabled")).not.toBeNull()
 
     const definition = container.querySelector('input[name="definition"]')
@@ -115,8 +77,8 @@ describe("ContentTypeForm", () => {
     expect(JSON.parse((definition as HTMLInputElement)?.value ?? "{}")).toMatchObject({
       key: "articles",
       fields: [
-        { key: "title", settings: { default: "Untitled" } },
-        { key: "featured", settings: { default: null } },
+        { key: "title", settings: {} },
+        { key: "featured", settings: { default: false } },
       ],
     })
 
@@ -124,5 +86,52 @@ describe("ContentTypeForm", () => {
     expect(JSON.parse((definition as HTMLInputElement)?.value ?? "{}").fields[0].key).toBe(
       "featured",
     )
+  })
+
+  it("removes a default when an optional field becomes required", () => {
+    const { container } = render(
+      <ContentTypeForm
+        workspaceId="workspace-1"
+        projectId="project-1"
+        mode="edit"
+        initialContentType={{
+          id: "type-1",
+          projectId: "project-1",
+          key: "articles",
+          createdAt: "2026-09-02T00:00:00Z",
+          updatedAt: "2026-09-02T00:00:00Z",
+          fields: [
+            {
+              key: "summary",
+              type: "text",
+              required: false,
+              position: 0,
+              settings: { default: "Untitled" },
+            },
+          ],
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Required" }))
+
+    const definition = container.querySelector('input[name="definition"]')
+    expect(JSON.parse((definition as HTMLInputElement).value).fields[0]).toMatchObject({
+      required: true,
+      settings: {},
+    })
+  })
+
+  it("removes a default when its input is empty or whitespace", () => {
+    const { container } = render(
+      <ContentTypeForm workspaceId="workspace-1" projectId="project-1" />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }))
+    const defaultInput = screen.getByLabelText("Default value")
+    fireEvent.change(defaultInput, { target: { value: "   " } })
+
+    const definition = container.querySelector('input[name="definition"]')
+    expect(JSON.parse((definition as HTMLInputElement).value).fields[1].settings).toEqual({})
   })
 })

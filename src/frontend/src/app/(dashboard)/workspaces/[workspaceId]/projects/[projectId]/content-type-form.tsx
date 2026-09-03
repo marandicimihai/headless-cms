@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
-import { useActionState, useRef, useState, type FormEvent } from "react"
+import { useActionState, useState } from "react"
 
 import {
   createContentTypeAction,
@@ -10,16 +10,6 @@ import {
   type ContentActionState,
 } from "./content-actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -49,27 +39,20 @@ function makeField(index: number): ContentFieldInput {
     key: index === 0 ? "title" : `field_${index + 1}`,
     type: "text",
     required: index === 0,
-    nullable: false,
     settings: {},
   }
 }
 
 function toInput(field: ContentField): ContentFieldInput {
+  const settings = { ...field.settings }
+  if (field.required || settings.default === null) delete settings.default
+
   return {
     key: field.key,
     type: field.type,
     required: field.required,
-    nullable: field.nullable,
-    settings: { ...field.settings },
+    settings,
   }
-}
-
-type DefaultMode = "none" | "value" | "null"
-
-const defaultModeLabels: Record<DefaultMode, string> = {
-  none: "No default",
-  value: "Use a value",
-  null: "Default to null",
 }
 
 const fieldTypeLabels: Record<ContentFieldType, string> = {
@@ -82,15 +65,14 @@ function hasDefault(field: ContentFieldInput) {
   return Object.prototype.hasOwnProperty.call(field.settings, "default")
 }
 
-function defaultMode(field: ContentFieldInput): DefaultMode {
-  if (!hasDefault(field)) return "none"
-  return field.settings.default === null ? "null" : "value"
-}
-
 function defaultInputValue(field: ContentFieldInput) {
   const value = field.settings.default
   if (field.type === "boolean") {
-    return typeof value === "boolean" ? String(value) : "false"
+    return typeof value === "boolean"
+      ? String(value)
+      : typeof value === "string"
+        ? value
+        : ""
   }
   return typeof value === "string" || typeof value === "number"
     ? String(value)
@@ -125,85 +107,49 @@ export function ContentTypeForm({
       : createContentTypeAction.bind(null, workspaceId, projectId)
   const [state, formAction, pending] = useActionState(action, initialState)
   useActionToast(state)
-  const [confirmationOpen, setConfirmationOpen] = useState(false)
-  const formRef = useRef<HTMLFormElement>(null)
-  const confirmedSubmit = useRef(false)
   const definition = JSON.stringify({ key, fields })
   const originalFields = initialContentType?.fields ?? []
   const originalByKey = new Map(originalFields.map((field) => [field.key, field]))
-  const removedKeys = originalFields
-    .map((field) => field.key)
-    .filter((fieldKey) => !fields.some((field) => field.key === fieldKey))
-  const addedFields = fields.filter(
-    (field) => !originalByKey.has(field.key),
-  )
-  const changedKeys = removedKeys.length > 0 || addedFields.length > 0
   const changedTypes = fields.some((field) => {
     const original = originalByKey.get(field.key)
     return original && original.type !== field.type
   })
-  const tightenedRequiredFields = fields.some((field) => {
-    const original = originalByKey.get(field.key)
-    return (
-      field.required &&
-      !field.nullable &&
-      !hasDefault(field) &&
-      (!original || !original.required || original.nullable)
-    )
-  })
-  const hasDestructiveChanges = changedKeys || tightenedRequiredFields
   const actionLabel = mode === "edit" ? "Save changes" : "Create content type"
 
   function updateField(index: number, update: Partial<ContentFieldInput>) {
     setFields((current) =>
-      current.map((field, fieldIndex) =>
-        fieldIndex === index
-          ? {
-              ...field,
-              ...update,
-              settings:
-                update.type && update.type !== field.type && hasDefault(field)
-                  ? { ...field.settings, default: defaultForType(update.type) }
-                  : update.nullable === false && field.settings.default === null
-                    ? (() => {
-                        const settings = { ...field.settings }
-                        delete settings.default
-                        return settings
-                      })()
-                    : field.settings,
-            }
-          : field,
-      ),
-    )
-  }
-
-  function updateDefault(index: number, update: unknown) {
-    setFields((current) =>
       current.map((field, fieldIndex) => {
         if (fieldIndex !== index) return field
-        return { ...field, settings: { ...field.settings, default: update } }
+
+        const next = { ...field, ...update }
+        const settings = { ...field.settings }
+        if (update.type && update.type !== field.type && hasDefault(field)) {
+          settings.default = defaultForType(update.type)
+        }
+        if (next.required) delete settings.default
+
+        return { ...next, settings }
       }),
     )
   }
 
-  function setDefaultMode(index: number, value: string) {
-    if (value === "none") {
-      setFields((current) =>
-        current.map((field, fieldIndex) => {
-          if (fieldIndex !== index) return field
-          const settings = { ...field.settings }
-          delete settings.default
-          return { ...field, settings }
-        }),
-      )
-      return
-    }
-
+  function updateDefault(index: number, value: string) {
     setFields((current) =>
       current.map((field, fieldIndex) => {
         if (fieldIndex !== index) return field
-        const nextDefault = value === "null" ? null : defaultForType(field.type)
-        return { ...field, settings: { ...field.settings, default: nextDefault } }
+
+        const settings = { ...field.settings }
+        if (value.trim() === "") {
+          delete settings.default
+        } else if (field.type === "number") {
+          settings.default = Number(value)
+        } else if (field.type === "boolean") {
+          settings.default = value === "true" ? true : value === "false" ? false : value
+        } else {
+          settings.default = value
+        }
+
+        return { ...field, settings }
       }),
     )
   }
@@ -219,29 +165,8 @@ export function ContentTypeForm({
     })
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (!hasDestructiveChanges || confirmedSubmit.current) {
-      confirmedSubmit.current = false
-      return
-    }
-
-    event.preventDefault()
-    setConfirmationOpen(true)
-  }
-
-  function confirmSubmit() {
-    setConfirmationOpen(false)
-    confirmedSubmit.current = true
-    formRef.current?.requestSubmit()
-  }
-
   return (
-    <form
-      ref={formRef}
-      action={formAction}
-      onSubmit={handleSubmit}
-      className="max-w-5xl space-y-8"
-    >
+    <form action={formAction} className="max-w-5xl space-y-8">
       <input type="hidden" name="definition" value={definition} />
 
       <Field data-invalid={(state.fieldErrors.key ?? []).length > 0}>
@@ -309,7 +234,7 @@ export function ContentTypeForm({
                 key={index}
                 className="space-y-4 rounded-xl border p-4"
               >
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto_auto] md:items-end">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto] md:items-end">
                   <Field>
                     <FieldLabel htmlFor={`field-key-${index}`}>Key</FieldLabel>
                     {mode === "edit" && existingField ? (
@@ -368,90 +293,22 @@ export function ContentTypeForm({
                   >
                     Required
                   </Button>
-                  <Button
-                    type="button"
-                    variant={field.nullable ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={field.nullable}
-                    onClick={() =>
-                      updateField(index, { nullable: !field.nullable })
-                    }
-                  >
-                    Allows null
-                  </Button>
                 </div>
 
                 {!field.required ? (
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                    <Field>
-                      <FieldLabel htmlFor={`field-default-mode-${index}`}>
-                        Default
-                      </FieldLabel>
-                      <Select
-                        value={defaultMode(field)}
-                        onValueChange={(value) =>
-                          value !== null && setDefaultMode(index, value)
-                        }
-                      >
-                        <SelectTrigger id={`field-default-mode-${index}`} className="w-full">
-                          <SelectValue>
-                            {(value) =>
-                              defaultModeLabels[value as DefaultMode] ?? "No default"
-                            }
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent align="start" alignItemWithTrigger={false}>
-                          <SelectItem value="none">No default</SelectItem>
-                          <SelectItem value="value">Use a value</SelectItem>
-                          {field.nullable ? (
-                            <SelectItem value="null">Default to null</SelectItem>
-                          ) : null}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    {defaultMode(field) === "value" ? (
-                      <Field>
-                        <FieldLabel htmlFor={`field-default-${index}`}>
-                          Default value
-                        </FieldLabel>
-                        {field.type === "boolean" ? (
-                          <Select
-                            value={defaultInputValue(field)}
-                            onValueChange={(value) => updateDefault(index, value === "true")}
-                          >
-                            <SelectTrigger id={`field-default-${index}`} className="w-full">
-                              <SelectValue>
-                                {(value) => (value === "true" ? "True" : "False")}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start" alignItemWithTrigger={false}>
-                              <SelectItem value="true">True</SelectItem>
-                              <SelectItem value="false">False</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            id={`field-default-${index}`}
-                            type={field.type === "number" ? "number" : "text"}
-                            value={defaultInputValue(field)}
-                            onChange={(event) =>
-                              updateDefault(
-                                index,
-                                field.type === "number"
-                                  ? Number(event.target.value)
-                                  : event.target.value,
-                              )
-                            }
-                            step={field.type === "number" ? "any" : undefined}
-                            required
-                          />
-                        )}
-                      </Field>
-                    ) : (
-                      <div aria-hidden="true" />
-                    )}
-                  </div>
+                  <Field>
+                    <FieldLabel htmlFor={`field-default-${index}`}>
+                      Default value
+                    </FieldLabel>
+                    <Input
+                      id={`field-default-${index}`}
+                      type={field.type === "number" ? "number" : "text"}
+                      value={defaultInputValue(field)}
+                      onChange={(event) => updateDefault(index, event.target.value)}
+                      placeholder={field.type === "boolean" ? "true or false" : undefined}
+                      step={field.type === "number" ? "any" : undefined}
+                    />
+                  </Field>
                 ) : null}
 
                 <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
@@ -517,22 +374,6 @@ export function ContentTypeForm({
         </Button>
       </div>
 
-      <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Review schema changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              These changes may remove or invalidate data in existing entries.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={confirmSubmit}>
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </form>
   )
 }

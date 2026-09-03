@@ -300,10 +300,13 @@ typed sorting, and declared-field filters:
 Text fields support `eq` and `contains`; number fields support `eq`, `gt`,
 `gte`, `lt`, and `lte`; boolean fields support `eq`.
 
-Each content type has one current schema, and every entry conforms to it.
-Updating a definition migrates all of that type's entries in one transaction:
-removed fields are deleted from entry data, defaults fill missing values, and
-the entire update is rejected if any entry cannot satisfy the proposed schema.
+Each content type has one current schema, and newly created or updated entries
+are validated against it.
+Updating a definition changes only the content type and field definitions.
+Existing entries are never rewritten: their stored JSON and timestamps remain
+unchanged, removed fields remain in their data, and newly configured defaults
+are not backfilled. The current schema is applied when an entry is created or
+updated.
 Keys identify and label content types and fields. Existing field keys cannot
 change type. Deleting a content type also deletes all of its fields and entries.
 Content type keys are unique within a project, so separate projects can

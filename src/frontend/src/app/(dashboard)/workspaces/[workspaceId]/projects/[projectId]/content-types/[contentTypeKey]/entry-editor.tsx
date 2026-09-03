@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 
 import type { ContentActionState } from "../../content-actions"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -110,28 +111,25 @@ function EntryField({
   error: string[]
 }) {
   const id = `entry-field-${field.key}`
-  const required = field.required && !field.nullable
+  const required = field.required
   const name = `field:${field.key}`
+  const [isNull, setIsNull] = useState(value === null)
 
   if (field.type === "boolean") {
-    const selected =
-      typeof value === "boolean" ? String(value) : field.nullable ? "" : undefined
+    const selected = typeof value === "boolean" ? String(value) : undefined
 
     return (
       <Field data-invalid={error.length > 0}>
-        <FieldLabel htmlFor={id}>{field.key}</FieldLabel>
+        <EntryFieldLabel field={field} htmlFor={id} />
         <Select name={name} defaultValue={selected} required={required}>
           <SelectTrigger id={id} className="w-full">
-            <SelectValue placeholder="NULL">
+            <SelectValue placeholder={field.required ? "Choose a value" : "Use default"}>
               {(value) =>
-                value === "true" ? "True" : value === "false" ? "False" : "NULL"
+                value === "true" ? "True" : value === "false" ? "False" : "Use default"
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent align="start" alignItemWithTrigger={false}>
-            {field.nullable ? (
-              <SelectItem value="">NULL</SelectItem>
-            ) : null}
             <SelectItem value="true">True</SelectItem>
             <SelectItem value="false">False</SelectItem>
           </SelectContent>
@@ -146,17 +144,54 @@ function EntryField({
 
   return (
     <Field data-invalid={error.length > 0}>
-      <FieldLabel htmlFor={id}>{field.key}</FieldLabel>
-      <Input
-        id={id}
-        name={name}
-        type={field.type === "number" ? "number" : "text"}
-        defaultValue={inputValue}
-        placeholder="NULL"
-        required={required}
-        step={field.type === "number" ? "any" : undefined}
-      />
+      <EntryFieldLabel field={field} htmlFor={id} />
+      <div className="relative">
+        <Input
+          id={id}
+          name={name}
+          type={field.type === "number" ? "number" : "text"}
+          defaultValue={inputValue}
+          disabled={field.type === "text" && !field.required && isNull}
+          required={required}
+          step={field.type === "number" ? "any" : undefined}
+          className={field.type === "text" && !field.required ? "pr-16" : undefined}
+        />
+        {field.type === "text" && !field.required ? (
+          <label
+            htmlFor={`${id}-null`}
+            className="absolute right-2 bottom-1 flex items-center gap-1 text-xs text-muted-foreground"
+          >
+            <Checkbox
+              id={`${id}-null`}
+              name={`null:${field.key}`}
+              checked={isNull}
+              onCheckedChange={setIsNull}
+            />
+            Null
+          </label>
+        ) : null}
+      </div>
       <FieldError errors={error.map((message) => ({ message }))} />
     </Field>
+  )
+}
+
+function EntryFieldLabel({
+  field,
+  htmlFor,
+}: {
+  field: ContentField
+  htmlFor: string
+}) {
+  return (
+    <FieldLabel htmlFor={htmlFor}>
+      {field.key}
+      {field.required ? (
+        <>
+          <span className="text-destructive" aria-hidden="true"> *</span>
+          <span className="sr-only"> required</span>
+        </>
+      ) : null}
+    </FieldLabel>
   )
 }
