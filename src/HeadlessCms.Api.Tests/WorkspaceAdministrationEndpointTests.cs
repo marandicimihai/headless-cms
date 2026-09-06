@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
+using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Endpoints.Workspaces;
 using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,82 @@ public sealed class WorkspaceAdministrationEndpointTests(TestApp app) : TestBase
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
+
+    [Fact]
+    public async Task DeleteWorkspace_CascadesOnlyTargetWorkspaceData()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await SeedWorkspaceAsync("Delete me", (owner, WorkspaceRole.Owner));
+        var other = await SeedWorkspaceAsync("Keep me", (owner, WorkspaceRole.Owner));
+        var project = await app.SeedProjectAsync(workspace.Id, "Project");
+        var otherProject = await app.SeedProjectAsync(other.Id, "Other project");
+        await app.WithDatabaseAsync(async db =>
+        {
+            var contentType = new ContentType
+            {
+                WorkspaceId = workspace.Id, ProjectId = project.Id, Key = "articles",
+                Fields = [new ContentField
+                {
+                    WorkspaceId = workspace.Id, ProjectId = project.Id, Key = "title",
+                    Type = ContentFieldType.Text, Settings = JsonSerializer.SerializeToElement(new { })
+                }],
+                Entries = [new ContentEntry
+                {
+                    WorkspaceId = workspace.Id, ProjectId = project.Id,
+                    Data = JsonDocument.Parse("{\"title\":\"Article\"}")
+                }]
+            };
+            db.ContentTypes.Add(contentType);
+            db.WorkspaceInvitations.Add(new WorkspaceInvitation
+            {
+                WorkspaceId = workspace.Id, Email = "invitee@example.test",
+                Role = WorkspaceRole.Member, TokenHash = new string('a', 64),
+                InvitedByUserId = owner.Id, ExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+            await db.SaveChangesAsync(ct);
+            return true;
+        });
+        var token = await app.LoginAsync(owner.Email, "owner-password");
+        using var response = await app.SendAsync(HttpMethod.Delete, WorkspacePath(workspace.Id), token);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await app.WithDatabaseAsync(async db =>
+        {
+            (await db.Workspaces.AnyAsync(w => w.Id == workspace.Id, ct)).ShouldBeFalse();
+            (await db.WorkspaceMemberships.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.WorkspaceInvitations.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.Projects.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.ContentTypes.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.ContentFields.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.ContentEntries.AnyAsync(w => w.WorkspaceId == workspace.Id, ct)).ShouldBeFalse();
+            (await db.Users.AnyAsync(u => u.Id == owner.Id, ct)).ShouldBeTrue();
+            (await db.Workspaces.AnyAsync(w => w.Id == other.Id, ct)).ShouldBeTrue();
+            (await db.Projects.AnyAsync(p => p.Id == otherProject.Id, ct)).ShouldBeTrue();
+            (await db.WorkspaceMemberships.AnyAsync(w => w.WorkspaceId == other.Id, ct)).ShouldBeTrue();
+            return true;
+        });
+        using var repeated = await app.SendAsync(HttpMethod.Delete, WorkspacePath(workspace.Id), token);
+        repeated.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteWorkspace_RejectsNonOwnersIncludingPlatformAdmin()
+    {
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var editor = await app.SeedUserAsync("editor", "password");
+        var member = await app.SeedUserAsync("member", "password");
+        var outsider = await app.SeedUserAsync("outsider", "password");
+        var admin = await app.SeedUserAsync("admin", "password", PlatformRole.PlatformAdmin);
+        var workspace = await SeedWorkspaceAsync("Private workspace",
+            (owner, WorkspaceRole.Owner), (editor, WorkspaceRole.Editor), (member, WorkspaceRole.Member));
+        foreach (var user in new[] { editor, member, outsider, admin })
+        {
+            var token = await app.LoginAsync(user.Email, "password");
+            using var response = await app.SendAsync(HttpMethod.Delete, WorkspacePath(workspace.Id), token);
+            response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        }
+        (await app.WithDatabaseAsync(db => db.Workspaces.AnyAsync(w => w.Id == workspace.Id))).ShouldBeTrue();
+    }
 
     [Fact]
     public async Task ListWorkspaces_PlatformAdminGetsRequestedPageInNameOrder()
@@ -382,6 +459,7 @@ public sealed class WorkspaceAdministrationEndpointTests(TestApp app) : TestBase
     [InlineData("GET", "/api/workspaces", false)]
     [InlineData("GET", "/api/workspaces/00000000-0000-0000-0000-000000000001", false)]
     [InlineData("PATCH", "/api/workspaces/00000000-0000-0000-0000-000000000001", true)]
+    [InlineData("DELETE", "/api/workspaces/00000000-0000-0000-0000-000000000001", false)]
     public async Task WorkspaceAdministrationEndpoints_RejectAnonymousRequests(
         string method,
         string path,

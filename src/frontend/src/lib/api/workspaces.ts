@@ -40,6 +40,15 @@ export async function renameWorkspace(
   })
 }
 
+export async function deleteWorkspace(
+  workspaceId: string,
+): Promise<ApiResult<void>> {
+  return apiFetch<void>(`/api/workspaces/${workspaceId}`, {
+    method: "DELETE",
+    cache: "no-store",
+  })
+}
+
 export async function listWorkspaceMembers(
   workspaceId: string,
 ): Promise<ApiResult<PagedWorkspaceResponse<WorkspaceMember>>> {

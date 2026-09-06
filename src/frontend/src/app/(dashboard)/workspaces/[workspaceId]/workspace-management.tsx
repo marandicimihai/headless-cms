@@ -5,6 +5,7 @@ import { useActionState, useState } from "react"
 
 import {
   changeWorkspaceMemberRoleAction,
+  deleteWorkspaceAction,
   inviteWorkspaceMemberAction,
   renameWorkspaceAction,
   resendWorkspaceInvitationAction,
@@ -21,6 +22,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -512,6 +514,91 @@ export function WorkspaceManagement({
           </div>
         )}
       </section>
+      <DeleteWorkspaceForm key={workspaceName} workspaceId={workspaceId} workspaceName={workspaceName} />
     </div>
+  )
+}
+
+function DeleteWorkspaceForm({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [state, formAction, pending] = useActionState(
+    deleteWorkspaceAction.bind(null, workspaceId),
+    initialWorkspaceActionState,
+  )
+  const nameErrors = state.fieldErrors.name ?? []
+
+  return (
+    <section aria-labelledby="delete-workspace-heading" className="space-y-4">
+      <div className="space-y-1">
+        <h2 id="delete-workspace-heading" className="text-sm font-semibold">
+          Delete workspace
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Permanently delete this workspace and all its projects and content. This cannot be undone.
+        </p>
+      </div>
+      <AlertDialog open={open} onOpenChange={(nextOpen) => {
+        if (pending) return
+        setName("")
+        setOpen(nextOpen)
+      }}>
+        <AlertDialogTrigger render={<Button variant="destructive" />}>
+          Delete workspace
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes all projects, content, memberships, and invitations
+              in this workspace. Type {workspaceName} exactly to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form
+            id="delete-workspace-form"
+            action={formAction}
+            onSubmit={(event) => {
+              if (pending || name !== workspaceName) event.preventDefault()
+            }}
+            className="space-y-4"
+          >
+            {state.status === "error" ? (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertDescription>{state.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            <Field data-invalid={nameErrors.length > 0}>
+              <FieldLabel htmlFor="delete-workspace-name">Confirm workspace name</FieldLabel>
+              <Input
+                id="delete-workspace-name"
+                name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                autoComplete="off"
+                maxLength={100}
+                required
+                disabled={pending}
+                aria-invalid={nameErrors.length > 0}
+              />
+              <FieldError errors={nameErrors.map((message) => ({ message }))} />
+            </Field>
+          </form>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button type="submit" form="delete-workspace-form" variant="destructive"
+              disabled={pending || name !== workspaceName}>
+              {pending ? "Deleting..." : "Permanently delete workspace"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   )
 }

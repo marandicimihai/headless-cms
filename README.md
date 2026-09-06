@@ -72,6 +72,7 @@ registration.
 | `GET` | `/api/workspaces` | `PlatformAdmin` |
 | `GET` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace member |
 | `PATCH` | `/api/workspaces/{workspaceId}` | `PlatformAdmin` or workspace owner |
+| `DELETE` | `/api/workspaces/{workspaceId}` | Workspace owner |
 | `GET` | `/api/me/workspaces` | Authenticated user |
 | `DELETE` | `/api/me/workspaces/{workspaceId}` | Workspace editor/member |
 | `POST` | `/api/workspaces/{workspaceId}/invitations` | Workspace owner |
@@ -82,6 +83,13 @@ registration.
 | `PATCH` | `/api/workspaces/{workspaceId}/members/{userId}` | Workspace owner |
 | `DELETE` | `/api/workspaces/{workspaceId}/members/{userId}` | Workspace owner |
 | `POST` | `/api/workspaces/{workspaceId}/ownership-transfer` | Workspace owner |
+
+Workspace deletion takes no request body. The manage page requires an exact
+workspace name match in its confirmation popup; this check is client-side only.
+The API enforces owner access and returns `204 No Content` after permanently
+deleting the workspace, projects, content types, fields, entries, memberships,
+and invitations. User accounts remain. Non-owners (including platform
+administrators without an owner membership) and missing workspaces return `404`.
 
 ### Private project API
 

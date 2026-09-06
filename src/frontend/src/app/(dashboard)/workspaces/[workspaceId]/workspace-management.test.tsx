@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("./actions", () => ({
   changeWorkspaceMemberRoleAction: vi.fn(),
+  deleteWorkspaceAction: vi.fn(),
   inviteWorkspaceMemberAction: vi.fn(),
   renameWorkspaceAction: vi.fn(),
   resendWorkspaceInvitationAction: vi.fn(),
@@ -40,6 +41,27 @@ afterEach(() => {
 })
 
 describe("WorkspaceManagement", () => {
+  it("requires an exact workspace name and clears confirmation after cancel", async () => {
+    const view = render(
+      <WorkspaceManagement workspaceId="workspace-1" workspaceName="Workspace"
+        members={[]} invitations={[]} memberTotal={0} invitationTotal={0} />,
+    )
+    fireEvent.click(view.getByRole("button", { name: "Delete workspace" }))
+    const input = view.getByLabelText("Confirm workspace name")
+    const confirm = view.getByRole("button", { name: "Permanently delete workspace" }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.change(input, { target: { value: "workspace" } })
+    expect(confirm.disabled).toBe(true)
+    fireEvent.change(input, { target: { value: "Workspace " } })
+    expect(confirm.disabled).toBe(true)
+    fireEvent.change(input, { target: { value: "Workspace" } })
+    expect(confirm.disabled).toBe(false)
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(view.getByRole("button", { name: "Delete workspace" }))
+    expect((view.getByLabelText("Confirm workspace name") as HTMLInputElement).value).toBe("")
+    expect((view.getByRole("button", { name: "Permanently delete workspace" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it("updates server-derived form values as controlled state", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
     const view = render(

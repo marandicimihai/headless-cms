@@ -7,6 +7,7 @@ import { getSession } from "@/lib/api/session"
 import {
   changeWorkspaceMemberRole,
   createWorkspaceInvitation,
+  deleteWorkspace,
   renameWorkspace,
   resendWorkspaceInvitation,
   revokeWorkspaceInvitation,
@@ -59,6 +60,20 @@ export async function renameWorkspaceAction(
     message: "Workspace name updated.",
     fieldErrors: {},
   }
+}
+
+export async function deleteWorkspaceAction(
+  workspaceId: string,
+  _previousState: WorkspaceActionState,
+): Promise<WorkspaceActionState> {
+  void _previousState
+  await requireSession()
+  const result = await deleteWorkspace(workspaceId)
+
+  if (!result.ok) return errorState(result.error)
+
+  revalidatePath("/", "layout")
+  redirect("/")
 }
 
 export async function inviteWorkspaceMemberAction(
