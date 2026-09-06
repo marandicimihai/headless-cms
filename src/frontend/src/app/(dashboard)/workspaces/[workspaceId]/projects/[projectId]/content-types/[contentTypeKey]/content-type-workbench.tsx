@@ -52,6 +52,7 @@ export function ContentTypeWorkbench({
   entries,
   entriesError,
   canWrite,
+  selectedEntry,
 }: {
   workspaceId: string
   projectId: string
@@ -59,8 +60,11 @@ export function ContentTypeWorkbench({
   entries: ContentEntry[]
   entriesError: string | null
   canWrite: boolean
+  selectedEntry?: ContentEntry
 }) {
-  const [panel, setPanel] = useState<EditorPanel>(null)
+  const [panel, setPanel] = useState<EditorPanel>(
+    canWrite && selectedEntry ? { kind: "entry", entry: selectedEntry } : null,
+  )
 
   function openFromKeyboard(
     event: KeyboardEvent<HTMLTableRowElement>,

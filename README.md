@@ -373,3 +373,27 @@ Initial project setup in progress.
 ## License
 
 TBD
+
+### Preview summaries
+
+The workspace and project preview pages use dedicated read-only endpoints:
+
+| Method | Route | Summary |
+| --- | --- | --- |
+| `GET` | `/api/workspaces/{workspaceId}/preview` | Project, entry, publishing-status, and member counts; per-project content type and entry counts and last entry update |
+| `GET` | `/api/workspaces/{workspaceId}/projects/{id}/preview` | Content type and publishing-status counts, plus the ten most recently updated entries |
+
+Both require workspace membership, including for platform administrators. The
+workspace response includes `pendingInvitationCount` only for owners (null for
+other roles); expired, accepted, and revoked invitations are excluded. Counts
+cover all matching records. Last content update means the latest `UpdatedAt`
+among a project's existing entries, or null when it has no entries. Recent
+entries sort by update time descending with entry ID as a stable tie-breaker.
+The frontend displays timestamps in UTC and hides summary cards for workspaces
+without projects and projects without content types.
+
+Verify these contracts against PostgreSQL with Docker running:
+
+```bash
+dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj --filter FullyQualifiedName~PreviewEndpointTests
+```

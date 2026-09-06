@@ -4,23 +4,29 @@ import { CircleAlert } from "lucide-react"
 import { ContentTypeWorkbench } from "./content-type-workbench"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { getContentType, listContentEntries } from "@/lib/api/content"
+import { getContentEntry, getContentType, listContentEntries } from "@/lib/api/content"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
 export default async function ContentTypePage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     workspaceId: string
     projectId: string
     contentTypeKey: string
   }>
+  searchParams: Promise<{ entry?: string }>
 }) {
   const { workspaceId, projectId, contentTypeKey } = await params
-  const [workspaceResult, typeResult, entriesResult] = await Promise.all([
+  const { entry: selectedEntryId } = await searchParams
+  const [workspaceResult, typeResult, entriesResult, selectedEntryResult] = await Promise.all([
     listMyWorkspaces(),
     getContentType(workspaceId, projectId, contentTypeKey),
     listContentEntries(workspaceId, projectId, contentTypeKey),
+    selectedEntryId
+      ? getContentEntry(workspaceId, projectId, contentTypeKey, selectedEntryId)
+      : Promise.resolve(undefined),
   ])
   const workspace = workspaceResult.ok
     ? workspaceResult.data.find(
@@ -68,6 +74,7 @@ export default async function ContentTypePage({
         entries={entriesResult.ok ? entriesResult.data.items : []}
         entriesError={entriesResult.ok ? null : entriesResult.error.detail}
         canWrite={canWrite}
+        selectedEntry={selectedEntryResult?.ok ? selectedEntryResult.data : undefined}
       />
     </main>
   )
