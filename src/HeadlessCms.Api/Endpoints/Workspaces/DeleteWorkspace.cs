@@ -33,15 +33,36 @@ public sealed class DeleteWorkspace(
             return;
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        // Entries have a non-cascading workspace FK and must be removed first.
-        await db.ContentEntries
-            .Where(entry => entry.WorkspaceId == request.WorkspaceId)
-            .ExecuteDeleteAsync(ct);
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+        var entries = db.ContentEntries.Where(entry => entry.WorkspaceId == request.WorkspaceId);
+        if (db.Database.IsRelational())
+            await entries.ExecuteDeleteAsync(ct);
+        else
+        {
+            db.ContentEntries.RemoveRange(await entries.ToListAsync(ct));
+            db.ContentFields.RemoveRange(await db.ContentFields
+                .Where(field => field.WorkspaceId == request.WorkspaceId)
+                .ToListAsync(ct));
+            db.ContentTypes.RemoveRange(await db.ContentTypes
+                .Where(contentType => contentType.WorkspaceId == request.WorkspaceId)
+                .ToListAsync(ct));
+            db.Projects.RemoveRange(await db.Projects
+                .Where(project => project.WorkspaceId == request.WorkspaceId)
+                .ToListAsync(ct));
+            db.WorkspaceInvitations.RemoveRange(await db.WorkspaceInvitations
+                .Where(invitation => invitation.WorkspaceId == request.WorkspaceId)
+                .ToListAsync(ct));
+            db.WorkspaceMemberships.RemoveRange(await db.WorkspaceMemberships
+                .Where(membership => membership.WorkspaceId == request.WorkspaceId)
+                .ToListAsync(ct));
+        }
         // Database cascades remove projects, content types, fields, memberships, and invitations.
         db.Workspaces.Remove(workspace);
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+        if (transaction is not null)
+            await transaction.CommitAsync(ct);
         await Send.NoContentAsync(ct);
     }
 }

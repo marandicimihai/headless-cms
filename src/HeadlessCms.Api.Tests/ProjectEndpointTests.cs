@@ -14,13 +14,18 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-[Collection<TestAppCollection>]
-public sealed class ProjectEndpointTests(TestApp app) : TestBase
+[Collection<ProjectEndpointCollection>]
+public sealed class ProjectEndpointTests(ProjectEndpointTestApp app) : TestBase
 {
+    private string databaseName = null!;
     protected override async ValueTask SetupAsync()
     {
-        await app.ResetDatabaseAsync();
+        databaseName = app.BeginTestDatabase();
+        await app.InitializeDatabaseAsync();
     }
+
+    protected override async ValueTask TearDownAsync() =>
+        await app.CleanupDatabaseAsync(databaseName);
 
     [Fact]
     public async Task Owner_CanCreateReadUpdateAndDeleteWorkspaceProject()
@@ -461,12 +466,7 @@ public sealed class ProjectEndpointTests(TestApp app) : TestBase
         string accessToken,
         object? body = null)
     {
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", accessToken);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-
-        return await app.HttpsClient.SendAsync(request);
+        return await app.SendAsync(method, path, accessToken, body);
     }
 
     private static string ProjectsPath(Guid workspaceId) =>

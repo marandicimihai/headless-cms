@@ -16,9 +16,10 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-[Collection<TestAppCollection>]
-public sealed class ContentEndpointTests(TestApp app) : TestBase
+[Collection<ContentEndpointCollection>]
+public sealed class ContentEndpointTests(ContentEndpointTestApp app) : TestBase
 {
+    private string databaseName = null!;
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web)
         {
@@ -32,8 +33,12 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
 
     protected override async ValueTask SetupAsync()
     {
-        await app.ResetDatabaseAsync();
+        databaseName = app.BeginTestDatabase();
+        await app.InitializeDatabaseAsync();
     }
+
+    protected override async ValueTask TearDownAsync() =>
+        await app.CleanupDatabaseAsync(databaseName);
 
     [Fact]
     public async Task Owner_CanDefineValidateAndQueryDynamicContent()
@@ -656,13 +661,6 @@ public sealed class ContentEndpointTests(TestApp app) : TestBase
         string accessToken,
         object? body = null)
     {
-        using var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", accessToken);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-
-        return await app.HttpsClient.SendAsync(
-            request,
-            TestContext.Current.CancellationToken);
+        return await app.SendAsync(method, path, accessToken, body);
     }
 }

@@ -13,12 +13,20 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-[Collection<TestAppCollection>]
-public sealed class WorkspaceAdministrationEndpointTests(TestApp app) : TestBase
+[Collection<WorkspaceAdministrationCollection>]
+public sealed class WorkspaceAdministrationEndpointTests(WorkspaceAdministrationTestApp app) : TestBase
 {
+    private string databaseName = null!;
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
-    protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
+    protected override async ValueTask SetupAsync()
+    {
+        databaseName = app.BeginTestDatabase();
+        await app.InitializeDatabaseAsync();
+    }
+
+    protected override async ValueTask TearDownAsync() =>
+        await app.CleanupDatabaseAsync(databaseName);
 
     [Fact]
     public async Task DeleteWorkspace_CascadesOnlyTargetWorkspaceData()

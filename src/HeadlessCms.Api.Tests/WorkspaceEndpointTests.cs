@@ -13,12 +13,20 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-[Collection<TestAppCollection>]
-public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
+[Collection<WorkspaceEndpointCollection>]
+public sealed class WorkspaceEndpointTests(WorkspaceEndpointTestApp app) : TestBase
 {
+    private string databaseName = null!;
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
-    protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
+    protected override async ValueTask SetupAsync()
+    {
+        databaseName = app.BeginTestDatabase();
+        await app.InitializeDatabaseAsync();
+    }
+
+    protected override async ValueTask TearDownAsync() =>
+        await app.CleanupDatabaseAsync(databaseName);
 
     [Fact]
     public async Task WorkspaceCreator_BecomesOwnerAndCanInviteEditor()
@@ -172,10 +180,10 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
         var newToken = sender.Sent.Last().Token;
         newToken.ShouldNotBe(oldToken);
 
-        using var oldPreview = await app.HttpsClient.PostAsJsonAsync(
+        using var oldPreview = await app.SendAnonymousAsync(
+            HttpMethod.Post,
             "/api/auth/invitations/preview",
-            new { token = oldToken },
-            ct);
+            new { token = oldToken });
         oldPreview.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         using var list = await SendAsync(
@@ -196,10 +204,10 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
             setup.OwnerToken);
         revoke.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        using var revokedPreview = await app.HttpsClient.PostAsJsonAsync(
+        using var revokedPreview = await app.SendAnonymousAsync(
+            HttpMethod.Post,
             "/api/auth/invitations/preview",
-            new { token = newToken },
-            ct);
+            new { token = newToken });
         revokedPreview.StatusCode.ShouldBe(HttpStatusCode.Gone);
     }
 
@@ -230,11 +238,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
 
     private async Task<string> LoginAsync(string email, string password)
     {
-        using var response = await app.HttpsClient.PostAsJsonAsync(
-            "/api/auth/login",
-            new { email, password });
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return TestApp.ExtractSessionCookie(response);
+        return await app.LoginAsync(email, password);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -243,11 +247,7 @@ public sealed class WorkspaceEndpointTests(TestApp app) : TestBase
         string token,
         object? body = null)
     {
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", token);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-        return await app.HttpsClient.SendAsync(request);
+        return await app.SendAsync(method, path, token, body);
     }
 
     private static JsonSerializerOptions CreateJsonOptions()

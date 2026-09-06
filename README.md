@@ -348,10 +348,13 @@ TEST_POSTGRES_IMAGE=postgres:17-alpine \
   dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 ```
 
-The test suite uses xUnit, `FastEndpoints.Testing`, one shared `TestApp`
-fixture, and Shouldly to boot the complete API pipeline. Every test runs
-against a disposable PostgreSQL Testcontainer; the database schema is reset
-and all migrations are reapplied before each test.
+The test suite uses xUnit, `FastEndpoints.Testing`, and Shouldly to boot the
+complete API pipeline. Endpoint behavior tests run in parallel against EF Core
+InMemory using one application host per collection, test authentication, a
+unique database per test, and teardown cleanup. Authentication, concurrency,
+migration, relational-constraint, and PostgreSQL-specific tests share a
+serialized disposable PostgreSQL Testcontainer; its schema is reset and all
+migrations are reapplied before each test.
 
 Apply PostgreSQL migrations:
 

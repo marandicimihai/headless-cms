@@ -14,12 +14,20 @@ using Xunit;
 
 namespace HeadlessCms.Api.Tests;
 
-[Collection<TestAppCollection>]
-public sealed class WorkspaceMembershipEndpointTests(TestApp app) : TestBase
+[Collection<WorkspaceMembershipCollection>]
+public sealed class WorkspaceMembershipEndpointTests(WorkspaceMembershipTestApp app) : TestBase
 {
+    private string databaseName = null!;
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
-    protected override async ValueTask SetupAsync() => await app.ResetDatabaseAsync();
+    protected override async ValueTask SetupAsync()
+    {
+        databaseName = app.BeginTestDatabase();
+        await app.InitializeDatabaseAsync();
+    }
+
+    protected override async ValueTask TearDownAsync() =>
+        await app.CleanupDatabaseAsync(databaseName);
 
     [Fact]
     public async Task Owner_CanRemoveMember()

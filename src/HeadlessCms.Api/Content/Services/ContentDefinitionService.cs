@@ -155,6 +155,22 @@ public class ContentDefinitionService(
         if (contentType is null)
             return false;
 
+        if (!db.Database.IsRelational())
+        {
+            db.ContentEntries.RemoveRange(await db.ContentEntries
+                .Where(entry =>
+                    entry.WorkspaceId == workspaceId &&
+                    entry.ProjectId == projectId &&
+                    entry.ContentTypeId == contentType.Id)
+                .ToListAsync(ct));
+            db.ContentFields.RemoveRange(await db.ContentFields
+                .Where(field =>
+                    field.WorkspaceId == workspaceId &&
+                    field.ProjectId == projectId &&
+                    field.ContentTypeId == contentType.Id)
+                .ToListAsync(ct));
+        }
+
         db.ContentTypes.Remove(contentType);
         await db.SaveChangesAsync(ct);
         return true;
