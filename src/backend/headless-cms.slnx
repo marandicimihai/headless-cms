@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj" />
+  <Project Path="HeadlessCms.Api/HeadlessCms.Api.csproj" />
+</Solution>

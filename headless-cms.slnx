@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj" />
-    <Project Path="src/HeadlessCms.Api/HeadlessCms.Api.csproj" />
-  </Folder>
-</Solution>

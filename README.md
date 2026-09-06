@@ -21,19 +21,21 @@ This project focuses on a clean API-first approach so content can be managed onc
 
 ```text
 headless-cms/
-├── headless-cms.slnx
 └── src/
-    ├── HeadlessCms.Api/
-    │   ├── Auth/
-    │   ├── Content/
-    │   │   └── Models/
-    │   ├── Endpoints/
+    ├── backend/
+    │   ├── headless-cms.slnx
+    │   ├── HeadlessCms.Api/
     │   │   ├── Auth/
     │   │   ├── Content/
-    │   │   ├── Projects/
+    │   │   │   └── Models/
+    │   │   ├── Endpoints/
+    │   │   │   ├── Auth/
+    │   │   │   ├── Content/
+    │   │   │   ├── Projects/
+    │   │   │   └── Workspaces/
     │   │   └── Workspaces/
-    │   └── Workspaces/
-    └── HeadlessCms.Api.Tests/
+    │   └── HeadlessCms.Api.Tests/
+    └── frontend/
 ```
 
 Endpoints use vertical slices: each endpoint has its own file containing its
@@ -138,21 +140,21 @@ Apply the EF Core migrations:
 
 ```bash
 dotnet ef database update \
-  --project src/HeadlessCms.Api/HeadlessCms.Api.csproj \
-  --startup-project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+  --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj \
+  --startup-project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
 
 Build and test the API:
 
 ```bash
-dotnet build headless-cms.slnx
-dotnet test headless-cms.slnx
+dotnet build src/backend/headless-cms.slnx
+dotnet test src/backend/headless-cms.slnx
 ```
 
 Run the API locally:
 
 ```bash
-dotnet run --project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+dotnet run --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
 
 Run and verify the frontend:
@@ -329,14 +331,14 @@ workspaces, memberships, and authentication data.
 Restore and build the solution:
 
 ```bash
-dotnet restore headless-cms.slnx
-dotnet build headless-cms.slnx --no-restore
+dotnet restore src/backend/headless-cms.slnx
+dotnet build src/backend/headless-cms.slnx --no-restore
 ```
 
 Run the integration tests:
 
 ```bash
-dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
+dotnet test src/backend/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 ```
 
 Docker must be running because the standard test command includes PostgreSQL
@@ -345,7 +347,7 @@ Docker must be running because the standard test command includes PostgreSQL
 
 ```bash
 TEST_POSTGRES_IMAGE=postgres:17-alpine \
-  dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
+  dotnet test src/backend/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj
 ```
 
 The test suite uses xUnit, `FastEndpoints.Testing`, and Shouldly to boot the
@@ -360,7 +362,7 @@ Apply PostgreSQL migrations:
 
 ```bash
 dotnet tool restore
-dotnet ef database update --project src/HeadlessCms.Api/HeadlessCms.Api.csproj
+dotnet ef database update --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
 
 Configure PostgreSQL with `ConnectionStrings__DefaultConnection` or the
@@ -395,5 +397,5 @@ without projects and projects without content types.
 Verify these contracts against PostgreSQL with Docker running:
 
 ```bash
-dotnet test src/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj --filter FullyQualifiedName~PreviewEndpointTests
+dotnet test src/backend/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj --filter FullyQualifiedName~PreviewEndpointTests
 ```
