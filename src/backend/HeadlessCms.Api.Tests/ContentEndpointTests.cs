@@ -246,6 +246,126 @@ public sealed class ContentEndpointTests(ContentEndpointTestApp app) : TestBase
     }
 
     [Fact]
+    public async Task ListEntries_SortsAndFiltersSystemAndSchemaFields()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var token = await LoginAsync("owner", "owner-password");
+        var project = await CreateProjectAsync(workspace.Id, token);
+
+        var definition = await SendAsync(
+            HttpMethod.Post,
+            ContentTypesPath(workspace.Id, project.Id),
+            token,
+            ArticleDefinition());
+        definition.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var alpha = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Alpha", views = 10, published = false });
+        var beta = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Beta", views = 20, published = true });
+        var gamma = await CreateEntryAsync(
+            workspace.Id,
+            project.Id,
+            token,
+            new { title = "Gamma", views = 30, published = true });
+
+        var firstTimestamp = new DateTime(2026, 9, 1, 9, 0, 0, DateTimeKind.Utc);
+        var secondTimestamp = firstTimestamp.AddHours(1);
+        var thirdTimestamp = firstTimestamp.AddHours(2);
+        await app.WithDatabaseAsync(async db =>
+        {
+            var entries = await db.ContentEntries
+                .Where(entry => entry.Id == alpha.Id || entry.Id == beta.Id || entry.Id == gamma.Id)
+                .ToListAsync(ct);
+            entries.Single(entry => entry.Id == alpha.Id).CreatedAt = firstTimestamp;
+            entries.Single(entry => entry.Id == alpha.Id).UpdatedAt = secondTimestamp;
+            entries.Single(entry => entry.Id == beta.Id).CreatedAt = secondTimestamp;
+            entries.Single(entry => entry.Id == beta.Id).UpdatedAt = secondTimestamp;
+            entries.Single(entry => entry.Id == gamma.Id).CreatedAt = thirdTimestamp;
+            entries.Single(entry => entry.Id == gamma.Id).UpdatedAt = thirdTimestamp;
+            entries.Single(entry => entry.Id == gamma.Id).Status = ContentEntryStatus.Published;
+            await db.SaveChangesAsync(ct);
+            return true;
+        });
+
+        async Task<ListContentEntriesResponse> ListAsync(string query = "")
+        {
+            var response = await SendAsync(
+                HttpMethod.Get,
+                $"{EntriesPath(workspace.Id, project.Id)}{query}",
+                token);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var page = await response.Content.ReadFromJsonAsync<ListContentEntriesResponse>(
+                JsonOptions,
+                cancellationToken: ct);
+            page.ShouldNotBeNull();
+            return page;
+        }
+
+        var idsTiedByUpdatedAt = new[] { alpha.Id, beta.Id }.OrderBy(id => id);
+        var defaultPage = await ListAsync();
+        defaultPage.Items.Select(entry => entry.Id)
+            .ShouldBe(new[] { gamma.Id }.Concat(idsTiedByUpdatedAt));
+
+        var createdAscending = await ListAsync("?sort=$createdAt");
+        createdAscending.Items.Select(entry => entry.Id).ShouldBe([alpha.Id, beta.Id, gamma.Id]);
+
+        var updatedAscending = await ListAsync("?sort=$updatedAt");
+        updatedAscending.Items.Select(entry => entry.Id)
+            .ShouldBe(idsTiedByUpdatedAt.Append(gamma.Id));
+
+        var statusAscending = await ListAsync("?sort=$status");
+        statusAscending.Items.Select(entry => entry.Status)
+            .ShouldBe([ContentEntryStatus.Draft, ContentEntryStatus.Draft, ContentEntryStatus.Published]);
+
+        var idDescending = await ListAsync("?sort=-$id");
+        idDescending.Items.Select(entry => entry.Id)
+            .ShouldBe(new[] { alpha.Id, beta.Id, gamma.Id }.OrderDescending());
+
+        var titleDescending = await ListAsync("?sort=-title");
+        titleDescending.Items.Select(entry => entry.Id).ShouldBe([gamma.Id, beta.Id, alpha.Id]);
+
+        var idFilter = await ListAsync($"?filter[$id][eq]={beta.Id}");
+        idFilter.Items.Select(entry => entry.Id).ShouldBe([beta.Id]);
+
+        var statusFilter = await ListAsync("?filter[$status][eq]=published");
+        statusFilter.Items.Select(entry => entry.Id).ShouldBe([gamma.Id]);
+
+        var timestampFilter = await ListAsync(
+            "?filter[$updatedAt][gte]=2026-09-01T10:00:00Z");
+        timestampFilter.Items.Select(entry => entry.Id)
+            .ShouldBe(new[] { gamma.Id }.Concat(idsTiedByUpdatedAt));
+
+        var schemaFilters = await ListAsync(
+            "?filter[title][contains]=a&filter[views][gte]=20&filter[published][eq]=true");
+        schemaFilters.Items.Select(entry => entry.Id).ShouldBe([gamma.Id, beta.Id]);
+
+        var paged = await ListAsync("?sort=title&page=2&pageSize=1");
+        paged.Page.ShouldBe(2);
+        paged.Items.Select(entry => entry.Id).ShouldBe([beta.Id]);
+
+        var invalidTimestamp = await SendAsync(
+            HttpMethod.Get,
+            $"{EntriesPath(workspace.Id, project.Id)}?filter[$updatedAt][gt]=not-a-date",
+            token);
+        invalidTimestamp.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var invalidSort = await SendAsync(
+            HttpMethod.Get,
+            $"{EntriesPath(workspace.Id, project.Id)}?sort=$missing",
+            token);
+        invalidSort.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Membership_DoesNotGrantAccessToAnotherWorkspace()
     {
         var user = await app.SeedUserAsync("editor", "password");

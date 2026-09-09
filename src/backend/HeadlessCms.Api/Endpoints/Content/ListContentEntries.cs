@@ -14,7 +14,7 @@ public sealed class ListContentEntries(
     : Endpoint<ListContentEntriesRequest, ListContentEntriesResponse>
 {
     private static readonly Regex FilterPattern = new(
-        @"^filter\[(?<field>[a-z][a-z0-9_]*)\]\[(?<operator>[a-z]+)\]$",
+        @"^filter\[(?<field>\$[a-z][a-zA-Z]*|[a-z][a-z0-9_]*)\]\[(?<operator>[a-z]+)\]$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public override void Configure()

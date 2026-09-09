@@ -6,6 +6,43 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { getContentEntry, getContentType, listContentEntries } from "@/lib/api/content"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
+import type { ContentEntryFilter, ContentEntryFilterOperator } from "@/lib/types/content"
+
+const supportedFilterOperators = new Set<ContentEntryFilterOperator>([
+  "eq",
+  "contains",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+])
+
+function firstValue(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : value?.[0]
+}
+
+function parseFilters(searchParams: Record<string, string | string[] | undefined>) {
+  const filters: ContentEntryFilter[] = []
+  const filterPattern = /^filter\[([$a-z][a-zA-Z0-9_]*)\]\[([a-z]+)\]$/
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    const match = filterPattern.exec(key)
+    if (!match || !supportedFilterOperators.has(match[2] as ContentEntryFilterOperator)) {
+      continue
+    }
+
+    for (const filterValue of Array.isArray(value) ? value : [value]) {
+      if (typeof filterValue !== "string" || !filterValue) continue
+      filters.push({
+        field: match[1],
+        operator: match[2] as ContentEntryFilterOperator,
+        value: filterValue,
+      })
+    }
+  }
+
+  return filters
+}
 
 export default async function ContentTypePage({
   params,
@@ -16,14 +53,17 @@ export default async function ContentTypePage({
     projectId: string
     contentTypeKey: string
   }>
-  searchParams: Promise<{ entry?: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { workspaceId, projectId, contentTypeKey } = await params
-  const { entry: selectedEntryId } = await searchParams
+  const query = await searchParams
+  const selectedEntryId = firstValue(query.entry)
+  const sort = firstValue(query.sort)
+  const filters = parseFilters(query)
   const [workspaceResult, typeResult, entriesResult, selectedEntryResult] = await Promise.all([
     listMyWorkspaces(),
     getContentType(workspaceId, projectId, contentTypeKey),
-    listContentEntries(workspaceId, projectId, contentTypeKey),
+    listContentEntries(workspaceId, projectId, contentTypeKey, { filters, sort }),
     selectedEntryId
       ? getContentEntry(workspaceId, projectId, contentTypeKey, selectedEntryId)
       : Promise.resolve(undefined),
@@ -74,6 +114,8 @@ export default async function ContentTypePage({
         entries={entriesResult.ok ? entriesResult.data.items : []}
         entriesError={entriesResult.ok ? null : entriesResult.error.detail}
         canWrite={canWrite}
+        filters={filters}
+        sort={sort}
         selectedEntry={selectedEntryResult?.ok ? selectedEntryResult.data : undefined}
       />
     </main>

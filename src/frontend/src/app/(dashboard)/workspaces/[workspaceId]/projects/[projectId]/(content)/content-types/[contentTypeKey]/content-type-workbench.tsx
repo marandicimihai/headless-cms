@@ -1,7 +1,8 @@
 "use client"
 
 import { type KeyboardEvent, useState } from "react"
-import { Plus } from "lucide-react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { ArrowDown, ArrowUp, ChevronsUpDown, Funnel, Plus, X } from "lucide-react"
 
 import {
   createContentEntryAction,
@@ -14,6 +15,21 @@ import { EntryEditor } from "./entry-editor"
 import { CopyableId } from "@/components/copyable-id"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -30,12 +46,34 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { ContentEntry, ContentType } from "@/lib/types/content"
+import type {
+  ContentEntry,
+  ContentEntryFilter,
+  ContentEntryFilterOperator,
+  ContentFieldType,
+  ContentType,
+} from "@/lib/types/content"
 
 type EditorPanel =
   | { kind: "schema" }
   | { kind: "entry"; entry?: ContentEntry }
   | null
+
+type FilterField = {
+  key: string
+  label: string
+  type: ContentFieldType | "id" | "status" | "timestamp"
+}
+
+type DraftFilter = Partial<ContentEntryFilter>
+
+const defaultSort = "-$updatedAt"
+const systemFilterFields: FilterField[] = [
+  { key: "$id", label: "$id", type: "id" },
+  { key: "$status", label: "$status", type: "status" },
+  { key: "$createdAt", label: "$createdAt", type: "timestamp" },
+  { key: "$updatedAt", label: "$updatedAt", type: "timestamp" },
+]
 
 const entryTimestampFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
@@ -54,6 +92,8 @@ export function ContentTypeWorkbench({
   entries,
   entriesError,
   canWrite,
+  filters,
+  sort,
   selectedEntry,
 }: {
   workspaceId: string
@@ -62,11 +102,27 @@ export function ContentTypeWorkbench({
   entries: ContentEntry[]
   entriesError: string | null
   canWrite: boolean
+  filters: ContentEntryFilter[]
+  sort?: string
   selectedEntry?: ContentEntry
 }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [panel, setPanel] = useState<EditorPanel>(
     canWrite && selectedEntry ? { kind: "entry", entry: selectedEntry } : null,
   )
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [draftFilters, setDraftFilters] = useState<DraftFilter[]>([])
+  const filterFields: FilterField[] = [
+    ...systemFilterFields,
+    ...contentType.fields.map((field) => ({
+      key: field.key,
+      label: field.key,
+      type: field.type,
+    })),
+  ]
+  const effectiveSort = sort || defaultSort
 
   function openFromKeyboard(
     event: KeyboardEvent<HTMLTableRowElement>,
@@ -76,6 +132,114 @@ export function ContentTypeWorkbench({
 
     event.preventDefault()
     open()
+  }
+
+  function updateSearchParams(
+    update: (params: URLSearchParams) => void,
+  ) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("page")
+    update(params)
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  function sortDirection(field: string) {
+    if (effectiveSort === field) return "ascending" as const
+    if (effectiveSort === `-${field}`) return "descending" as const
+    return undefined
+  }
+
+  function toggleSort(field: string) {
+    const direction = sortDirection(field)
+    const nextSort =
+      field === "$updatedAt"
+        ? direction === "ascending"
+          ? "-$updatedAt"
+          : "$updatedAt"
+        : direction === "ascending"
+          ? `-${field}`
+          : direction === "descending"
+            ? undefined
+            : field
+
+    updateSearchParams((params) => {
+      if (nextSort) params.set("sort", nextSort)
+      else params.delete("sort")
+    })
+  }
+
+  function replaceFilters(nextFilters: ContentEntryFilter[]) {
+    updateSearchParams((params) => {
+      for (const key of Array.from(params.keys())) {
+        if (key.startsWith("filter[")) params.delete(key)
+      }
+      for (const filter of nextFilters) {
+        params.append(
+          `filter[${filter.field}][${filter.operator}]`,
+          filter.value,
+        )
+      }
+    })
+  }
+
+  function isCompleteFilter(filter: DraftFilter): filter is ContentEntryFilter {
+    if (!filter.field || !filter.operator || !filter.value?.trim()) return false
+
+    const field = filterFields.find((item) => item.key === filter.field)
+    if (!field || !filterOperators(field.type).some((item) => item.value === filter.operator)) {
+      return false
+    }
+
+    if (field.type === "number") return Number.isFinite(Number(filter.value))
+    if (field.type === "boolean") return filter.value === "true" || filter.value === "false"
+    if (field.type === "status") return filter.value === "draft" || filter.value === "published"
+    if (field.type === "id") {
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filter.value)
+    }
+    if (field.type === "timestamp") {
+      return filter.value.includes("T") && !Number.isNaN(Date.parse(filter.value))
+    }
+
+    return true
+  }
+
+  function commitDraftFilters(nextDraftFilters = draftFilters) {
+    replaceFilters(nextDraftFilters.filter(isCompleteFilter))
+  }
+
+  function openFilters(open: boolean) {
+    if (open) {
+      setDraftFilters(filters)
+    } else {
+      commitDraftFilters()
+    }
+    setFiltersOpen(open)
+  }
+
+  function updateDraftFilter(index: number, patch: DraftFilter) {
+    setDraftFilters((current) =>
+      current.map((filter, filterIndex) =>
+        filterIndex === index ? { ...filter, ...patch } : filter,
+      ),
+    )
+  }
+
+  function addFilter() {
+    const committedFilters = draftFilters.filter(isCompleteFilter)
+    commitDraftFilters(committedFilters)
+    setDraftFilters([...committedFilters, {}])
+  }
+
+  function removeFilter(index: number) {
+    const nextFilters = draftFilters.filter((_, filterIndex) => filterIndex !== index)
+    setDraftFilters(nextFilters)
+    commitDraftFilters(nextFilters)
+  }
+
+  function clearFilters() {
+    setDraftFilters([])
+    replaceFilters([])
   }
 
   const closePanel = () => setPanel(null)
@@ -171,6 +335,132 @@ export function ContentTypeWorkbench({
         </TabsContent>
 
         <TabsContent value="entries">
+          <div className="mb-3 flex justify-start">
+            <Popover open={filtersOpen} onOpenChange={openFilters}>
+              <PopoverTrigger
+                render={<Button variant="outline" size="sm" aria-label="Filter entries" />}
+              >
+                <Funnel />
+                Filter
+                {filters.length ? (
+                  <span className="flex size-4 items-center justify-center rounded-full bg-muted text-[0.65rem] tabular-nums">
+                    {filters.length}
+                  </span>
+                ) : null}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[min(34rem,calc(100vw-2rem))] max-w-none gap-3">
+                <PopoverHeader className="flex-row items-center justify-between gap-3">
+                  <PopoverTitle>Filter entries</PopoverTitle>
+                  {filters.length ? (
+                    <Button variant="ghost" size="xs" onClick={clearFilters}>
+                      Clear all
+                    </Button>
+                  ) : null}
+                </PopoverHeader>
+                {draftFilters.length ? (
+                  <div className="flex flex-col gap-2">
+                    {draftFilters.map((filter, index) => {
+                      const field = filterFields.find((item) => item.key === filter.field)
+                      const operators = field ? filterOperators(field.type) : []
+
+                      return (
+                        <div key={`${filter.field ?? "new"}-${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1.5">
+                          <Select
+                            value={filter.field}
+                            onValueChange={(value) => {
+                              if (!value) return
+                              const nextField = filterFields.find((item) => item.key === value)
+                              updateDraftFilter(index, {
+                                field: value,
+                                operator: nextField ? filterOperators(nextField.type)[0]?.value : undefined,
+                                value: undefined,
+                              })
+                            }}
+                          >
+                            <SelectTrigger size="sm" aria-label={`Filter ${index + 1} field`} className="w-full">
+                              <SelectValue placeholder="Field">
+                                {(value) => filterFields.find((item) => item.key === value)?.label ?? "Field"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent align="start" alignItemWithTrigger={false}>
+                              {filterFields.map((item) => (
+                                <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={filter.operator}
+                            disabled={!field}
+                            onValueChange={(value) => updateDraftFilter(index, {
+                              operator: value as ContentEntryFilterOperator,
+                            })}
+                          >
+                            <SelectTrigger size="sm" aria-label={`Filter ${index + 1} operator`} className="w-full">
+                              <SelectValue placeholder="Operator">
+                                {(value) => operators.find((item) => item.value === value)?.label ?? "Operator"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent align="start" alignItemWithTrigger={false}>
+                              {operators.map((operator) => (
+                                <SelectItem key={operator.value} value={operator.value}>{operator.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {field?.type === "status" || field?.type === "boolean" ? (
+                            <Select
+                              value={filter.value}
+                              disabled={!field}
+                              onValueChange={(value) => {
+                                if (value) updateDraftFilter(index, { value })
+                              }}
+                            >
+                              <SelectTrigger size="sm" aria-label={`Filter ${index + 1} value`} className="w-full">
+                                <SelectValue placeholder="Value" />
+                              </SelectTrigger>
+                              <SelectContent align="start" alignItemWithTrigger={false}>
+                                {filterValues(field.type).map((value) => (
+                                  <SelectItem key={value.value} value={value.value}>{value.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              aria-label={`Filter ${index + 1} value`}
+                              disabled={!field}
+                              placeholder={field?.type === "timestamp" ? "2026-09-09T12:00:00Z" : "Value"}
+                              value={filter.value ?? ""}
+                              onChange={(event) => updateDraftFilter(index, { value: event.target.value })}
+                            />
+                          )}
+                          <Button
+                            aria-label={`Remove filter ${index + 1}`}
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => removeFilter(index)}
+                          >
+                            <X />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Add rules to narrow the entries shown.</p>
+                )}
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" size="sm" onClick={addFilter}>
+                    <Plus />
+                    Add filter
+                  </Button>
+                  {draftFilters.length ? (
+                    <Button size="sm" onClick={() => openFilters(false)}>
+                      Done
+                    </Button>
+                  ) : null}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           {entriesError ? (
             <Alert variant="destructive">
               <AlertTitle>Unable to load entries</AlertTitle>
@@ -191,23 +481,52 @@ export function ContentTypeWorkbench({
                   {canWrite ? <col className="w-8" /> : null}
                 </colgroup>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-8 min-w-8 max-w-8 px-1 text-right" aria-label="Index">
+                  <TableRow className="h-11 hover:bg-transparent">
+                    <TableHead className="h-11 w-8 min-w-8 max-w-8 px-1 text-right" aria-label="Index">
                       #
                     </TableHead>
-                    <TableHead className="w-52 min-w-52 max-w-52">$id</TableHead>
+                    <SortableTableHead
+                      className="w-52 min-w-52 max-w-52"
+                      direction={sortDirection("$id")}
+                      field="$id"
+                      label="$id"
+                      onSort={toggleSort}
+                    />
                     {contentType.fields.map((field) => (
-                      <TableHead key={field.key} className="w-44 min-w-44 max-w-44">
-                        {field.key}
-                      </TableHead>
+                      <SortableTableHead
+                        key={field.key}
+                        className="w-44 min-w-44 max-w-44"
+                        direction={sortDirection(field.key)}
+                        field={field.key}
+                        label={field.key}
+                        onSort={toggleSort}
+                      />
                     ))}
-                    <TableHead className="w-32 min-w-32 max-w-32">$status</TableHead>
-                    <TableHead className="w-44 min-w-44 max-w-44">$createdAt</TableHead>
-                    <TableHead className="w-44 min-w-44 max-w-44">$updatedAt</TableHead>
+                    <SortableTableHead
+                      className="w-32 min-w-32 max-w-32"
+                      direction={sortDirection("$status")}
+                      field="$status"
+                      label="$status"
+                      onSort={toggleSort}
+                    />
+                    <SortableTableHead
+                      className="w-44 min-w-44 max-w-44"
+                      direction={sortDirection("$createdAt")}
+                      field="$createdAt"
+                      label="$createdAt"
+                      onSort={toggleSort}
+                    />
+                    <SortableTableHead
+                      className="w-44 min-w-44 max-w-44"
+                      direction={sortDirection("$updatedAt")}
+                      field="$updatedAt"
+                      label="$updatedAt"
+                      onSort={toggleSort}
+                    />
                     {canWrite ? (
                       <TableHead
                         aria-hidden="true"
-                        className="invisible sticky right-0 z-10 w-8 min-w-8 max-w-8 p-0"
+                        className="invisible sticky right-0 z-10 h-11 w-8 min-w-8 max-w-8 p-0"
                       />
                     ) : null}
                   </TableRow>
@@ -272,6 +591,14 @@ export function ContentTypeWorkbench({
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          ) : filters.length ? (
+            <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-xl border text-center">
+              <p className="text-sm font-semibold">No matching entries</p>
+              <p className="text-sm text-muted-foreground">Try adjusting or clearing the active filters.</p>
+              <Button size="sm" variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : (
             <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-xl border text-center">
@@ -347,6 +674,86 @@ export function ContentTypeWorkbench({
       </Sheet>
     </>
   )
+}
+
+function SortableTableHead({
+  className,
+  direction,
+  field,
+  label,
+  onSort,
+}: {
+  className?: string
+  direction?: "ascending" | "descending"
+  field: string
+  label: string
+  onSort: (field: string) => void
+}) {
+  const icon =
+    direction === "ascending" ? (
+      <ArrowUp />
+    ) : direction === "descending" ? (
+      <ArrowDown />
+    ) : (
+      <ChevronsUpDown className="text-muted-foreground" />
+    )
+
+  return (
+    <TableHead aria-sort={direction ?? "none"} className={`h-11 py-2 ${className ?? ""}`}>
+      <Button
+        aria-label={`Sort by ${label}${direction ? `, currently ${direction}` : ""}`}
+        className="-ml-2 h-7 max-w-[calc(100%+1rem)] justify-start px-2"
+        size="sm"
+        variant="ghost"
+        onClick={() => onSort(field)}
+      >
+        <span className="truncate">{label}</span>
+        {icon}
+      </Button>
+    </TableHead>
+  )
+}
+
+function filterOperators(type: FilterField["type"]) {
+  switch (type) {
+    case "text":
+      return [
+        { value: "eq" as const, label: "Is" },
+        { value: "contains" as const, label: "Contains" },
+      ]
+    case "number":
+      return [
+        { value: "eq" as const, label: "Is" },
+        { value: "gt" as const, label: "Greater than" },
+        { value: "gte" as const, label: "At least" },
+        { value: "lt" as const, label: "Less than" },
+        { value: "lte" as const, label: "At most" },
+      ]
+    case "timestamp":
+      return [
+        { value: "eq" as const, label: "Is" },
+        { value: "gt" as const, label: "After" },
+        { value: "gte" as const, label: "On or after" },
+        { value: "lt" as const, label: "Before" },
+        { value: "lte" as const, label: "On or before" },
+      ]
+    default:
+      return [{ value: "eq" as const, label: "Is" }]
+  }
+}
+
+function filterValues(type: FilterField["type"]) {
+  if (type === "status") {
+    return [
+      { value: "draft", label: "Draft" },
+      { value: "published", label: "Published" },
+    ]
+  }
+
+  return [
+    { value: "true", label: "True" },
+    { value: "false", label: "False" },
+  ]
 }
 
 function formatValue(value: unknown) {

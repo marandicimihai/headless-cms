@@ -45,6 +45,7 @@ builder.Services.AddScoped<WorkspaceOwnershipLimitService>();
 builder.Services.AddScoped<ContentDocumentValidator>();
 builder.Services.AddScoped<ContentDefinitionService>();
 builder.Services.AddScoped<ContentEntryService>();
+builder.Services.AddScoped<WorkspaceSearchService>();
 if (builder.Environment.IsDevelopment())
     builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
 else

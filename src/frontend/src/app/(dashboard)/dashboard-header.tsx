@@ -7,9 +7,7 @@ import {
   Boxes,
   ChevronsUpDown,
   LogOut,
-  Search,
   Settings,
-  User,
 } from "lucide-react"
 
 import { logoutAction } from "@/app/auth/logout/actions"
@@ -24,8 +22,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { WorkspaceProjectSwitcher } from "@/app/(dashboard)/workspaces/[workspaceId]/workspace-project-switcher"
+import { WorkspaceSearch } from "@/app/(dashboard)/workspace-search"
 import type { Project } from "@/lib/types/projects"
 import type { WorkspaceSummary } from "@/lib/types/workspaces"
 
@@ -69,10 +67,12 @@ export function DashboardHeader({
       {workspaceContext ? (
         <WorkspaceProjectSwitcher {...workspaceContext} />
       ) : null}
-      <div className="relative hidden w-full max-w-sm sm:ml-4 sm:block">
-        <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-8" placeholder="Search content..." type="search" />
-      </div>
+      {workspaceContext ? (
+        <WorkspaceSearch
+          key={workspaceContext.workspace.id}
+          workspaceId={workspaceContext.workspace.id}
+        />
+      ) : null}
       <Button
         aria-label="Notifications"
         className="ml-auto"
@@ -103,18 +103,24 @@ export function DashboardHeader({
           <ChevronsUpDown className="hidden size-4 md:block" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>My account</DropdownMenuLabel>
-            <DropdownMenuItem>
-              <User />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings />
-              Settings
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
+          {workspaceContext ? (
+            <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href={`/workspaces/${workspaceContext.workspace.id}/manage`}
+                  />
+                }
+              >
+                <Settings />
+                Workspace settings
+              </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem
             disabled={isLoggingOut}
             variant="destructive"

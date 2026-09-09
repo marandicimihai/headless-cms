@@ -173,6 +173,12 @@ public class ContentEntryService(
 
         foreach (var filter in options.Filters)
         {
+            if (filter.FieldKey.StartsWith('$'))
+            {
+                query = ApplySystemFilter(query, filter);
+                continue;
+            }
+
             if (!fields.TryGetValue(filter.FieldKey, out var field))
             {
                 throw new ContentValidationException(
@@ -207,6 +213,88 @@ public class ContentEntryService(
             ContentFieldType.Boolean => ApplyBooleanFilter(query, field.Key, operation, filter.Value),
             _ => throw new ContentValidationException(
                 $"Field '{field.Key}' has an unsupported filter type.")
+        };
+    }
+
+    private static IQueryable<ContentEntry> ApplySystemFilter(
+        IQueryable<ContentEntry> query,
+        ContentFilter filter)
+    {
+        return filter.FieldKey switch
+        {
+            "$id" => ApplyIdFilter(query, filter),
+            "$status" => ApplyStatusFilter(query, filter),
+            "$createdAt" => ApplyTimestampFilter(query, filter, createdAt: true),
+            "$updatedAt" => ApplyTimestampFilter(query, filter, createdAt: false),
+            _ => throw new ContentValidationException(
+                $"Field '{filter.FieldKey}' is not declared by the content type.")
+        };
+    }
+
+    private static IQueryable<ContentEntry> ApplyIdFilter(
+        IQueryable<ContentEntry> query,
+        ContentFilter filter)
+    {
+        if (filter.Operator.ToLowerInvariant() != "eq" ||
+            !Guid.TryParse(filter.Value, out var id))
+        {
+            throw new ContentValidationException(
+                "$id supports only the eq operator with a valid UUID.");
+        }
+
+        return query.Where(entry => entry.Id == id);
+    }
+
+    private static IQueryable<ContentEntry> ApplyStatusFilter(
+        IQueryable<ContentEntry> query,
+        ContentFilter filter)
+    {
+        if (filter.Operator.ToLowerInvariant() != "eq" ||
+            (!filter.Value.Equals("draft", StringComparison.OrdinalIgnoreCase) &&
+             !filter.Value.Equals("published", StringComparison.OrdinalIgnoreCase)) ||
+            !Enum.TryParse<ContentEntryStatus>(
+                filter.Value,
+                ignoreCase: true,
+                out var status))
+        {
+            throw new ContentValidationException(
+                "$status supports only the eq operator with draft or published.");
+        }
+
+        return query.Where(entry => entry.Status == status);
+    }
+
+    private static IQueryable<ContentEntry> ApplyTimestampFilter(
+        IQueryable<ContentEntry> query,
+        ContentFilter filter,
+        bool createdAt)
+    {
+        if (!filter.Value.Contains('T') || !DateTimeOffset.TryParse(
+                filter.Value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                out var parsedTimestamp))
+        {
+            throw new ContentValidationException(
+                $"Filter value '{filter.Value}' is not a valid ISO-8601 timestamp.");
+        }
+
+        var timestamp = parsedTimestamp.UtcDateTime;
+
+        return (createdAt, filter.Operator.ToLowerInvariant()) switch
+        {
+            (true, "eq") => query.Where(entry => entry.CreatedAt == timestamp),
+            (true, "gt") => query.Where(entry => entry.CreatedAt > timestamp),
+            (true, "gte") => query.Where(entry => entry.CreatedAt >= timestamp),
+            (true, "lt") => query.Where(entry => entry.CreatedAt < timestamp),
+            (true, "lte") => query.Where(entry => entry.CreatedAt <= timestamp),
+            (false, "eq") => query.Where(entry => entry.UpdatedAt == timestamp),
+            (false, "gt") => query.Where(entry => entry.UpdatedAt > timestamp),
+            (false, "gte") => query.Where(entry => entry.UpdatedAt >= timestamp),
+            (false, "lt") => query.Where(entry => entry.UpdatedAt < timestamp),
+            (false, "lte") => query.Where(entry => entry.UpdatedAt <= timestamp),
+            _ => throw new ContentValidationException(
+                "Timestamps support eq, gt, gte, lt, and lte operators.")
         };
     }
 
@@ -282,10 +370,26 @@ public class ContentEntryService(
         string? sort)
     {
         if (string.IsNullOrWhiteSpace(sort))
-            return query.OrderByDescending(entry => entry.CreatedAt).ThenBy(entry => entry.Id);
+            return query.OrderByDescending(entry => entry.UpdatedAt).ThenBy(entry => entry.Id);
 
         var descending = sort.StartsWith('-');
         var fieldKey = descending ? sort[1..] : sort;
+
+        var systemOrder = fieldKey switch
+        {
+            "$id" when descending => query.OrderByDescending(entry => entry.Id),
+            "$id" => query.OrderBy(entry => entry.Id),
+            "$status" when descending => query.OrderByDescending(entry => entry.Status),
+            "$status" => query.OrderBy(entry => entry.Status),
+            "$createdAt" when descending => query.OrderByDescending(entry => entry.CreatedAt),
+            "$createdAt" => query.OrderBy(entry => entry.CreatedAt),
+            "$updatedAt" when descending => query.OrderByDescending(entry => entry.UpdatedAt),
+            "$updatedAt" => query.OrderBy(entry => entry.UpdatedAt),
+            _ => null
+        };
+
+        if (systemOrder is not null)
+            return systemOrder.ThenBy(entry => entry.Id);
 
         if (!fields.TryGetValue(fieldKey, out var field))
             throw new ContentValidationException(

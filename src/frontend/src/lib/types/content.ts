@@ -2,6 +2,26 @@ export type ContentFieldType = "text" | "number" | "boolean"
 
 export type ContentEntryStatus = "draft" | "published"
 
+export type ContentEntrySystemField =
+  | "$id"
+  | "$status"
+  | "$createdAt"
+  | "$updatedAt"
+
+export type ContentEntryFilterOperator =
+  | "eq"
+  | "contains"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+
+export type ContentEntryFilter = {
+  field: string
+  operator: ContentEntryFilterOperator
+  value: string
+}
+
 export type ContentField = {
   key: string
   type: ContentFieldType

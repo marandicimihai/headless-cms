@@ -3,6 +3,7 @@ import "server-only"
 import type { ApiResult } from "@/lib/types/general"
 import type {
   ContentEntriesPage,
+  ContentEntryFilter,
   ContentEntry,
   ContentEntryStatus,
   ContentType,
@@ -88,13 +89,23 @@ export async function listContentEntries(
   workspaceId: string,
   projectId: string,
   contentTypeKey: string,
-  options?: { status?: ContentEntryStatus; page?: number; pageSize?: number },
+  options?: {
+    filters?: ContentEntryFilter[]
+    page?: number
+    pageSize?: number
+    sort?: string
+    status?: ContentEntryStatus
+  },
 ): Promise<ApiResult<ContentEntriesPage>> {
   const params = new URLSearchParams({
     page: String(options?.page ?? 1),
     pageSize: String(options?.pageSize ?? 25),
   })
+  if (options?.sort) params.set("sort", options.sort)
   if (options?.status) params.set("status", options.status)
+  for (const filter of options?.filters ?? []) {
+    params.append(`filter[${filter.field}][${filter.operator}]`, filter.value)
+  }
 
   return apiFetch<ContentEntriesPage>(
     `${entriesPath(workspaceId, projectId, contentTypeKey)}?${params}`,

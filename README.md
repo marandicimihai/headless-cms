@@ -326,6 +326,24 @@ The `ResetDynamicContentToSingleSchema` development migration intentionally
 discards existing content types, fields, and entries while preserving projects,
 workspaces, memberships, and authentication data.
 
+### Workspace search
+
+Authenticated workspace members can search the projects, content types, and
+text-field entry values they can access:
+
+```text
+GET /api/workspaces/{workspaceId}/search?query={text}&limit=5
+```
+
+Queries are trimmed and must contain 2–100 characters; `limit` defaults to 5
+and accepts 1–10. Results are grouped into `projects`, `contentTypes`, and
+`entries`, each with `items` and a total match count. Entry matches contain the
+project and content-type context, matching field key, status, and a bounded
+text snippet. Search is case-insensitive substring matching and considers only
+declared `text` fields; it never searches raw JSON, numeric, or boolean values.
+Results are workspace-scoped and no result is returned to users without a
+workspace membership.
+
 ## Build and Test
 
 Restore and build the solution:

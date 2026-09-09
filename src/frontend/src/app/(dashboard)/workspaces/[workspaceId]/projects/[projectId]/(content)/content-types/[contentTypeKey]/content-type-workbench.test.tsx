@@ -3,6 +3,15 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+const push = vi.fn()
+let query = "entry=entry-1"
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/projects/project-1/content-types/articles",
+  useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(query),
+}))
+
 vi.mock("../../../content-actions", () => ({
   createContentEntryAction: vi.fn(),
   updateContentEntryAction: vi.fn(),
@@ -30,6 +39,8 @@ import { ContentTypeWorkbench } from "./content-type-workbench"
 
 afterEach(() => {
   cleanup()
+  push.mockReset()
+  query = "entry=entry-1"
   vi.restoreAllMocks()
 })
 
@@ -41,6 +52,7 @@ describe("ContentTypeWorkbench", () => {
         projectId="project-1"
         canWrite
         entriesError={null}
+        filters={[]}
         contentType={{
           id: "type-1",
           projectId: "project-1",
@@ -77,11 +89,20 @@ describe("ContentTypeWorkbench", () => {
     expect(screen.getByText("$status")).toBeTruthy()
     expect(screen.getByText("$createdAt")).toBeTruthy()
     expect(screen.getByText("$updatedAt")).toBeTruthy()
+    expect(screen.getByRole("columnheader", { name: "$updatedAt" }).getAttribute("aria-sort"))
+      .toBe("descending")
+    fireEvent.click(screen.getByRole("button", { name: /Sort by \$updatedAt, currently descending/ }))
+    expect(push).toHaveBeenCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1&sort=%24updatedAt",
+      { scroll: false },
+    )
     expect(screen.getByRole("button", { name: "Copy ID type-1" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Copy ID entry-1" })).toBeTruthy()
     const entriesTable = screen.getByText("$id").closest("table")
     expect(entriesTable?.className).toContain("table-fixed")
     expect(entriesTable?.getAttribute("style")).toContain("width: 928px")
+    expect(entriesTable?.querySelector("thead tr")?.className).toContain("h-11")
+    expect(entriesTable?.querySelector("thead th")?.className).toContain("h-11")
     expect(entriesTable?.querySelector("col:nth-child(1)")?.className).toContain(
       "w-8",
     )
@@ -122,5 +143,94 @@ describe("ContentTypeWorkbench", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Settings" }))
     expect(screen.getByText("Content type settings")).toBeTruthy()
+  })
+
+  it("cycles sort state and clears committed filters through URL navigation", () => {
+    const props = {
+      workspaceId: "workspace-1",
+      projectId: "project-1",
+      canWrite: false,
+      entriesError: null,
+      contentType: {
+        id: "type-1",
+        projectId: "project-1",
+        key: "articles",
+        createdAt: "2026-09-03T00:00:00Z",
+        updatedAt: "2026-09-03T00:00:00Z",
+        fields: [
+          {
+            key: "title",
+            type: "text" as const,
+            required: true,
+            position: 0,
+            settings: {},
+          },
+        ],
+      },
+      entries: [
+        {
+          id: "entry-1",
+          status: "draft" as const,
+          data: { title: "First article" },
+          createdAt: "2026-09-03T12:34:56Z",
+          updatedAt: "2026-09-03T01:02:03Z",
+        },
+      ],
+      selectedEntry: undefined,
+    }
+    const { rerender } = render(
+      <ContentTypeWorkbench {...props} filters={[]} sort="title" />,
+    )
+
+    expect(screen.getByRole("columnheader", { name: "$updatedAt" }).getAttribute("aria-sort"))
+      .toBe("none")
+    fireEvent.click(screen.getByRole("button", { name: /Sort by \$updatedAt$/ }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1&sort=%24updatedAt",
+      { scroll: false },
+    )
+
+    rerender(<ContentTypeWorkbench {...props} filters={[]} sort="$updatedAt" />)
+    fireEvent.click(screen.getByRole("button", { name: /Sort by \$updatedAt, currently ascending/ }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1&sort=-%24updatedAt",
+      { scroll: false },
+    )
+
+    rerender(
+      <ContentTypeWorkbench
+        {...props}
+        filters={[{ field: "title", operator: "contains", value: "first" }]}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Filter entries" }).textContent).toContain("1")
+    fireEvent.click(screen.getByRole("button", { name: "Filter entries" }))
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1",
+      { scroll: false },
+    )
+
+    rerender(<ContentTypeWorkbench {...props} filters={[]} />)
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }))
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1",
+      { scroll: false },
+    )
+
+    rerender(
+      <ContentTypeWorkbench
+        {...props}
+        entries={[]}
+        filters={[{ field: "title", operator: "contains", value: "first" }]}
+      />,
+    )
+    expect(screen.getByText("No matching entries")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1",
+      { scroll: false },
+    )
   })
 })
