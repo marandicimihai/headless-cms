@@ -49,6 +49,18 @@ export async function deleteWorkspace(
   })
 }
 
+export async function leaveWorkspace(
+  workspaceId: string,
+): Promise<ApiResult<void>> {
+  return apiFetch<void>(
+    `/api/me/workspaces/${encodeURIComponent(workspaceId)}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  )
+}
+
 export async function listWorkspaceMembers(
   workspaceId: string,
 ): Promise<ApiResult<PagedWorkspaceResponse<WorkspaceMember>>> {
@@ -121,6 +133,33 @@ export async function changeWorkspaceMemberRole(
     {
       method: "PATCH",
       body: JSON.stringify({ role }),
+      cache: "no-store",
+    },
+  )
+}
+
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+): Promise<ApiResult<void>> {
+  return apiFetch<void>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  )
+}
+
+export async function transferWorkspaceOwnership(
+  workspaceId: string,
+  newOwnerUserId: string,
+): Promise<ApiResult<WorkspaceMember[]>> {
+  return apiFetch<WorkspaceMember[]>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/ownership-transfer`,
+    {
+      method: "POST",
+      body: JSON.stringify({ newOwnerUserId }),
       cache: "no-store",
     },
   )

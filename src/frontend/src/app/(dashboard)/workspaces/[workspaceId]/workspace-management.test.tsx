@@ -7,12 +7,15 @@ vi.mock("./actions", () => ({
   changeWorkspaceMemberRoleAction: vi.fn(),
   deleteWorkspaceAction: vi.fn(),
   inviteWorkspaceMemberAction: vi.fn(),
+  leaveWorkspaceAction: vi.fn(),
   renameWorkspaceAction: vi.fn(),
+  removeWorkspaceMemberAction: vi.fn(),
   resendWorkspaceInvitationAction: vi.fn(),
   revokeWorkspaceInvitationAction: vi.fn(),
+  transferWorkspaceOwnershipAction: vi.fn(),
 }))
 
-import { WorkspaceManagement } from "./workspace-management"
+import { LeaveWorkspace, WorkspaceManagement } from "./workspace-management"
 import type { WorkspaceInvitation, WorkspaceMember } from "@/lib/types/workspaces"
 
 const member: WorkspaceMember = {
@@ -125,5 +128,34 @@ describe("WorkspaceManagement", () => {
 
     expect(view.getByRole("menuitem", { name: "Resend" })).toBeTruthy()
     expect(view.getByRole("menuitem", { name: "Revoke" })).toBeTruthy()
+  })
+
+  it("provides ownership transfer and member removal for non-owner members", () => {
+    const view = render(
+      <WorkspaceManagement
+        workspaceId="workspace-1"
+        workspaceName="Workspace"
+        members={[member]}
+        invitations={[]}
+        memberTotal={1}
+        invitationTotal={0}
+      />,
+    )
+
+    const transferButton = view.getByRole("button", {
+      name: "Transfer ownership",
+    }) as HTMLButtonElement
+    expect(transferButton.disabled).toBe(true)
+    expect(view.getByRole("button", { name: "Remove" })).toBeTruthy()
+    expect(view.getByText("Select a member")).toBeTruthy()
+  })
+
+  it("provides workspace leaving for editors and read-only members", () => {
+    const view = render(
+      <LeaveWorkspace workspaceId="workspace-1" workspaceName="Workspace" />,
+    )
+
+    fireEvent.click(view.getByRole("button", { name: "Leave workspace" }))
+    expect(view.getByRole("heading", { name: "Leave Workspace?" })).toBeTruthy()
   })
 })

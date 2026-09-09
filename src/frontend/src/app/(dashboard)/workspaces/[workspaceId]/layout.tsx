@@ -55,10 +55,8 @@ export default async function WorkspaceLayout({
         workspaceId={workspace.id}
         projects={projectsResult.ok ? projectsResult.data : []}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          {children}
-        </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {children}
       </div>
     </div>
   )

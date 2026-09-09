@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { CircleAlert } from "lucide-react"
 
-import { WorkspaceManagement } from "../workspace-management"
+import { LeaveWorkspace, WorkspaceManagement } from "../workspace-management"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { getSession } from "@/lib/api/session"
@@ -12,8 +12,13 @@ import {
 } from "@/lib/api/workspaces"
 import type { WorkspaceRole } from "@/lib/types/workspaces"
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
   timeZone: "UTC",
 })
 
@@ -30,7 +35,7 @@ function formatCreatedAt(createdAt: string) {
   const date = new Date(createdAt)
   return Number.isNaN(date.getTime())
     ? "Unknown date"
-    : dateFormatter.format(date)
+    : `${dateFormatter.format(date)} UTC`
 }
 
 export default async function WorkspaceManagementPage({
@@ -143,7 +148,12 @@ export default async function WorkspaceManagementPage({
               : undefined
           }
         />
-      ) : null}
+      ) : (
+        <LeaveWorkspace
+          workspaceId={resolvedWorkspaceId}
+          workspaceName={workspace.name}
+        />
+      )}
     </main>
   )
 }

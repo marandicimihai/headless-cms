@@ -98,7 +98,7 @@ export function WorkspaceProjectSwitcher({
           render={
             <Button
               aria-label="Switch workspace or project"
-              className="min-w-0 max-w-full justify-start px-2 text-left"
+              className="h-9 min-w-0 max-w-full justify-start px-2 text-left"
               variant="ghost"
             />
           }

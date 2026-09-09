@@ -61,11 +61,13 @@ describe("WorkspaceProjectSwitcher", () => {
       </SidebarProvider>,
     )
 
-    expect(
-      view.getByRole("button", { name: "Switch workspace or project" }).textContent,
-    ).toContain("Acme / Marketing site")
+    const switcher = view.getByRole("button", {
+      name: "Switch workspace or project",
+    })
+    expect(switcher.textContent).toContain("Acme / Marketing site")
+    expect(switcher.className).toContain("h-9")
 
-    fireEvent.click(view.getByRole("button", { name: "Switch workspace or project" }))
+    fireEvent.click(switcher)
     fireEvent.click(view.getByRole("button", { name: /Marketing site/i }))
 
     expect(push).toHaveBeenCalledWith(

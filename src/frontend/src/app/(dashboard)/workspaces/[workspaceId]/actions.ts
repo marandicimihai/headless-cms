@@ -9,9 +9,12 @@ import {
   changeWorkspaceMemberRole,
   createWorkspaceInvitation,
   deleteWorkspace,
+  leaveWorkspace,
   renameWorkspace,
+  removeWorkspaceMember,
   resendWorkspaceInvitation,
   revokeWorkspaceInvitation,
+  transferWorkspaceOwnership,
 } from "@/lib/api/workspaces"
 import type { ApiError } from "@/lib/types/general"
 
@@ -70,6 +73,21 @@ export async function deleteWorkspaceAction(
   void _previousState
   await requireSession()
   const result = await deleteWorkspace(workspaceId)
+
+  if (!result.ok) return errorState(result.error)
+
+  await clearCurrentWorkspace()
+  revalidatePath("/", "layout")
+  redirect("/")
+}
+
+export async function leaveWorkspaceAction(
+  workspaceId: string,
+  _previousState: WorkspaceActionState,
+): Promise<WorkspaceActionState> {
+  void _previousState
+  await requireSession()
+  const result = await leaveWorkspace(workspaceId)
 
   if (!result.ok) return errorState(result.error)
 
@@ -183,6 +201,53 @@ export async function changeWorkspaceMemberRoleAction(
   return {
     status: "success",
     message: `${result.data.email} is now ${role === "member" ? "read only" : "an editor"}.`,
+    fieldErrors: {},
+  }
+}
+
+export async function removeWorkspaceMemberAction(
+  workspaceId: string,
+  userId: string,
+  _previousState: WorkspaceActionState,
+): Promise<WorkspaceActionState> {
+  void _previousState
+  await requireSession()
+  const result = await removeWorkspaceMember(workspaceId, userId)
+
+  if (!result.ok) return errorState(result.error)
+
+  refreshWorkspace(workspaceId)
+  return {
+    status: "success",
+    message: "Member removed from the workspace.",
+    fieldErrors: {},
+  }
+}
+
+export async function transferWorkspaceOwnershipAction(
+  workspaceId: string,
+  _previousState: WorkspaceActionState,
+  formData: FormData,
+): Promise<WorkspaceActionState> {
+  await requireSession()
+  const newOwnerUserId = String(formData.get("newOwnerUserId") ?? "")
+
+  if (!newOwnerUserId) {
+    return {
+      status: "error",
+      message: "Choose a member to become the owner.",
+      fieldErrors: { newOwnerUserId: ["Choose a member to become the owner."] },
+    }
+  }
+
+  const result = await transferWorkspaceOwnership(workspaceId, newOwnerUserId)
+
+  if (!result.ok) return errorState(result.error)
+
+  refreshWorkspace(workspaceId)
+  return {
+    status: "success",
+    message: "Workspace ownership transferred. You are now an editor.",
     fieldErrors: {},
   }
 }

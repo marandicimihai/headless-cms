@@ -7,9 +7,12 @@ import {
   changeWorkspaceMemberRoleAction,
   deleteWorkspaceAction,
   inviteWorkspaceMemberAction,
+  leaveWorkspaceAction,
   renameWorkspaceAction,
+  removeWorkspaceMemberAction,
   resendWorkspaceInvitationAction,
   revokeWorkspaceInvitationAction,
+  transferWorkspaceOwnershipAction,
 } from "./actions"
 import type { WorkspaceActionState } from "./actions"
 import { useActionToast } from "@/hooks/use-action-toast"
@@ -61,14 +64,21 @@ const initialWorkspaceActionState: WorkspaceActionState = {
   fieldErrors: {},
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
   timeZone: "UTC",
 })
 
 function formatDate(value: string) {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? "Unknown date" : dateFormatter.format(date)
+  return Number.isNaN(date.getTime())
+    ? "Unknown date"
+    : `${dateFormatter.format(date)} UTC`
 }
 
 function roleLabel(role: WorkspaceRole) {
@@ -199,12 +209,8 @@ function MemberRoleForm({
   }
 
   return (
-    <div>
-      <form
-        action={formAction}
-        className="flex items-center justify-end gap-2"
-        noValidate
-      >
+    <div className="flex items-center justify-end gap-2">
+      <form action={formAction} className="flex items-center gap-2" noValidate>
         <Select
           name="role"
           value={role}
@@ -231,7 +237,69 @@ function MemberRoleForm({
           {pending ? "Saving..." : "Save"}
         </Button>
       </form>
+      <RemoveMemberButton workspaceId={workspaceId} member={member} />
     </div>
+  )
+}
+
+function RemoveMemberButton({
+  workspaceId,
+  member,
+}: {
+  workspaceId: string
+  member: WorkspaceMember
+}) {
+  const [open, setOpen] = useState(false)
+  const removeAction = removeWorkspaceMemberAction.bind(
+    null,
+    workspaceId,
+    member.userId,
+  )
+  const [state, formAction, pending] = useActionState(
+    removeAction,
+    initialWorkspaceActionState,
+  )
+  useActionToast(state)
+  const formId = `remove-member-${member.userId}`
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!pending) setOpen(nextOpen)
+      }}
+    >
+      <AlertDialogTrigger render={<Button size="sm" variant="ghost" />}>
+        Remove
+      </AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove {member.email}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            They will immediately lose access to this workspace and its content.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <form id={formId} action={formAction} noValidate>
+          {state.status === "error" ? (
+            <Alert variant="destructive">
+              <CircleAlert />
+              <AlertDescription>{state.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </form>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <Button
+            type="submit"
+            form={formId}
+            variant="destructive"
+            disabled={pending}
+          >
+            {pending ? "Removing..." : "Remove member"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -514,8 +582,200 @@ export function WorkspaceManagement({
           </div>
         )}
       </section>
+      <TransferOwnershipForm workspaceId={workspaceId} members={members} />
       <DeleteWorkspaceForm key={workspaceName} workspaceId={workspaceId} workspaceName={workspaceName} />
     </div>
+  )
+}
+
+function TransferOwnershipForm({
+  workspaceId,
+  members,
+}: {
+  workspaceId: string
+  members: WorkspaceMember[]
+}) {
+  const eligibleMembers = members.filter((member) => member.role !== "owner")
+  const [newOwnerUserId, setNewOwnerUserId] = useState("")
+  const [open, setOpen] = useState(false)
+  const transferAction = transferWorkspaceOwnershipAction.bind(null, workspaceId)
+  const [state, formAction, pending] = useActionState(
+    transferAction,
+    initialWorkspaceActionState,
+  )
+  useActionToast(state)
+  const newOwnerErrors = state.fieldErrors.newOwnerUserId ?? []
+  const newOwner = eligibleMembers.find(
+    (member) => member.userId === newOwnerUserId,
+  )
+
+  return (
+    <section aria-labelledby="transfer-ownership-heading" className="space-y-4">
+      <div className="space-y-1">
+        <h2 id="transfer-ownership-heading" className="text-sm font-semibold">
+          Transfer ownership
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Choose an existing member to become the owner. You will become an editor
+          and can leave the workspace afterward.
+        </p>
+      </div>
+      {eligibleMembers.length ? (
+        <div className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-end">
+          <Field
+            className="flex-1"
+            data-invalid={newOwnerErrors.length > 0}
+          >
+            <FieldLabel htmlFor="new-workspace-owner">New owner</FieldLabel>
+            <Select
+              name="newOwnerUserId"
+              value={newOwnerUserId}
+              onValueChange={(value) => {
+                if (value) setNewOwnerUserId(value)
+              }}
+              required
+            >
+              <SelectTrigger id="new-workspace-owner" className="w-full">
+                <SelectValue>
+                  {(value) => {
+                    const member = eligibleMembers.find(
+                      (candidate) => candidate.userId === value,
+                    )
+
+                    return member
+                      ? `${member.email} (${roleLabel(member.role)})`
+                      : "Select a member"
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {eligibleMembers.map((member) => (
+                  <SelectItem key={member.userId} value={member.userId}>
+                    {member.email} ({roleLabel(member.role)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldError
+              errors={newOwnerErrors.map((message) => ({ message }))}
+            />
+          </Field>
+          <AlertDialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+              if (!pending) setOpen(nextOpen)
+            }}
+          >
+            <AlertDialogTrigger
+              disabled={!newOwner}
+              render={<Button variant="destructive" />}
+            >
+              Transfer ownership
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Transfer ownership to {newOwner?.email}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {newOwner?.email} will gain full control, including the ability to
+                  delete this workspace. You will become an editor.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <form id="transfer-workspace-ownership" action={formAction} noValidate>
+                <input name="newOwnerUserId" type="hidden" value={newOwnerUserId} />
+                {state.status === "error" ? (
+                  <Alert variant="destructive">
+                    <CircleAlert />
+                    <AlertDescription>{state.message}</AlertDescription>
+                  </Alert>
+                ) : null}
+              </form>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                <Button
+                  type="submit"
+                  form="transfer-workspace-ownership"
+                  variant="destructive"
+                  disabled={pending || !newOwner}
+                >
+                  {pending ? "Transferring..." : "Transfer ownership"}
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Invite and add another member before transferring ownership.
+        </p>
+      )}
+    </section>
+  )
+}
+
+export function LeaveWorkspace({
+  workspaceId,
+  workspaceName,
+}: {
+  workspaceId: string
+  workspaceName: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [state, formAction, pending] = useActionState(
+    leaveWorkspaceAction.bind(null, workspaceId),
+    initialWorkspaceActionState,
+  )
+
+  return (
+    <section aria-labelledby="leave-workspace-heading" className="space-y-4">
+      <div className="space-y-1">
+        <h2 id="leave-workspace-heading" className="text-sm font-semibold">
+          Leave workspace
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Leave {workspaceName} and remove your access to its projects and content.
+        </p>
+      </div>
+      <AlertDialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!pending) setOpen(nextOpen)
+        }}
+      >
+        <AlertDialogTrigger render={<Button variant="destructive" />}>
+          Leave workspace
+        </AlertDialogTrigger>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave {workspaceName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will no longer be able to access this workspace unless an owner
+              invites you again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form id="leave-workspace-form" action={formAction} noValidate>
+            {state.status === "error" ? (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertDescription>{state.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </form>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button
+              type="submit"
+              form="leave-workspace-form"
+              variant="destructive"
+              disabled={pending}
+            >
+              {pending ? "Leaving..." : "Leave workspace"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   )
 }
 
