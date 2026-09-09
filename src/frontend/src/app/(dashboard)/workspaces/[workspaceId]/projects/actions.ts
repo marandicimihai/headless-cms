@@ -9,6 +9,7 @@ import {
   getProject,
   updateProject,
 } from "@/lib/api/projects"
+import { setCurrentWorkspace } from "@/lib/current-workspace"
 import { getSession } from "@/lib/api/session"
 import type { ApiError } from "@/lib/types/general"
 
@@ -53,6 +54,7 @@ export async function createProjectAction(
 
   if (!result.ok) return errorState(result.error)
 
+  await setCurrentWorkspace(workspaceId)
   refreshProjects(workspaceId, result.data.id)
   redirect(`/workspaces/${workspaceId}/projects/${result.data.id}`)
 }

@@ -25,13 +25,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { WorkspaceProjectSwitcher } from "@/app/(dashboard)/workspaces/[workspaceId]/workspace-project-switcher"
+import type { Project } from "@/lib/types/projects"
+import type { WorkspaceSummary } from "@/lib/types/workspaces"
 
 export function DashboardHeader({
   email,
   role,
+  workspaceContext,
 }: {
   email: string
   role: string
+  workspaceContext?: {
+    workspace: WorkspaceSummary
+    workspaces: WorkspaceSummary[]
+    projects: Project[]
+    projectsError?: string
+  }
 }) {
   const [isLoggingOut, startTransition] = useTransition()
 
@@ -56,6 +66,9 @@ export function DashboardHeader({
           <span className="text-xs text-muted-foreground">Control panel</span>
         </div>
       </Link>
+      {workspaceContext ? (
+        <WorkspaceProjectSwitcher {...workspaceContext} />
+      ) : null}
       <div className="relative hidden w-full max-w-sm sm:ml-4 sm:block">
         <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input className="pl-8" placeholder="Search content..." type="search" />

@@ -3,19 +3,16 @@ import { redirect } from "next/navigation"
 import { CircleAlert } from "lucide-react"
 
 import { BackButton } from "@/components/back-button"
-import { DashboardBreadcrumb } from "@/app/(dashboard)/workspaces/[workspaceId]/dashboard-breadcrumb"
 import { WorkspaceSidebar } from "@/app/(dashboard)/workspaces/[workspaceId]/workspace-sidebar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { listProjects } from "@/lib/api/projects"
 import { getSession } from "@/lib/api/session"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
 export default async function WorkspaceLayout({
-  breadcrumb,
   children,
   params,
 }: {
-  breadcrumb: ReactNode
   children: ReactNode
   params: Promise<{ workspaceId: string }>
 }) {
@@ -48,38 +45,21 @@ export default async function WorkspaceLayout({
     (item) => item.id.toLowerCase() === workspaceId.toLowerCase(),
   )
 
-  if (!workspace?.currentRole) {
-    return (
-      <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-        <BackButton href="/">Back to dashboard</BackButton>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Workspace unavailable
-          </h1>
-        </div>
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertTitle>Access unavailable</AlertTitle>
-          <AlertDescription>
-            Ask a workspace owner to send an invitation if you need access.
-          </AlertDescription>
-        </Alert>
-      </main>
-    )
-  }
+  if (!workspace?.currentRole) redirect("/")
+
+  const projectsResult = await listProjects(workspace.id)
 
   return (
-    <SidebarProvider className="min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1">
       <WorkspaceSidebar
         workspaceId={workspace.id}
-        workspaceName={workspace.name}
+        projects={projectsResult.ok ? projectsResult.data : []}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <DashboardBreadcrumb>{breadcrumb}</DashboardBreadcrumb>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {children}
         </div>
       </div>
-    </SidebarProvider>
+    </div>
   )
 }

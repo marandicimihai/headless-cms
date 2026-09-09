@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { CircleAlert, FolderCog, Library, Plus } from "lucide-react"
 
+import { CopyableId } from "@/components/copyable-id"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,10 +34,13 @@ export default async function ProjectPreviewPage({ params }: {
   return (
     <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">{preview.name}</h1>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <h1 className="min-w-0 text-2xl font-semibold tracking-tight">{preview.name}</h1>
+          <CopyableId id={projectId} />
+        </div>
         <div className="flex flex-wrap gap-3">
           <Button nativeButton={false} render={<Link href={`${projectHref}/content`} />}><Library />Open content</Button>
-          {canManage ? <Button nativeButton={false} variant="outline" render={<Link href={`${projectHref}/manage`} />}><FolderCog />Manage project</Button> : null}
+          {canManage ? <Button nativeButton={false} variant="outline" render={<Link href={`${projectHref}/manage`} />}><FolderCog />Project settings</Button> : null}
         </div>
       </div>
       {preview.contentTypeCount > 0 ? (

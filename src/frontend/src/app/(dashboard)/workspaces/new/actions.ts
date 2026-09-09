@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation"
 
 import { getSession } from "@/lib/api/session"
+import { setCurrentWorkspace } from "@/lib/current-workspace"
 import { createWorkspace } from "@/lib/api/workspaces"
 import type { ApiError } from "@/lib/types/general"
 
@@ -30,5 +31,6 @@ export async function createWorkspaceAction(
     }
   }
 
+  await setCurrentWorkspace(result.data.id)
   redirect(`/workspaces/${result.data.id}`)
 }

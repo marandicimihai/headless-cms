@@ -63,7 +63,7 @@ export default async function ProjectManagementPage({
     <main className="flex flex-1 flex-col gap-8 p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Manage project</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Project settings</h1>
         </div>
         <Badge variant={canManageProjects ? "secondary" : "outline"}>
           {workspace.currentRole === "owner"

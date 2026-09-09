@@ -6,6 +6,7 @@ import {
   acceptInvitation,
   registerWithInvitation,
 } from "@/lib/api/auth"
+import { setCurrentWorkspace } from "@/lib/current-workspace"
 import { getSession, mirrorBackendSessionCookie } from "@/lib/api/session"
 import type { ApiError } from "@/lib/types/general"
 
@@ -31,6 +32,7 @@ export async function registerInvitationAction(
   }
 
   await mirrorBackendSessionCookie(result.data.setCookieHeader)
+  await setCurrentWorkspace(result.data.registration.membership.workspaceId)
   redirect(`/workspaces/${result.data.registration.membership.workspaceId}`)
 }
 
@@ -51,6 +53,7 @@ export async function acceptInvitationAction(
     return { error: result.error }
   }
 
+  await setCurrentWorkspace(result.data.workspaceId)
   redirect(`/workspaces/${result.data.workspaceId}`)
 }
 

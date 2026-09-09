@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 import { getSession } from "@/lib/api/session"
+import { clearCurrentWorkspace } from "@/lib/current-workspace"
 import {
   changeWorkspaceMemberRole,
   createWorkspaceInvitation,
@@ -72,6 +73,7 @@ export async function deleteWorkspaceAction(
 
   if (!result.ok) return errorState(result.error)
 
+  await clearCurrentWorkspace()
   revalidatePath("/", "layout")
   redirect("/")
 }

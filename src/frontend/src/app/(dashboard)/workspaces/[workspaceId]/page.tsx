@@ -4,8 +4,8 @@ import { CircleAlert, FolderKanban, Plus } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getWorkspacePreview } from "@/lib/api/previews"
+import { listProjects } from "@/lib/api/projects"
+import { listMyWorkspaces } from "@/lib/api/workspaces"
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
@@ -17,76 +17,72 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 })
 
-export default async function WorkspacePreviewPage({ params }: {
+export default async function WorkspaceProjectsPage({ params }: {
   params: Promise<{ workspaceId: string }>
 }) {
   const { workspaceId } = await params
-  const result = await getWorkspacePreview(workspaceId)
-  if (!result.ok) {
+  const [workspaceResult, projectsResult] = await Promise.all([
+    listMyWorkspaces(),
+    listProjects(workspaceId),
+  ])
+
+  if (!workspaceResult.ok) {
     return (
       <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Workspace preview</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
         <Alert variant="destructive">
           <CircleAlert />
-          <AlertTitle>Unable to load workspace preview</AlertTitle>
-          <AlertDescription>{result.error.detail}</AlertDescription>
+          <AlertTitle>Unable to load workspace</AlertTitle>
+          <AlertDescription>{workspaceResult.error.detail}</AlertDescription>
         </Alert>
       </main>
     )
   }
-  const preview = result.data
+
+  const workspace = workspaceResult.data.find(
+    (item) => item.id.toLowerCase() === workspaceId.toLowerCase(),
+  )
+  const projects = projectsResult.ok ? projectsResult.data : []
   const workspaceHref = `/workspaces/${workspaceId}`
-  const canManage = preview.currentRole === "owner" || preview.currentRole === "editor"
+  const projectsHref = `${workspaceHref}/projects`
+  const canManage = workspace?.currentRole === "owner" || workspace?.currentRole === "editor"
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{preview.name}</h1>
-      {preview.projectCount > 0 ? (
-        <>
-          <section aria-label="Workspace statistics" className="grid gap-4 sm:grid-cols-3">
-            <Card size="sm">
-              <CardHeader><CardTitle>Projects</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-semibold tabular-nums">{preview.projectCount.toLocaleString("en")}</p></CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader><CardTitle>Content entries</CardTitle></CardHeader>
-              <CardContent className="space-y-1">
-                <p className="text-2xl font-semibold tabular-nums">{preview.entryCount.toLocaleString("en")}</p>
-                <CardDescription>{preview.publishedEntryCount.toLocaleString("en")} published · {preview.draftEntryCount.toLocaleString("en")} drafts</CardDescription>
-              </CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader><CardTitle>Members</CardTitle></CardHeader>
-              <CardContent className="space-y-1">
-                <p className="text-2xl font-semibold tabular-nums">{preview.memberCount.toLocaleString("en")}</p>
-                {preview.currentRole === "owner" && preview.pendingInvitationCount != null ? (
-                  <CardDescription><Link className="underline underline-offset-4" href={`${workspaceHref}/manage`}>{preview.pendingInvitationCount.toLocaleString("en")} pending invitations</Link></CardDescription>
-                ) : null}
-              </CardContent>
-            </Card>
-          </section>
-          <section className="space-y-3" aria-labelledby="projects-heading">
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="projects-heading" className="text-sm font-semibold">Projects</h2>
-              <Button nativeButton={false} variant="outline" size="sm" render={<Link href={`${workspaceHref}/projects`} />}>View projects</Button>
-            </div>
-            <div className="overflow-x-auto rounded-xl border">
-              <Table>
-                <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Content types</TableHead><TableHead>Entries</TableHead><TableHead>Last content update (UTC)</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {preview.projects.map(project => (
-                    <TableRow key={project.id}>
-                      <TableCell className="font-medium"><Link className="underline-offset-4 hover:underline focus-visible:underline" href={`${workspaceHref}/projects/${project.id}`}>{project.name}</Link></TableCell>
-                      <TableCell>{project.contentTypeCount.toLocaleString("en")}</TableCell>
-                      <TableCell>{project.entryCount.toLocaleString("en")}</TableCell>
-                      <TableCell className="text-muted-foreground">{project.lastContentUpdatedAt ? <time dateTime={project.lastContentUpdatedAt}>{dateFormatter.format(new Date(project.lastContentUpdatedAt))}</time> : "No entries yet"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
-        </>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <p className="text-sm text-muted-foreground">Choose a project to manage its content.</p>
+        </div>
+        {canManage ? <Button nativeButton={false} render={<Link href={`${projectsHref}/new`} />}><Plus />Create project</Button> : null}
+      </div>
+
+      {!projectsResult.ok ? (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertTitle>Unable to load projects</AlertTitle>
+          <AlertDescription>{projectsResult.error.detail}</AlertDescription>
+        </Alert>
+      ) : projects.length ? (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Projects">
+          {projects.map((project) => (
+            <Link
+              key={project.id}
+              href={`${projectsHref}/${project.id}`}
+              className="group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <Card className="h-full transition-colors group-hover:border-foreground/30">
+                <CardHeader>
+                  <CardTitle>{project.name}</CardTitle>
+                  <CardDescription>Open project</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Updated <time dateTime={project.updatedAt}>{dateFormatter.format(new Date(project.updatedAt))} UTC</time>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </section>
       ) : (
         <section className="flex min-h-80 flex-col items-center justify-center gap-4 text-center">
           <FolderKanban className="size-8 text-muted-foreground" />
@@ -94,7 +90,7 @@ export default async function WorkspacePreviewPage({ params }: {
             <h2 className="text-sm font-semibold">No projects yet</h2>
             <p className="text-sm text-muted-foreground">{canManage ? "Create a project to start defining content types and adding entries." : "Projects will appear here once an owner or editor creates them."}</p>
           </div>
-          {canManage ? <Button nativeButton={false} render={<Link href={`${workspaceHref}/projects/new`} />}><Plus />Create project</Button> : null}
+          {canManage ? <Button nativeButton={false} render={<Link href={`${projectsHref}/new`} />}><Plus />Create project</Button> : null}
         </section>
       )}
     </main>
