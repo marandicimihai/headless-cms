@@ -141,14 +141,14 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             WorkspaceRole.Member);
         await app.SeedUserAsync("existing@example.test", "password");
         var existingAccount = await Should.ThrowAsync<InvitationFlowException>(
-            () => RegisterAsync(existingAccountInvitation.Token, "new-password"));
+            () => RegisterAsync(existingAccountInvitation.Token, "new-user-password"));
         existingAccount.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
         using var existingAccountEndpoint = await app.HttpsClient.PostAsJsonAsync(
             "/api/auth/invitations/register",
             new
             {
                 token = existingAccountInvitation.Token,
-                password = "new-password"
+                password = "new-user-password"
             },
             TestContext.Current.CancellationToken);
         existingAccountEndpoint.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -164,7 +164,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             () => PreviewAsync(expiredInvitation.Token));
         expiredPreview.StatusCode.ShouldBe(StatusCodes.Status410Gone);
         var expiredRegistration = await Should.ThrowAsync<InvitationFlowException>(
-            () => RegisterAsync(expiredInvitation.Token, "new-password"));
+            () => RegisterAsync(expiredInvitation.Token, "new-user-password"));
         expiredRegistration.StatusCode.ShouldBe(StatusCodes.Status410Gone);
 
         var acceptedInvitation = await CreateInvitationAsync(
@@ -179,7 +179,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
             () => PreviewAsync(acceptedInvitation.Token));
         acceptedPreview.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
         var acceptedRegistration = await Should.ThrowAsync<InvitationFlowException>(
-            () => RegisterAsync(acceptedInvitation.Token, "new-password"));
+            () => RegisterAsync(acceptedInvitation.Token, "new-user-password"));
         acceptedRegistration.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
     }
 
@@ -353,7 +353,7 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
         accept.StatusCode.ShouldBe(HttpStatusCode.Gone);
         using var register = await app.HttpsClient.PostAsJsonAsync(
             "/api/auth/invitations/register",
-            new { token = invitation.Token, password = "new-password" },
+            new { token = invitation.Token, password = "new-user-password" },
             TestContext.Current.CancellationToken);
         register.StatusCode.ShouldBe(HttpStatusCode.Gone);
     }
@@ -402,6 +402,13 @@ public sealed class InvitationAndAuthEdgeCaseTests(TestApp app) : TestBase
                 new { token = "token", password = new string('p', 65) },
                 TestContext.Current.CancellationToken);
         overlongRegistrationPassword.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        using var shortRegistrationPassword =
+            await app.HttpsClient.PostAsJsonAsync(
+                "/api/auth/invitations/register",
+                new { token = "token", password = new string('p', 14) },
+                TestContext.Current.CancellationToken);
+        shortRegistrationPassword.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
         using var anonymousAccept = await app.HttpsClient.PostAsJsonAsync(
             "/api/auth/invitations/accept",

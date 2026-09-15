@@ -20,7 +20,7 @@ public class LoginRequest
                 .NotEmpty();
 
             RuleFor(request => request.Password)
-                .MaximumLength(64)
+                .MaximumLength(PasswordPolicy.MaximumLength)
                 .NotEmpty();
         }
     }

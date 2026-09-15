@@ -63,7 +63,9 @@ public sealed class RegisterWithInvitation(
         public RequestValidator()
         {
             RuleFor(request => request.Token).NotEmpty().MaximumLength(512);
-            RuleFor(request => request.Password).NotEmpty().MaximumLength(64);
+            RuleFor(request => request.Password)
+                .Must(password => PasswordPolicy.Validate(password) is null)
+                .WithMessage(request => PasswordPolicy.Validate(request.Password) ?? string.Empty);
         }
     }
 }

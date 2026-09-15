@@ -130,6 +130,13 @@ public class WorkspaceInvitationService(
     {
         var invitation = await FindActiveByTokenAsync(token, ct);
 
+        var passwordError = PasswordPolicy.Validate(password);
+        if (passwordError is not null)
+            throw new InvitationFlowException(
+                StatusCodes.Status400BadRequest,
+                "invalid_password",
+                passwordError);
+
         if (await db.Users.AnyAsync(user => user.Email == invitation.Email, ct))
             throw Conflict("An account already exists for this email. Log in to accept the invitation.");
 

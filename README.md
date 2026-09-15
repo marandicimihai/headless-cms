@@ -206,8 +206,10 @@ cannot be reused. Development logs invitation URLs; production must register an
 `IInvitationEmailSender` implementation. Invitation URLs use
 `Frontend:BaseUrl` and point to
 `/auth/invitations/accept?token={single-use-token}`. New invitees create their
-password on that page and are signed in automatically; invitees with an
-existing account sign in before accepting the invitation.
+password on that page and are signed in automatically. New passwords must be
+15–64 characters long and may use any characters; existing credentials remain
+accepted at login for backwards compatibility. Invitees with an existing
+account sign in before accepting the invitation.
 
 The workspace ownership limit defaults to `10` in `appsettings.json`. Override
 `Workspaces:MaximumOwnedWorkspaces` in local configuration or with the

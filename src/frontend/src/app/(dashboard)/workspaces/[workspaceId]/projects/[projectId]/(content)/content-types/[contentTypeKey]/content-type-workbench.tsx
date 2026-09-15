@@ -283,7 +283,7 @@ export function ContentTypeWorkbench({
 
         <TabsContent value="schema">
           <div className="overflow-x-auto rounded-xl border">
-            <Table className="min-w-[48rem]">
+            <Table className="min-w-3xl">
               <TableHeader>
                 <TableRow className="h-11 hover:bg-transparent">
                   <TableHead className="h-11">Key</TableHead>
@@ -296,7 +296,7 @@ export function ContentTypeWorkbench({
                 {contentType.fields.map((field) => (
                   <TableRow
                     key={field.key}
-                    className={canWrite ? "h-10 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" : "h-10"}
+                    className={canWrite ? "h-10 cursor-pointer focus-visible:outline focus-visible:outline-ring" : "h-10"}
                     tabIndex={canWrite ? 0 : undefined}
                     onClick={canWrite ? () => setPanel({ kind: "schema" }) : undefined}
                     onKeyDown={
@@ -535,7 +535,7 @@ export function ContentTypeWorkbench({
                   {entries.map((entry, index) => (
                     <TableRow
                       key={entry.id}
-                      className={canWrite ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" : undefined}
+                      className={canWrite ? "cursor-pointer focus-visible:outline focus-visible:outline-ring" : undefined}
                       tabIndex={canWrite ? 0 : undefined}
                       onClick={canWrite ? () => setPanel({ kind: "entry", entry }) : undefined}
                       onKeyDown={
@@ -621,7 +621,7 @@ export function ContentTypeWorkbench({
       <Sheet open={panel !== null} onOpenChange={(open) => !open && closePanel()}>
         <SheetContent
           side="right"
-          className="data-[side=right]:!w-full sm:data-[side=right]:!w-2/5 sm:data-[side=right]:!max-w-none"
+          className="data-[side=right]:w-full! sm:data-[side=right]:w-2/5! sm:data-[side=right]:max-w-none!"
         >
           <SheetHeader className="pr-12">
             <SheetTitle>{panelTitle}</SheetTitle>
