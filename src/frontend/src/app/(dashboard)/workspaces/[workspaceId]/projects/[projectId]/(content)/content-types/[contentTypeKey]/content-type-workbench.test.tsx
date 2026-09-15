@@ -233,4 +233,41 @@ describe("ContentTypeWorkbench", () => {
       { scroll: false },
     )
   })
+
+  it("opens filters to the right and edits timestamp filters with a date-time input", () => {
+    render(
+      <ContentTypeWorkbench
+        workspaceId="workspace-1"
+        projectId="project-1"
+        canWrite={false}
+        entries={[]}
+        entriesError={null}
+        filters={[{ field: "$createdAt", operator: "gte", value: "2026-09-09T12:00:00Z" }]}
+        contentType={{
+          id: "type-1",
+          projectId: "project-1",
+          key: "articles",
+          createdAt: "2026-09-03T00:00:00Z",
+          updatedAt: "2026-09-03T00:00:00Z",
+          fields: [],
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter entries" }))
+
+    expect(document.querySelector("[data-slot=popover-content]")?.getAttribute("data-align"))
+      .toBe("start")
+    const timestampInput = document.querySelector("input[type=datetime-local]") as HTMLInputElement
+    expect(timestampInput.value).toBe("2026-09-09T12:00")
+    expect(timestampInput.step).toBe("60")
+
+    fireEvent.change(timestampInput, { target: { value: "2026-09-10T13:45" } })
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+
+    expect(push).toHaveBeenLastCalledWith(
+      "/workspaces/workspace-1/projects/project-1/content-types/articles?entry=entry-1&filter%5B%24createdAt%5D%5Bgte%5D=2026-09-10T13%3A45%3A00.000Z",
+      { scroll: false },
+    )
+  })
 })

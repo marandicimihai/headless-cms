@@ -348,7 +348,7 @@ export function ContentTypeWorkbench({
                   </span>
                 ) : null}
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[min(34rem,calc(100vw-2rem))] max-w-none gap-3">
+              <PopoverContent align="start" className="w-[min(34rem,calc(100vw-2rem))] max-w-none gap-3">
                 <PopoverHeader className="flex-row items-center justify-between gap-3">
                   <PopoverTitle>Filter entries</PopoverTitle>
                   {filters.length ? (
@@ -406,7 +406,18 @@ export function ContentTypeWorkbench({
                               ))}
                             </SelectContent>
                           </Select>
-                          {field?.type === "status" || field?.type === "boolean" ? (
+                          {field?.type === "timestamp" ? (
+                            <Input
+                              type="datetime-local"
+                              step={60}
+                              aria-label={`Filter ${index + 1} value (UTC)`}
+                              disabled={!field}
+                              value={formatTimestampInputValue(filter.value)}
+                              onChange={(event) => updateDraftFilter(index, {
+                                value: parseTimestampInputValue(event.target.value),
+                              })}
+                            />
+                          ) : field?.type === "status" || field?.type === "boolean" ? (
                             <Select
                               value={filter.value}
                               disabled={!field}
@@ -427,7 +438,7 @@ export function ContentTypeWorkbench({
                             <Input
                               aria-label={`Filter ${index + 1} value`}
                               disabled={!field}
-                              placeholder={field?.type === "timestamp" ? "2026-09-09T12:00:00Z" : "Value"}
+                              placeholder="Value"
                               value={filter.value ?? ""}
                               onChange={(event) => updateDraftFilter(index, { value: event.target.value })}
                             />
@@ -772,4 +783,22 @@ function formatEntryTimestamp(value: string) {
   return Number.isNaN(date.getTime())
     ? "Unknown date"
     : entryTimestampFormatter.format(date)
+}
+
+function formatTimestampInputValue(value?: string) {
+  if (!value) return ""
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+
+  const pad = (part: number) => String(part).padStart(2, "0")
+  return `${String(date.getUTCFullYear()).padStart(4, "0")}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
+}
+
+function parseTimestampInputValue(value: string) {
+  if (!value) return ""
+
+  const normalizedValue = value.length === 16 ? `${value}:00` : value
+  const date = new Date(`${normalizedValue}Z`)
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString()
 }
