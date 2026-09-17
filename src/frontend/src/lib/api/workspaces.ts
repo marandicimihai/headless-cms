@@ -1,5 +1,7 @@
 import "server-only"
 
+import { cache } from "react"
+
 import type { ApiResult } from "@/lib/types/general"
 import type {
   CreateWorkspaceResponse,
@@ -12,12 +14,11 @@ import type {
 
 import { apiFetch } from "./fetch-utils"
 
-export async function listMyWorkspaces(
-): Promise<ApiResult<WorkspaceSummary[]>> {
+export const listMyWorkspaces = cache(async (): Promise<ApiResult<WorkspaceSummary[]>> => {
   return apiFetch<WorkspaceSummary[]>("/api/me/workspaces", {
     cache: "no-store",
   })
-}
+})
 
 export async function createWorkspace(
   request: { name: string },

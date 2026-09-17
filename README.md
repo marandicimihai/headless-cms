@@ -165,7 +165,12 @@ pnpm dev
 pnpm test
 pnpm lint
 pnpm build
+pnpm test:render-dedup
 ```
+
+`pnpm test:render-dedup` builds with webpack and verifies render request counts,
+session isolation, and mutation freshness against a local mock backend. Ports
+3210 and 3211 must be available; no browser installation is required.
 
 ## Development Notes
 

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { AuthSession } from "../types/auth";
 import { cookies } from "next/headers";
 
@@ -49,7 +51,7 @@ function expiresFromCookie(setCookieHeader: string): Date {
   return expiresAttribute ? new Date(expiresAttribute) : new Date(Number.NaN);
 }
 
-export async function getSession(): Promise<AuthSession | null> {
+export const getSession = cache(async (): Promise<AuthSession | null> => {
   const secret = await getSessionCookie();
 
   if (!secret) {
@@ -74,7 +76,7 @@ export async function getSession(): Promise<AuthSession | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();

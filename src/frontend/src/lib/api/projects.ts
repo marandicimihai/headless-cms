@@ -1,5 +1,7 @@
 import "server-only"
 
+import { cache } from "react"
+
 import type { ApiResult } from "@/lib/types/general"
 import type { Project } from "@/lib/types/projects"
 
@@ -13,10 +15,14 @@ function projectPath(workspaceId: string, projectId: string) {
   return `${projectsPath(workspaceId)}/${encodeURIComponent(projectId)}`
 }
 
-export async function listProjects(
+const listProjectsForWorkspace = cache(async (
   workspaceId: string,
-): Promise<ApiResult<Project[]>> {
+): Promise<ApiResult<Project[]>> => {
   return apiFetch<Project[]>(projectsPath(workspaceId), { cache: "no-store" })
+})
+
+export function listProjects(workspaceId: string): Promise<ApiResult<Project[]>> {
+  return listProjectsForWorkspace(workspaceId.toLowerCase())
 }
 
 export async function getProject(

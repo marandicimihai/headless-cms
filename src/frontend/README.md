@@ -47,3 +47,33 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Render request deduplication
+
+Session, workspace membership, and workspace project reads share results within
+a server render using React `cache()`. New requests fetch fresh backend data;
+mutations are not memoized. Workspace UUIDs are normalized before project-list
+lookup. Authentication cookies, `no-store`, and request timeouts are preserved.
+
+Run from `src/frontend`:
+
+```bash
+pnpm test
+pnpm lint
+pnpm test:render-dedup
+```
+
+The integration command builds the production app with webpack and uses Playwright HTTP
+requests against Next.js with a local mock backend. No browser download or real
+backend is required. Ports 3210 and 3211 must be available. Tests cover request
+counts, UUID normalization, separate requests, concurrent sessions, failures,
+redirects, and project rename through the Server Action referenced by its rendered form.
+
+To run the production build and integration tests separately, use:
+
+```bash
+pnpm exec next build --webpack
+pnpm exec playwright test
+```
+
+Local listening ports must still be permitted to run integration tests.

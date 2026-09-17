@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:render-dedup": "next build --webpack && playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
