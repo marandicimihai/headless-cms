@@ -1,4 +1,5 @@
 using System.Globalization;
+using HeadlessCms.Api.Content.FieldTypes;
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
@@ -24,7 +25,8 @@ public sealed record ContentEntryPage(
 public class ContentEntryService(
     ApplicationDbContext db,
     ContentDefinitionService definitions,
-    ContentDocumentValidator documentValidator)
+    ContentDocumentValidator documentValidator,
+    ContentFieldTypeRegistry fieldTypes)
 {
     public async Task<ContentEntry?> CreateAsync(
         Guid workspaceId,
@@ -199,22 +201,12 @@ public class ContentEntryService(
         return new ContentEntryPage(items, total, options.Page, options.PageSize);
     }
 
-    private static IQueryable<ContentEntry> ApplyFilter(
+    private IQueryable<ContentEntry> ApplyFilter(
         IQueryable<ContentEntry> query,
         ContentField field,
-        ContentFilter filter)
-    {
-        var operation = filter.Operator.ToLowerInvariant();
-
-        return field.Type switch
-        {
-            ContentFieldType.Text => ApplyTextFilter(query, field.Key, operation, filter.Value),
-            ContentFieldType.Number => ApplyNumberFilter(query, field.Key, operation, filter.Value),
-            ContentFieldType.Boolean => ApplyBooleanFilter(query, field.Key, operation, filter.Value),
-            _ => throw new ContentValidationException(
-                $"Field '{field.Key}' has an unsupported filter type.")
-        };
-    }
+        ContentFilter filter) =>
+        fieldTypes.Get(field.Type).ApplyFilter(
+            query, field.Key, filter.Operator.ToLowerInvariant(), filter.Value);
 
     private static IQueryable<ContentEntry> ApplySystemFilter(
         IQueryable<ContentEntry> query,
@@ -298,73 +290,7 @@ public class ContentEntryService(
         };
     }
 
-    private static IQueryable<ContentEntry> ApplyTextFilter(
-        IQueryable<ContentEntry> query,
-        string key,
-        string operation,
-        string value)
-    {
-        return operation switch
-        {
-            "eq" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetString() == value),
-            "contains" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetString()!.Contains(value)),
-            _ => throw new ContentValidationException(
-                $"Operator '{operation}' is not supported for text fields.")
-        };
-    }
-
-    private static IQueryable<ContentEntry> ApplyNumberFilter(
-        IQueryable<ContentEntry> query,
-        string key,
-        string operation,
-        string value)
-    {
-        if (!decimal.TryParse(
-                value,
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out var number))
-        {
-            throw new ContentValidationException(
-                $"Filter value '{value}' is not a valid number.");
-        }
-
-        return operation switch
-        {
-            "eq" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetDecimal() == number),
-            "gt" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetDecimal() > number),
-            "gte" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetDecimal() >= number),
-            "lt" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetDecimal() < number),
-            "lte" => query.Where(entry =>
-                entry.Data.RootElement.GetProperty(key).GetDecimal() <= number),
-            _ => throw new ContentValidationException(
-                $"Operator '{operation}' is not supported for number fields.")
-        };
-    }
-
-    private static IQueryable<ContentEntry> ApplyBooleanFilter(
-        IQueryable<ContentEntry> query,
-        string key,
-        string operation,
-        string value)
-    {
-        if (operation != "eq" || !bool.TryParse(value, out var boolean))
-        {
-            throw new ContentValidationException(
-                "Boolean fields support only 'eq' with a true or false value.");
-        }
-
-        return query.Where(entry =>
-            entry.Data.RootElement.GetProperty(key).GetBoolean() == boolean);
-    }
-
-    private static IQueryable<ContentEntry> ApplySort(
+    private IQueryable<ContentEntry> ApplySort(
         IQueryable<ContentEntry> query,
         IReadOnlyDictionary<string, ContentField> fields,
         string? sort)
@@ -395,23 +321,7 @@ public class ContentEntryService(
             throw new ContentValidationException(
                 $"Sort field '{fieldKey}' is not declared by the content type.");
 
-        IOrderedQueryable<ContentEntry> ordered = field.Type switch
-        {
-            ContentFieldType.Text when descending => query.OrderByDescending(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetString()),
-            ContentFieldType.Text => query.OrderBy(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetString()),
-            ContentFieldType.Number when descending => query.OrderByDescending(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetDecimal()),
-            ContentFieldType.Number => query.OrderBy(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetDecimal()),
-            ContentFieldType.Boolean when descending => query.OrderByDescending(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetBoolean()),
-            ContentFieldType.Boolean => query.OrderBy(entry =>
-                entry.Data.RootElement.GetProperty(fieldKey).GetBoolean()),
-            _ => throw new ContentValidationException(
-                $"Sort field '{fieldKey}' has an unsupported type.")
-        };
+        var ordered = fieldTypes.Get(field.Type).ApplySort(query, fieldKey, descending);
 
         return ordered.ThenBy(entry => entry.Id);
     }

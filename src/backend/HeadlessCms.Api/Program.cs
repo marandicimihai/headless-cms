@@ -4,6 +4,7 @@ using HeadlessCms.Api.Auth;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Content.Services;
+using HeadlessCms.Api.Content.FieldTypes;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Workspaces.Services;
@@ -42,6 +43,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<WorkspaceAccessService>();
 builder.Services.AddScoped<WorkspaceInvitationService>();
 builder.Services.AddScoped<WorkspaceOwnershipLimitService>();
+builder.Services.AddSingleton<IContentFieldTypeHandler, TextFieldTypeHandler>();
+builder.Services.AddSingleton<IContentFieldTypeHandler, NumberFieldTypeHandler>();
+builder.Services.AddSingleton<IContentFieldTypeHandler, BooleanFieldTypeHandler>();
+builder.Services.AddSingleton<ContentFieldTypeRegistry>();
 builder.Services.AddScoped<ContentDocumentValidator>();
 builder.Services.AddScoped<ContentDefinitionService>();
 builder.Services.AddScoped<ContentEntryService>();
@@ -52,6 +57,9 @@ else
     builder.Services.AddScoped<IInvitationEmailSender, UnconfiguredInvitationEmailSender>();
 
 var app = builder.Build();
+
+// Validate handler registrations before accepting requests.
+app.Services.GetRequiredService<ContentFieldTypeRegistry>();
 
 await app.SeedPlatformAdminUser();
 

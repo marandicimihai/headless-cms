@@ -419,3 +419,20 @@ Verify these contracts against PostgreSQL with Docker running:
 ```bash
 dotnet test src/backend/HeadlessCms.Api.Tests/HeadlessCms.Api.Tests.csproj --filter FullyQualifiedName~PreviewEndpointTests
 ```
+
+### Extending backend field types
+
+Field-specific value validation, filtering, sorting, and text-search eligibility
+live in `src/backend/HeadlessCms.Api/Content/FieldTypes/`. The coordinating services
+retain document rules, defaults, system fields, pagination, and search ranking.
+
+To add a field type, add a `ContentFieldType` enum member, implement
+`IContentFieldTypeHandler`, and register it explicitly in `Program.cs`. Keep query
+expressions translatable by EF Core and PostgreSQL. Set `SupportsTextSearch` only
+for types storing JSON strings that should participate in workspace search.
+
+Removing a handler registration disables that type without deleting stored fields
+or entry values. Definition validation, entry writes, and filtering or sorting
+that require the disabled handler fail with a validation error; workspace search
+excludes it. Duplicate handler registrations fail at application startup. Existing
+enum values and their serialized/database names must remain stable.

@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+using HeadlessCms.Api.Content.FieldTypes;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ public sealed record WorkspaceSearchResult(
     WorkspaceSearchGroup<WorkspaceSearchContentType> ContentTypes,
     WorkspaceSearchGroup<WorkspaceSearchEntry> Entries);
 
-public sealed class WorkspaceSearchService(ApplicationDbContext db)
+public sealed class WorkspaceSearchService(ApplicationDbContext db, ContentFieldTypeRegistry fieldTypes)
 {
     private const int SnippetLength = 140;
 
@@ -158,7 +159,7 @@ public sealed class WorkspaceSearchService(ApplicationDbContext db)
         return new WorkspaceSearchGroup<WorkspaceSearchContentType>(items, total);
     }
 
-    private static async Task<WorkspaceSearchGroup<WorkspaceSearchEntry>> SearchEntriesAsync(
+    private async Task<WorkspaceSearchGroup<WorkspaceSearchEntry>> SearchEntriesAsync(
         DbConnection connection,
         Guid workspaceId,
         string query,
@@ -198,7 +199,7 @@ public sealed class WorkspaceSearchService(ApplicationDbContext db)
                     AND field."ProjectId" = entry."ProjectId"
                 CROSS JOIN LATERAL jsonb_each_text(entry."Data") AS value(key, value)
                 WHERE entry."WorkspaceId" = @workspaceId
-                    AND field."Type" = 'Text'
+                    AND field."Type" = ANY(@textSearchTypes)
                     AND field."Key" = value.key
                     AND value.value ILIKE @containsPattern ESCAPE E'\\'
             ), matches AS (
@@ -211,6 +212,10 @@ public sealed class WorkspaceSearchService(ApplicationDbContext db)
             LIMIT @limit;
             """;
         AddParameters(command, workspaceId, query, limit);
+        var typesParameter = command.CreateParameter();
+        typesParameter.ParameterName = "textSearchTypes";
+        typesParameter.Value = fieldTypes.TextSearchTypes.Select(type => type.ToString()).ToArray();
+        command.Parameters.Add(typesParameter);
 
         var items = new List<WorkspaceSearchEntry>();
         var total = 0;
@@ -244,8 +249,9 @@ public sealed class WorkspaceSearchService(ApplicationDbContext db)
         var contentTypes = await db.ContentTypes.AsNoTracking()
             .Where(contentType => contentType.WorkspaceId == workspaceId)
             .ToListAsync(ct);
+        var textSearchTypes = fieldTypes.TextSearchTypes;
         var fields = await db.ContentFields.AsNoTracking()
-            .Where(field => field.WorkspaceId == workspaceId && field.Type == ContentFieldType.Text)
+            .Where(field => field.WorkspaceId == workspaceId && textSearchTypes.Contains(field.Type))
             .ToListAsync(ct);
         var entries = await db.ContentEntries.AsNoTracking()
             .Where(entry => entry.WorkspaceId == workspaceId)

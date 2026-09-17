@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using HeadlessCms.Api.Content.FieldTypes;
 using HeadlessCms.Api.Content.Models;
 
 namespace HeadlessCms.Api.Content.Services;
 
-public class ContentDocumentValidator
+public class ContentDocumentValidator(ContentFieldTypeRegistry fieldTypes)
 {
     public JsonDocument Validate(
         JsonElement data,
@@ -12,6 +13,9 @@ public class ContentDocumentValidator
     {
         if (data.ValueKind != JsonValueKind.Object)
             throw new ContentValidationException("Data must be a JSON object.");
+
+        foreach (var field in fields)
+            fieldTypes.Get(field.Type);
 
         var fieldsByKey = fields.ToDictionary(field => field.Key, StringComparer.Ordinal);
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -73,6 +77,8 @@ public class ContentDocumentValidator
             throw new ContentValidationException(
                 $"Settings for field '{fieldKey}' must be a JSON object.");
 
+        fieldTypes.Get(type);
+
         if (!TryGetDefault(settings, out var defaultValue))
             return;
 
@@ -107,25 +113,9 @@ public class ContentDocumentValidator
     private static bool IsMissingOptionalValue(ContentField field, JsonElement value) =>
         !field.Required && value.ValueKind == JsonValueKind.Null;
 
-    private static void ValidateValue(
+    private void ValidateValue(
         ContentField field,
         JsonElement value,
-        ICollection<string> errors)
-    {
-        var valid = field.Type switch
-        {
-            ContentFieldType.Text => value.ValueKind == JsonValueKind.String,
-            ContentFieldType.Number =>
-                value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out _),
-            ContentFieldType.Boolean =>
-                value.ValueKind is JsonValueKind.True or JsonValueKind.False,
-            _ => false
-        };
-
-        if (!valid)
-        {
-            errors.Add(
-                $"Field '{field.Key}' must contain a {field.Type.ToString().ToLowerInvariant()} value.");
-        }
-    }
+        ICollection<string> errors) =>
+        fieldTypes.Get(field.Type).ValidateValue(field, value, errors);
 }

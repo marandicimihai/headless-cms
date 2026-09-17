@@ -4,6 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Content.Models;
+using HeadlessCms.Api.Content.FieldTypes;
+using HeadlessCms.Api.Content.Services;
+using Microsoft.EntityFrameworkCore;
 using HeadlessCms.Api.Endpoints.Search;
 using HeadlessCms.Api.Workspaces.Models;
 using Shouldly;
@@ -28,6 +31,55 @@ public sealed class SearchEndpointTests(TestApp app) : TestBase
     protected override async ValueTask SetupAsync()
     {
         await app.ResetDatabaseAsync();
+    }
+
+    [Theory]
+    [InlineData(ContentFieldType.Text, "title", "contains", "Article", 2)]
+    [InlineData(ContentFieldType.Number, "views", "gte", "456", 2)]
+    [InlineData(ContentFieldType.Boolean, "featured", "eq", "true", 1)]
+    public async Task PostgreSql_HandlerQueriesExecuteOnServer(
+        ContentFieldType type, string key, string operation, string value, int expectedCount)
+    {
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        await SeedSearchDataAsync(workspace.Id);
+        await app.WithDatabaseAsync(async db =>
+        {
+            var registry = new ContentFieldTypeRegistry(
+                [new TextFieldTypeHandler(), new NumberFieldTypeHandler(), new BooleanFieldTypeHandler()]);
+            var handler = registry.Get(type);
+            var query = db.ContentEntries.AsNoTracking().Where(entry => entry.WorkspaceId == workspace.Id);
+            var filtered = handler.ApplyFilter(query, key, operation, value);
+            (await filtered.CountAsync(TestContext.Current.CancellationToken)).ShouldBe(expectedCount);
+            var ascending = await handler.ApplySort(query, key, false).ThenBy(entry => entry.Id)
+                .Select(entry => entry.Id).ToArrayAsync(TestContext.Current.CancellationToken);
+            var descending = await handler.ApplySort(query, key, true).ThenByDescending(entry => entry.Id)
+                .Select(entry => entry.Id).ToArrayAsync(TestContext.Current.CancellationToken);
+            descending.ShouldBe(ascending.Reverse().ToArray());
+            return ascending;
+        });
+    }
+
+    [Fact]
+    public async Task PostgreSql_SearchExcludesDisabledFieldTypes()
+    {
+        var owner = await app.SeedUserAsync("owner", "owner-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        await SeedSearchDataAsync(workspace.Id);
+        await app.WithDatabaseAsync(async db =>
+        {
+            var enabled = new ContentFieldTypeRegistry(
+                [new TextFieldTypeHandler()]);
+            var disabled = new ContentFieldTypeRegistry([]);
+            var enabledResult = await new WorkspaceSearchService(db, enabled)
+                .SearchAsync(workspace.Id, "article", 5, TestContext.Current.CancellationToken);
+            enabledResult.Entries.Total.ShouldBe(3);
+            var disabledResult = await new WorkspaceSearchService(db, disabled)
+                .SearchAsync(workspace.Id, "article", 5, TestContext.Current.CancellationToken);
+            disabledResult.Entries.Total.ShouldBe(0);
+            disabledResult.Projects.Total.ShouldBe(enabledResult.Projects.Total);
+            return disabledResult;
+        });
     }
 
     [Fact]
