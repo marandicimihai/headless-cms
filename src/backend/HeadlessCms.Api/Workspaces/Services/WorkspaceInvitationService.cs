@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Claims;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Data;
@@ -13,7 +14,8 @@ public sealed record CreatedWorkspaceInvitation(
     Guid WorkspaceId,
     Guid InvitationId,
     string Token,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    WorkspaceInvitation Invitation);
 
 public sealed record InvitationPreview(
     Guid InvitationId,
@@ -97,7 +99,8 @@ public class WorkspaceInvitationService(
             workspaceId,
             invitation.Id,
             token,
-            invitation.ExpiresAt);
+            invitation.ExpiresAt,
+            invitation);
     }
 
     public async Task<InvitationPreview> PreviewAsync(
@@ -200,6 +203,34 @@ public class WorkspaceInvitationService(
         return membership;
     }
 
+    public async Task<WorkspaceInvitation?> FindManageableAsync(
+        ClaimsPrincipal principal,
+        Guid workspaceId,
+        Guid invitationId,
+        CancellationToken ct = default)
+    {
+        var invitation = await db.WorkspaceInvitations
+            .Include(candidate => candidate.Workspace)
+            .SingleOrDefaultAsync(
+                candidate => candidate.Id == invitationId && candidate.WorkspaceId == workspaceId,
+                ct);
+        if (invitation is null)
+            return null;
+
+        if (await workspaceAccess.ResolveAsync(
+                principal, workspaceId, WorkspaceAccessRoles.Owners, ct) is not null)
+            return invitation;
+
+        if (!principal.IsInRole(nameof(PlatformRole.PlatformAdmin)) ||
+            invitation.Role != WorkspaceRole.Owner)
+            return null;
+
+        var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
+            membership => membership.WorkspaceId == workspaceId && membership.Role == WorkspaceRole.Owner,
+            ct);
+        return workspaceHasOwner ? null : invitation;
+    }
+
     public async Task<CreatedWorkspaceInvitation> ResendAsync(
         WorkspaceInvitation invitation,
         CancellationToken ct = default)
@@ -215,17 +246,16 @@ public class WorkspaceInvitationService(
         invitation.ExpiresAt = DateTime.UtcNow.AddHours(GetValidityHours());
         await db.SaveChangesAsync(ct);
 
-        var workspaceName = await db.Workspaces
-            .Where(workspace => workspace.Id == invitation.WorkspaceId)
-            .Select(workspace => workspace.Name)
-            .SingleAsync(ct);
+        await db.Entry(invitation).Reference(candidate => candidate.Workspace).LoadAsync(ct);
+        var workspaceName = invitation.Workspace.Name;
         await SendInvitationAsync(invitation, workspaceName, token, ct);
 
         return new CreatedWorkspaceInvitation(
             invitation.WorkspaceId,
             invitation.Id,
             token,
-            invitation.ExpiresAt);
+            invitation.ExpiresAt,
+            invitation);
     }
 
     public async Task RevokeAsync(WorkspaceInvitation invitation, CancellationToken ct = default)

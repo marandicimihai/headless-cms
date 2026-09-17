@@ -47,8 +47,15 @@ public sealed class GetProjectPreview(ApplicationDbContext db, WorkspaceAccessSe
             t => t.WorkspaceId == request.WorkspaceId && t.ProjectId == request.Id, ct);
         var entries = db.ContentEntries.AsNoTracking()
             .Where(e => e.WorkspaceId == request.WorkspaceId && e.ProjectId == request.Id);
-        var published = await entries.CountAsync(e => e.Status == ContentEntryStatus.Published, ct);
-        var drafts = await entries.CountAsync(e => e.Status == ContentEntryStatus.Draft, ct);
+        var counts = await entries.GroupBy(e => 1)
+            .Select(group => new
+            {
+                Published = group.Count(e => e.Status == ContentEntryStatus.Published),
+                Drafts = group.Count(e => e.Status == ContentEntryStatus.Draft)
+            })
+            .SingleOrDefaultAsync(ct);
+        var published = counts?.Published ?? 0;
+        var drafts = counts?.Drafts ?? 0;
         var recent = await entries.OrderByDescending(e => e.UpdatedAt).ThenBy(e => e.Id)
             .Take(10).Select(e => new ProjectPreviewEntry(e.Id, e.ContentType.Key, e.Status, e.UpdatedAt))
             .ToListAsync(ct);

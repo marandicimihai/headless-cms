@@ -49,8 +49,15 @@ public sealed class GetWorkspacePreview(ApplicationDbContext db, WorkspaceAccess
                     .Max(e => (DateTime?)e.UpdatedAt)))
             .ToListAsync(ct);
         var entries = db.ContentEntries.Where(e => e.WorkspaceId == request.WorkspaceId);
-        var published = await entries.CountAsync(e => e.Status == ContentEntryStatus.Published, ct);
-        var drafts = await entries.CountAsync(e => e.Status == ContentEntryStatus.Draft, ct);
+        var counts = await entries.GroupBy(e => 1)
+            .Select(group => new
+            {
+                Published = group.Count(e => e.Status == ContentEntryStatus.Published),
+                Drafts = group.Count(e => e.Status == ContentEntryStatus.Draft)
+            })
+            .SingleOrDefaultAsync(ct);
+        var published = counts?.Published ?? 0;
+        var drafts = counts?.Drafts ?? 0;
         var members = await db.WorkspaceMemberships.CountAsync(m => m.WorkspaceId == request.WorkspaceId, ct);
         int? pending = null;
         if (access.Role == WorkspaceRole.Owner)

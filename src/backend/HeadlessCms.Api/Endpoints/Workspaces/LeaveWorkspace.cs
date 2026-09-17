@@ -1,4 +1,5 @@
 using FastEndpoints;
+using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
@@ -7,8 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class LeaveWorkspace(
-    ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess)
+    ApplicationDbContext db)
     : Endpoint<LeaveWorkspaceRequest>
 {
     public override void Configure()
@@ -19,24 +19,14 @@ public sealed class LeaveWorkspace(
 
     public override async Task HandleAsync(LeaveWorkspaceRequest request, CancellationToken ct)
     {
-        var access = await workspaceAccess.ResolveAsync(
-            User,
-            request.WorkspaceId,
-            WorkspaceAccessRoles.Members,
-            ct);
-        if (access is null)
-        {
-            await Send.NotFoundAsync(ct);
-            return;
-        }
-
+        var userId = User.ClaimValue("sub")!;
         var membership = await db.WorkspaceMemberships.SingleOrDefaultAsync(
             candidate =>
                 candidate.WorkspaceId == request.WorkspaceId &&
-                candidate.UserId == access.UserId,
+                candidate.UserId == userId,
             ct);
 
-        if (membership is null)
+        if (membership is null || !WorkspaceAccessRoles.Members.Contains(membership.Role))
         {
             await Send.NotFoundAsync(ct);
             return;

@@ -166,7 +166,7 @@ public sealed class WorkspaceEndpointTests(WorkspaceEndpointTestApp app) : TestB
             setup.OwnerToken,
             new { email = "member@example.test", role = "Member" });
         create.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var invitation = await create.Content.ReadFromJsonAsync<CreateWorkspaceInvitationResponse>(
+        var invitation = await create.Content.ReadFromJsonAsync<WorkspaceInvitationResponse>(
             JsonOptions,
             cancellationToken: ct);
         invitation.ShouldNotBeNull();

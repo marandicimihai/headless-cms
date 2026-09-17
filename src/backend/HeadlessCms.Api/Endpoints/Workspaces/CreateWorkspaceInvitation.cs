@@ -1,17 +1,14 @@
 using FastEndpoints;
 using FastEndpoints.Security;
 using FluentValidation;
-using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class CreateWorkspaceInvitation(
-    WorkspaceInvitationService invitations,
-    ApplicationDbContext db)
-    : Endpoint<CreateWorkspaceInvitationRequest, CreateWorkspaceInvitationResponse>
+    WorkspaceInvitationService invitations)
+    : Endpoint<CreateWorkspaceInvitationRequest, WorkspaceInvitationResponse>
 {
     public override void Configure()
     {
@@ -31,11 +28,8 @@ public sealed class CreateWorkspaceInvitation(
                 request.Email,
                 request.Role,
                 ct);
-            var invitation = await db.WorkspaceInvitations
-                .AsNoTracking()
-                .SingleAsync(candidate => candidate.Id == created.InvitationId, ct);
             await Send.ResponseAsync(
-                ToResponse(invitation),
+                WorkspaceInvitationResponse.FromInvitation(created.Invitation),
                 StatusCodes.Status201Created,
                 ct);
         }
@@ -44,20 +38,6 @@ public sealed class CreateWorkspaceInvitation(
             await ApiErrors.SendAsync(HttpContext, exception, ct);
         }
     }
-
-    private static CreateWorkspaceInvitationResponse ToResponse(
-        WorkspaceInvitation invitation) =>
-        new(
-            invitation.Id,
-            invitation.WorkspaceId,
-            invitation.Email,
-            invitation.Role,
-            WorkspaceInvitationService.GetStatus(invitation),
-            invitation.CreatedAt,
-            invitation.ExpiresAt,
-            invitation.LastSentAt,
-            invitation.AcceptedAt,
-            invitation.RevokedAt);
 }
 
 public sealed class CreateWorkspaceInvitationRequest
@@ -78,15 +58,3 @@ public sealed class CreateWorkspaceInvitationRequestValidator
             .WithMessage("Role must be Editor or Member.");
     }
 }
-
-public sealed record CreateWorkspaceInvitationResponse(
-    Guid Id,
-    Guid WorkspaceId,
-    string Email,
-    WorkspaceRole Role,
-    InvitationStatus Status,
-    DateTime CreatedAt,
-    DateTime ExpiresAt,
-    DateTime? LastSentAt,
-    DateTime? AcceptedAt,
-    DateTime? RevokedAt);

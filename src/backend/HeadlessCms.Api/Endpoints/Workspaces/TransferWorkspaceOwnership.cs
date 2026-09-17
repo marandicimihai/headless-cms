@@ -1,4 +1,5 @@
 using FastEndpoints;
+using FastEndpoints.Security;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
@@ -9,8 +10,7 @@ namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class TransferWorkspaceOwnership(
     ApplicationDbContext db,
-    WorkspaceOwnershipLimitService ownershipLimits,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceOwnershipLimitService ownershipLimits)
     : Endpoint<
         TransferWorkspaceOwnershipRequest,
         IReadOnlyList<TransferWorkspaceOwnershipMemberResponse>>
@@ -25,25 +25,21 @@ public sealed class TransferWorkspaceOwnership(
         TransferWorkspaceOwnershipRequest request,
         CancellationToken ct)
     {
-        var access = await workspaceAccess.ResolveAsync(
-            User,
-            request.WorkspaceId,
-            WorkspaceAccessRoles.Owners,
-            ct);
-        if (access is null)
-        {
-            await Send.NotFoundAsync(ct);
-            return;
-        }
-
+        var userId = User.ClaimValue("sub")!;
         var owner = await db.WorkspaceMemberships
             .Include(membership => membership.User)
             .SingleOrDefaultAsync(
                 membership =>
                     membership.WorkspaceId == request.WorkspaceId &&
-                    membership.UserId == access.UserId &&
+                    membership.UserId == userId &&
                     membership.Role == WorkspaceRole.Owner,
                 ct);
+        if (owner is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
         var nextOwner = await db.WorkspaceMemberships
             .Include(membership => membership.User)
             .SingleOrDefaultAsync(
@@ -53,7 +49,7 @@ public sealed class TransferWorkspaceOwnership(
                     membership.Role != WorkspaceRole.Owner,
                 ct);
 
-        if (owner is null || nextOwner is null)
+        if (nextOwner is null)
         {
             await Send.NotFoundAsync(ct);
             return;

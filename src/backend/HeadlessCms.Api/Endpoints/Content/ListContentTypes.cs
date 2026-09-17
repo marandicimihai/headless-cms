@@ -45,15 +45,15 @@ public sealed class ListContentTypes(
     }
 
     private static ListContentTypesItemResponse ToResponse(
-        ContentTypeDefinition definition) =>
+        ContentType definition) =>
         new()
         {
-            Id = definition.ContentType.Id,
-            ProjectId = definition.ContentType.ProjectId,
-            Key = definition.ContentType.Key,
-            CreatedAt = definition.ContentType.CreatedAt,
-            UpdatedAt = definition.ContentType.UpdatedAt,
-            Fields = definition.ContentType.Fields
+            Id = definition.Id,
+            ProjectId = definition.ProjectId,
+            Key = definition.Key,
+            CreatedAt = definition.CreatedAt,
+            UpdatedAt = definition.UpdatedAt,
+            Fields = definition.Fields
                 .OrderBy(field => field.Position)
                 .Select(field => new ListContentTypesFieldResponse
                 {

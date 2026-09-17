@@ -1,4 +1,5 @@
 using System.Net;
+using System.Data.Common;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,9 +8,13 @@ using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Endpoints.Auth;
+using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
@@ -24,6 +29,64 @@ public sealed class LoginSessionEndpointTests(TestApp app) : TestBase
 
     protected override async ValueTask SetupAsync() =>
         await app.ResetDatabaseAsync();
+
+    [Fact]
+    public async Task SessionResolution_SkipsDatabaseUpdateUntilRenewalIsDue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await app.SeedUserAsync(EmailAddress, Password);
+        var cookie = await app.LoginAsync(EmailAddress, Password);
+        var secret = cookie.Split('=', 2)[1];
+        var commands = new SessionCommandCounter();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(app.PostgreSqlConnectionString)
+            .AddInterceptors(commands)
+            .Options;
+        await using var db = new ApplicationDbContext(options);
+        var service = new AuthSessionService(
+            db, TimeProvider.System, app.Services.GetRequiredService<IWebHostEnvironment>());
+
+        (await service.ResolveAsync(secret, ct)).ShouldNotBeNull();
+        commands.Reads.ShouldBe(1);
+        commands.Writes.ShouldBe(0);
+
+        await app.WithDatabaseAsync(async storedDb =>
+        {
+            var session = await storedDb.AuthSessions.SingleAsync(ct);
+            session.LastSeenAt = DateTime.UtcNow.AddHours(-25);
+            await storedDb.SaveChangesAsync(ct);
+            return true;
+        });
+
+        (await service.ResolveAsync(secret, ct)).ShouldNotBeNull();
+        commands.Reads.ShouldBe(2);
+        commands.Writes.ShouldBe(1);
+        (await service.ResolveAsync(secret, ct)).ShouldNotBeNull();
+        commands.Reads.ShouldBe(3);
+        commands.Writes.ShouldBe(1);
+    }
+
+    private sealed class SessionCommandCounter : DbCommandInterceptor
+    {
+        public int Reads { get; private set; }
+        public int Writes { get; private set; }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData,
+            InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            return ValueTask.FromResult(result);
+        }
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command, CommandEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            Writes++;
+            return ValueTask.FromResult(result);
+        }
+    }
 
     [Fact]
     public async Task Login_WithValidCredentials_CreatesHashedSessionAndSecureCookie()

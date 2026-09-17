@@ -16,7 +16,8 @@ public sealed record ResolvedAuthSession(
     string Email,
     PlatformRole PlatformRole,
     DateTime IdleExpiresAt,
-    DateTime AbsoluteExpiresAt);
+    DateTime AbsoluteExpiresAt,
+    DateTime LastSeenAt);
 
 public sealed class AuthSessionService(
     ApplicationDbContext db,
@@ -109,13 +110,17 @@ public sealed class AuthSessionService(
                 candidate.User.Email,
                 candidate.User.PlatformRole,
                 candidate.IdleExpiresAt,
-                candidate.AbsoluteExpiresAt))
+                candidate.AbsoluteExpiresAt,
+                candidate.LastSeenAt))
             .SingleOrDefaultAsync(ct);
 
         if (session is null)
             return null;
 
         var renewalCutoff = now.Subtract(RenewalInterval);
+        if (session.LastSeenAt > renewalCutoff)
+            return session;
+
         var renewedIdleExpiry = Min(now.Add(IdleLifetime), session.AbsoluteExpiresAt);
         var renewed = await db.AuthSessions
             .Where(candidate =>
@@ -131,7 +136,7 @@ public sealed class AuthSessionService(
 
         return renewed == 0
             ? session
-            : session with { IdleExpiresAt = renewedIdleExpiry };
+            : session with { IdleExpiresAt = renewedIdleExpiry, LastSeenAt = now };
     }
 
     public async Task RevokeAsync(string? secret, CancellationToken ct = default)

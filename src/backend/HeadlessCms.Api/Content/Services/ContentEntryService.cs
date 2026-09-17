@@ -44,14 +44,14 @@ public class ContentEntryService(
         if (definition is null)
             return null;
 
-        var validatedData = documentValidator.Validate(data, definition.ContentType.Fields);
+        var validatedData = documentValidator.Validate(data, definition.Fields);
         var now = DateTime.UtcNow;
         var entry = new ContentEntry
         {
             Id = Guid.NewGuid(),
             WorkspaceId = workspaceId,
             ProjectId = projectId,
-            ContentTypeId = definition.ContentType.Id,
+            ContentTypeId = definition.Id,
             Data = validatedData,
             Status = status,
             CreatedAt = now,
@@ -159,7 +159,7 @@ public class ContentEntryService(
         if (definition is null)
             return null;
 
-        var fields = definition.ContentType.Fields.ToDictionary(
+        var fields = definition.Fields.ToDictionary(
             field => field.Key,
             StringComparer.Ordinal);
 
@@ -168,7 +168,7 @@ public class ContentEntryService(
             .Where(entry =>
                 entry.WorkspaceId == workspaceId &&
                 entry.ProjectId == projectId &&
-                entry.ContentTypeId == definition.ContentType.Id);
+                entry.ContentTypeId == definition.Id);
 
         if (options.Status.HasValue)
             query = query.Where(entry => entry.Status == options.Status.Value);

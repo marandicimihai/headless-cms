@@ -1,16 +1,10 @@
 using FastEndpoints;
-using HeadlessCms.Api.Auth.Models;
-using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class RevokeWorkspaceInvitation(
-    ApplicationDbContext db,
-    WorkspaceInvitationService invitations,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceInvitationService invitations)
     : Endpoint<RevokeWorkspaceInvitationRequest>
 {
     public override void Configure()
@@ -23,7 +17,7 @@ public sealed class RevokeWorkspaceInvitation(
         RevokeWorkspaceInvitationRequest request,
         CancellationToken ct)
     {
-        var invitation = await FindManageableAsync(request, ct);
+        var invitation = await invitations.FindManageableAsync(User, request.WorkspaceId, request.InvitationId, ct);
         if (invitation is null)
         {
             await Send.NotFoundAsync(ct);
@@ -41,39 +35,6 @@ public sealed class RevokeWorkspaceInvitation(
         }
     }
 
-    private async Task<WorkspaceInvitation?> FindManageableAsync(
-        RevokeWorkspaceInvitationRequest request,
-        CancellationToken ct)
-    {
-        var invitation = await db.WorkspaceInvitations.SingleOrDefaultAsync(
-            candidate =>
-                candidate.Id == request.InvitationId &&
-                candidate.WorkspaceId == request.WorkspaceId,
-            ct);
-        if (invitation is null)
-            return null;
-
-        var isOwner = await workspaceAccess.ResolveAsync(
-            User,
-            request.WorkspaceId,
-            WorkspaceAccessRoles.Owners,
-            ct) is not null;
-        if (isOwner)
-            return invitation;
-
-        if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)) ||
-            invitation.Role != WorkspaceRole.Owner)
-        {
-            return null;
-        }
-
-        var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == request.WorkspaceId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
-        return workspaceHasOwner ? null : invitation;
-    }
 }
 
 public sealed class RevokeWorkspaceInvitationRequest

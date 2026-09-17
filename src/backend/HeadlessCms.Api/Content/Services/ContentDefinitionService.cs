@@ -11,8 +11,6 @@ public sealed record ContentFieldInput(
     bool Required,
     JsonElement Settings);
 
-public sealed record ContentTypeDefinition(ContentType ContentType);
-
 public class ContentDefinitionService(
     ApplicationDbContext db,
     ContentDocumentValidator documentValidator)
@@ -20,7 +18,7 @@ public class ContentDefinitionService(
     private static readonly JsonElement EmptySettings =
         JsonSerializer.SerializeToElement(new Dictionary<string, object?>());
 
-    public async Task<ContentTypeDefinition> CreateAsync(
+    public async Task<ContentType> CreateAsync(
         Guid workspaceId,
         Guid projectId,
         string key,
@@ -65,10 +63,10 @@ public class ContentDefinitionService(
 
         db.ContentTypes.Add(contentType);
         await db.SaveChangesAsync(ct);
-        return new ContentTypeDefinition(contentType);
+        return contentType;
     }
 
-    public async Task<ContentTypeDefinition?> UpdateAsync(
+    public async Task<ContentType?> UpdateAsync(
         Guid workspaceId,
         Guid projectId,
         string key,
@@ -136,7 +134,7 @@ public class ContentDefinitionService(
             .Where(field => proposedKeys.Contains(field.Key))
             .OrderBy(field => field.Position)
             .ToList();
-        return new ContentTypeDefinition(contentType);
+        return contentType;
     }
 
     public async Task<bool> DeleteAsync(
@@ -176,7 +174,7 @@ public class ContentDefinitionService(
         return true;
     }
 
-    public async Task<ContentTypeDefinition?> GetCurrentAsync(
+    public async Task<ContentType?> GetCurrentAsync(
         Guid workspaceId,
         Guid projectId,
         string key,
@@ -192,10 +190,10 @@ public class ContentDefinitionService(
                     candidate.Key == key,
                 ct);
 
-        return contentType is null ? null : new ContentTypeDefinition(contentType);
+        return contentType;
     }
 
-    public async Task<IReadOnlyList<ContentTypeDefinition>> ListCurrentAsync(
+    public async Task<IReadOnlyList<ContentType>> ListCurrentAsync(
         Guid workspaceId,
         Guid projectId,
         CancellationToken ct = default)
@@ -207,16 +205,14 @@ public class ContentDefinitionService(
             throw new ContentNotFoundException("Project not found.");
         }
 
-        return (await db.ContentTypes
+        return await db.ContentTypes
                 .AsNoTracking()
                 .Include(contentType => contentType.Fields.OrderBy(field => field.Position))
                 .Where(contentType =>
                     contentType.WorkspaceId == workspaceId &&
                     contentType.ProjectId == projectId)
                 .OrderBy(contentType => contentType.Key)
-                .ToListAsync(ct))
-            .Select(contentType => new ContentTypeDefinition(contentType))
-            .ToList();
+                .ToListAsync(ct);
     }
 
     private List<ContentField> ValidateAndCreateFields(

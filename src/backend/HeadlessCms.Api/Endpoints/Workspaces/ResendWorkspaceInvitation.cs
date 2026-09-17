@@ -1,17 +1,11 @@
 using FastEndpoints;
-using HeadlessCms.Api.Auth.Models;
-using HeadlessCms.Api.Data;
-using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class ResendWorkspaceInvitation(
-    ApplicationDbContext db,
-    WorkspaceInvitationService invitations,
-    WorkspaceAccessService workspaceAccess)
-    : EndpointWithoutRequest<ResendWorkspaceInvitationResponse>
+    WorkspaceInvitationService invitations)
+    : EndpointWithoutRequest<WorkspaceInvitationResponse>
 {
     public override void Configure()
     {
@@ -23,7 +17,7 @@ public sealed class ResendWorkspaceInvitation(
     {
         var workspaceId = Route<Guid>("workspaceId");
         var invitationId = Route<Guid>("invitationId");
-        var invitation = await FindManageableAsync(workspaceId, invitationId, ct);
+        var invitation = await invitations.FindManageableAsync(User, workspaceId, invitationId, ct);
         if (invitation is null)
         {
             await Send.NotFoundAsync(ct);
@@ -33,7 +27,7 @@ public sealed class ResendWorkspaceInvitation(
         try
         {
             await invitations.ResendAsync(invitation, ct);
-            Response = ToResponse(invitation);
+            Response = WorkspaceInvitationResponse.FromInvitation(invitation);
         }
         catch (InvitationFlowException exception)
         {
@@ -41,64 +35,4 @@ public sealed class ResendWorkspaceInvitation(
         }
     }
 
-    private async Task<WorkspaceInvitation?> FindManageableAsync(
-        Guid workspaceId,
-        Guid invitationId,
-        CancellationToken ct)
-    {
-        var invitation = await db.WorkspaceInvitations.SingleOrDefaultAsync(
-            candidate =>
-                candidate.Id == invitationId &&
-                candidate.WorkspaceId == workspaceId,
-            ct);
-        if (invitation is null)
-            return null;
-
-        var isOwner = await workspaceAccess.ResolveAsync(
-            User,
-            workspaceId,
-            WorkspaceAccessRoles.Owners,
-            ct) is not null;
-        if (isOwner)
-            return invitation;
-
-        if (!User.IsInRole(nameof(PlatformRole.PlatformAdmin)) ||
-            invitation.Role != WorkspaceRole.Owner)
-        {
-            return null;
-        }
-
-        var workspaceHasOwner = await db.WorkspaceMemberships.AnyAsync(
-            membership =>
-                membership.WorkspaceId == workspaceId &&
-                membership.Role == WorkspaceRole.Owner,
-            ct);
-        return workspaceHasOwner ? null : invitation;
-    }
-
-    private static ResendWorkspaceInvitationResponse ToResponse(
-        WorkspaceInvitation invitation) =>
-        new(
-            invitation.Id,
-            invitation.WorkspaceId,
-            invitation.Email,
-            invitation.Role,
-            WorkspaceInvitationService.GetStatus(invitation),
-            invitation.CreatedAt,
-            invitation.ExpiresAt,
-            invitation.LastSentAt,
-            invitation.AcceptedAt,
-            invitation.RevokedAt);
 }
-
-public sealed record ResendWorkspaceInvitationResponse(
-    Guid Id,
-    Guid WorkspaceId,
-    string Email,
-    WorkspaceRole Role,
-    InvitationStatus Status,
-    DateTime CreatedAt,
-    DateTime ExpiresAt,
-    DateTime? LastSentAt,
-    DateTime? AcceptedAt,
-    DateTime? RevokedAt);

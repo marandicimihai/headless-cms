@@ -75,7 +75,7 @@ public sealed class ListWorkspaceInvitations(
         }
 
         Response = new ListWorkspaceInvitationsResponse(
-            all.Skip((page - 1) * size).Take(size).Select(ToResponse).ToList(),
+            all.Skip((page - 1) * size).Take(size).Select(WorkspaceInvitationResponse.FromInvitation).ToList(),
             page,
             size,
             all.Count);
@@ -84,19 +84,6 @@ public sealed class ListWorkspaceInvitations(
     private static (int Page, int Size) NormalizePage(int page, int size) =>
         (Math.Max(page, 1), Math.Clamp(size, 1, 100));
 
-    private static ListWorkspaceInvitationsItemResponse ToResponse(
-        WorkspaceInvitation invitation) =>
-        new(
-            invitation.Id,
-            invitation.WorkspaceId,
-            invitation.Email,
-            invitation.Role,
-            WorkspaceInvitationService.GetStatus(invitation),
-            invitation.CreatedAt,
-            invitation.ExpiresAt,
-            invitation.LastSentAt,
-            invitation.AcceptedAt,
-            invitation.RevokedAt);
 }
 
 public sealed class ListWorkspaceInvitationsRequest
@@ -107,20 +94,8 @@ public sealed class ListWorkspaceInvitationsRequest
     public InvitationStatus? Status { get; init; }
 }
 
-public sealed record ListWorkspaceInvitationsItemResponse(
-    Guid Id,
-    Guid WorkspaceId,
-    string Email,
-    WorkspaceRole Role,
-    InvitationStatus Status,
-    DateTime CreatedAt,
-    DateTime ExpiresAt,
-    DateTime? LastSentAt,
-    DateTime? AcceptedAt,
-    DateTime? RevokedAt);
-
 public sealed record ListWorkspaceInvitationsResponse(
-    IReadOnlyList<ListWorkspaceInvitationsItemResponse> Items,
+    IReadOnlyList<WorkspaceInvitationResponse> Items,
     int Page,
     int PageSize,
     int Total);
