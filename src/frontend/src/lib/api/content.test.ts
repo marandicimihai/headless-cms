@@ -5,6 +5,9 @@ vi.mock("./fetch-utils", () => ({
   apiFetch: vi.fn(),
 }))
 
+vi.mock("./cached-read", () => ({ cachedWorkspaceRead: vi.fn() }))
+import { cachedWorkspaceRead } from "./cached-read"
+
 import { listContentEntries, updateContentType } from "./content"
 import { apiFetch } from "./fetch-utils"
 
@@ -13,6 +16,7 @@ const apiFetchMock = vi.mocked(apiFetch)
 describe("content API helpers", () => {
   beforeEach(() => {
     apiFetchMock.mockReset()
+    vi.mocked(cachedWorkspaceRead).mockReset()
   })
 
   it("updates fields through the workspace-scoped content-type contract", async () => {
@@ -48,9 +52,9 @@ describe("content API helpers", () => {
       ],
     })
 
-    expect(apiFetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-1/projects/project-1/content-types/articles/entries?page=1&pageSize=25&sort=-%24updatedAt&filter%5Btitle%5D%5Bcontains%5D=first+article&filter%5B%24status%5D%5Beq%5D=published",
-      { cache: "no-store" },
+    expect(cachedWorkspaceRead).toHaveBeenCalledWith(
+      "workspace-1",
+      "/api/workspaces/workspace-1/projects/project-1/content-types/articles/entries?page=1&pageSize=25&sort=-%24updatedAt&filter%5B%24status%5D%5Beq%5D=published&filter%5Btitle%5D%5Bcontains%5D=first+article",
     )
   })
 })

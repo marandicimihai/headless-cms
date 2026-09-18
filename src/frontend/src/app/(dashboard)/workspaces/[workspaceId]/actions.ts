@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { invalidateWorkspaceCache } from "@/lib/api/cached-read"
 import { redirect } from "next/navigation"
 
 import { getSession } from "@/lib/api/session"
@@ -42,6 +43,7 @@ async function requireSession() {
 }
 
 function refreshWorkspace(workspaceId: string) {
+  invalidateWorkspaceCache(workspaceId)
   revalidatePath("/")
   revalidatePath(`/workspaces/${workspaceId}`, "layout")
 }
@@ -76,6 +78,7 @@ export async function deleteWorkspaceAction(
 
   if (!result.ok) return errorState(result.error)
 
+  invalidateWorkspaceCache(workspaceId)
   await clearCurrentWorkspace()
   revalidatePath("/", "layout")
   redirect("/")
@@ -91,6 +94,7 @@ export async function leaveWorkspaceAction(
 
   if (!result.ok) return errorState(result.error)
 
+  invalidateWorkspaceCache(workspaceId)
   await clearCurrentWorkspace()
   revalidatePath("/", "layout")
   redirect("/")

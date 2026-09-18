@@ -28,7 +28,7 @@ function backendUnavailable<T>(status = 503): ApiResult<T> {
 
 export async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit,
+  options?: RequestInit & { next?: { revalidate?: number; tags?: string[] } },
 ): Promise<ApiResult<T>> {
   try {
     const headers = new Headers(options?.headers)
@@ -46,6 +46,7 @@ export async function apiFetch<T>(
     }
 
     const response = await fetch(`${process.env.BACKEND_URL}` + endpoint, {
+      cache: "no-store",
       ...options,
       signal: AbortSignal.timeout(10_000),
       headers,

@@ -51,9 +51,27 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Render request deduplication
 
 Session, workspace membership, and workspace project reads share results within
-a server render using React `cache()`. New requests fetch fresh backend data;
-mutations are not memoized. Workspace UUIDs are normalized before project-list
-lookup. Authentication cookies, `no-store`, and request timeouts are preserved.
+a server render using React `cache()`. Session and membership checks use
+`no-store` on every new server request; mutations are not memoized.
+
+Project lists/details, schemas, entry-list pages, and previews additionally use
+Next.js's fetch Data Cache with `force-cache` and a 30-second revalidation
+interval. Cache keys retain the forwarded HttpOnly session cookie, isolating
+sessions. Fresh session and membership checks run before each cached read and
+fail closed; cached previews with an outdated role are fetched uncached.
+Individual entry reads, search, member/invitation lists, and mutation
+prerequisites remain uncached. UUIDs and filter order are normalized for reuse.
+
+Successful frontend Server Actions expire the workspace tag using `updateTag`
+before existing page revalidation/redirects. This invalidates all its cached
+reads across sessions. Direct backend changes appear through background
+revalidation: the first expired read may return stale data, and refresh failures
+can retain it longer, so 30 seconds is not a hard maximum age. Authentication
+and membership checks remain fresh even when resource data is stale.
+
+No TanStack Query, Redis, or Cache Components configuration is required. Shared
+cache/invalidation coordination must be configured when deploying multiple
+Next.js instances.
 
 Run from `src/frontend`:
 
@@ -67,7 +85,11 @@ The integration command builds the production app with webpack and uses Playwrig
 requests against Next.js with a local mock backend. No browser download or real
 backend is required. Ports 3210 and 3211 must be available. Tests cover request
 counts, UUID normalization, separate requests, concurrent sessions, failures,
-redirects, and project rename through the Server Action referenced by its rendered form.
+redirects, warm resource reads, canonical sorting/filtering, expiry, role changes,
+and Server Action invalidation. On the mock-backed production server, a cold
+workspace load makes 3 backend calls and a warm load makes 2 (session and
+membership). New table sorting variants fetch entries; warm variants skip that
+request. These are backend API counts, not PostgreSQL command measurements.
 
 To run the production build and integration tests separately, use:
 

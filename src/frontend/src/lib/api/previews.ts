@@ -1,18 +1,20 @@
 import "server-only"
 
 import type { ProjectPreview, WorkspacePreview } from "@/lib/types/previews"
-import { apiFetch } from "./fetch-utils"
+import { cachedWorkspaceRead } from "./cached-read"
 
 export function getWorkspacePreview(workspaceId: string) {
-  return apiFetch<WorkspacePreview>(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/preview`,
-    { cache: "no-store" },
+  return cachedWorkspaceRead<WorkspacePreview>(
+    workspaceId,
+    `/api/workspaces/${encodeURIComponent(workspaceId.toLowerCase())}/preview`,
+    { roleOf: (data) => data.currentRole },
   )
 }
 
 export function getProjectPreview(workspaceId: string, projectId: string) {
-  return apiFetch<ProjectPreview>(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/preview`,
-    { cache: "no-store" },
+  return cachedWorkspaceRead<ProjectPreview>(
+    workspaceId,
+    `/api/workspaces/${encodeURIComponent(workspaceId.toLowerCase())}/projects/${encodeURIComponent(projectId.toLowerCase())}/preview`,
+    { roleOf: (data) => data.currentRole },
   )
 }

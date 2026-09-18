@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { invalidateWorkspaceCache } from "@/lib/api/cached-read"
 
 import {
   acceptInvitation,
@@ -32,6 +33,7 @@ export async function registerInvitationAction(
   }
 
   await mirrorBackendSessionCookie(result.data.setCookieHeader)
+  invalidateWorkspaceCache(result.data.registration.membership.workspaceId)
   await setCurrentWorkspace(result.data.registration.membership.workspaceId)
   redirect(`/workspaces/${result.data.registration.membership.workspaceId}`)
 }
@@ -53,6 +55,7 @@ export async function acceptInvitationAction(
     return { error: result.error }
   }
 
+  invalidateWorkspaceCache(result.data.workspaceId)
   await setCurrentWorkspace(result.data.workspaceId)
   redirect(`/workspaces/${result.data.workspaceId}`)
 }

@@ -6,19 +6,20 @@ import type { ApiResult } from "@/lib/types/general"
 import type { Project } from "@/lib/types/projects"
 
 import { apiFetch } from "./fetch-utils"
+import { cachedWorkspaceRead } from "./cached-read"
 
 function projectsPath(workspaceId: string) {
-  return `/api/workspaces/${encodeURIComponent(workspaceId)}/projects`
+  return `/api/workspaces/${encodeURIComponent(workspaceId.toLowerCase())}/projects`
 }
 
 function projectPath(workspaceId: string, projectId: string) {
-  return `${projectsPath(workspaceId)}/${encodeURIComponent(projectId)}`
+  return `${projectsPath(workspaceId)}/${encodeURIComponent(projectId.toLowerCase())}`
 }
 
 const listProjectsForWorkspace = cache(async (
   workspaceId: string,
 ): Promise<ApiResult<Project[]>> => {
-  return apiFetch<Project[]>(projectsPath(workspaceId), { cache: "no-store" })
+  return cachedWorkspaceRead<Project[]>(workspaceId, projectsPath(workspaceId))
 })
 
 export function listProjects(workspaceId: string): Promise<ApiResult<Project[]>> {
@@ -28,10 +29,9 @@ export function listProjects(workspaceId: string): Promise<ApiResult<Project[]>>
 export async function getProject(
   workspaceId: string,
   projectId: string,
+  options?: { fresh?: boolean },
 ): Promise<ApiResult<Project>> {
-  return apiFetch<Project>(projectPath(workspaceId, projectId), {
-    cache: "no-store",
-  })
+  return cachedWorkspaceRead<Project>(workspaceId, projectPath(workspaceId, projectId), options)
 }
 
 export async function createProject(

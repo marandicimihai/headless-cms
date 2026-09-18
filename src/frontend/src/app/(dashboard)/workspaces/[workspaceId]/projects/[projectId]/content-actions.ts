@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { invalidateWorkspaceCache } from "@/lib/api/cached-read"
 import { redirect } from "next/navigation"
 
 import {
@@ -46,6 +47,7 @@ function typeHref(workspaceId: string, projectId: string, contentTypeKey: string
 }
 
 function refreshContent(workspaceId: string, projectId: string, contentTypeKey?: string) {
+  invalidateWorkspaceCache(workspaceId)
   const projectHref = `/workspaces/${workspaceId}/projects/${projectId}`
   revalidatePath(projectHref)
   revalidatePath(`${projectHref}/content`)

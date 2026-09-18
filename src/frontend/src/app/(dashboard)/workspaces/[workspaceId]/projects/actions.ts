@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { invalidateWorkspaceCache } from "@/lib/api/cached-read"
 import { redirect } from "next/navigation"
 
 import {
@@ -34,6 +35,7 @@ async function requireSession() {
 }
 
 function refreshProjects(workspaceId: string, projectId?: string) {
+  invalidateWorkspaceCache(workspaceId)
   revalidatePath(`/workspaces/${workspaceId}/projects`, "layout")
 
   if (projectId) {
@@ -89,7 +91,7 @@ export async function deleteProjectAction(
 ): Promise<ProjectActionState> {
   await requireSession()
 
-  const currentProject = await getProject(workspaceId, projectId)
+  const currentProject = await getProject(workspaceId, projectId, { fresh: true })
 
   if (!currentProject.ok) return errorState(currentProject.error)
 

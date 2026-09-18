@@ -5,6 +5,12 @@ vi.mock("./fetch-utils", () => ({
   apiFetch: vi.fn(),
 }))
 
+vi.mock("./cached-read", () => ({
+  cachedWorkspaceRead: vi.fn(),
+}))
+
+import { cachedWorkspaceRead } from "./cached-read"
+
 import {
   createProject,
   deleteProject,
@@ -19,6 +25,7 @@ const apiFetchMock = vi.mocked(apiFetch)
 describe("project API helpers", () => {
   beforeEach(() => {
     apiFetchMock.mockReset()
+    vi.mocked(cachedWorkspaceRead).mockReset()
   })
 
   it("uses the workspace-scoped project contract", async () => {
@@ -28,12 +35,11 @@ describe("project API helpers", () => {
     await updateProject("workspace-1", "project-1", { name: "Updated website" })
     await deleteProject("workspace-1", "project-1")
 
+    expect(vi.mocked(cachedWorkspaceRead).mock.calls).toEqual([
+      ["workspace-1", "/api/workspaces/workspace-1/projects"],
+      ["workspace-1", "/api/workspaces/workspace-1/projects/project-1", undefined],
+    ])
     expect(apiFetchMock.mock.calls).toEqual([
-      ["/api/workspaces/workspace-1/projects", { cache: "no-store" }],
-      [
-        "/api/workspaces/workspace-1/projects/project-1",
-        { cache: "no-store" },
-      ],
       [
         "/api/workspaces/workspace-1/projects",
         {

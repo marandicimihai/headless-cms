@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { invalidateWorkspaceCache } from "@/lib/api/cached-read"
 
 import { getSession } from "@/lib/api/session"
 import { setCurrentWorkspace } from "@/lib/current-workspace"
@@ -31,6 +32,7 @@ export async function createWorkspaceAction(
     }
   }
 
+  invalidateWorkspaceCache(result.data.id)
   await setCurrentWorkspace(result.data.id)
   redirect(`/workspaces/${result.data.id}`)
 }

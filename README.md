@@ -169,7 +169,10 @@ pnpm test:render-dedup
 ```
 
 `pnpm test:render-dedup` builds with webpack and verifies render request counts,
-session isolation, and mutation freshness against a local mock backend. Ports
+session isolation, warm Next.js data-cache reads, and mutation freshness against
+a local mock backend. Resource reads revalidate every 30 seconds; session and
+workspace access checks stay uncached. Successful Server Actions expire the
+workspace cache immediately. Ports
 3210 and 3211 must be available; no browser installation is required.
 
 ## Development Notes

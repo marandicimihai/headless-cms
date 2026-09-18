@@ -12,9 +12,10 @@ import type {
 } from "@/lib/types/content"
 
 import { apiFetch } from "./fetch-utils"
+import { cachedWorkspaceRead } from "./cached-read"
 
 function contentTypesPath(workspaceId: string, projectId: string) {
-  return `/api/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/content-types`
+  return `/api/workspaces/${encodeURIComponent(workspaceId.toLowerCase())}/projects/${encodeURIComponent(projectId.toLowerCase())}/content-types`
 }
 
 function contentTypePath(
@@ -34,9 +35,7 @@ function entriesPath(
 }
 
 export async function listContentTypes(workspaceId: string, projectId: string) {
-  return apiFetch<ContentType[]>(contentTypesPath(workspaceId, projectId), {
-    cache: "no-store",
-  })
+  return cachedWorkspaceRead<ContentType[]>(workspaceId, contentTypesPath(workspaceId, projectId))
 }
 
 export async function getContentType(
@@ -44,9 +43,7 @@ export async function getContentType(
   projectId: string,
   contentTypeKey: string,
 ): Promise<ApiResult<ContentType>> {
-  return apiFetch<ContentType>(contentTypePath(workspaceId, projectId, contentTypeKey), {
-    cache: "no-store",
-  })
+  return cachedWorkspaceRead<ContentType>(workspaceId, contentTypePath(workspaceId, projectId, contentTypeKey))
 }
 
 export async function createContentType(
@@ -101,15 +98,19 @@ export async function listContentEntries(
     page: String(options?.page ?? 1),
     pageSize: String(options?.pageSize ?? 25),
   })
-  if (options?.sort) params.set("sort", options.sort)
+  params.set("sort", options?.sort || "-$updatedAt")
   if (options?.status) params.set("status", options.status)
-  for (const filter of options?.filters ?? []) {
+  for (const filter of [...(options?.filters ?? [])].sort((a, b) => {
+    const left = JSON.stringify([a.field, a.operator, a.value])
+    const right = JSON.stringify([b.field, b.operator, b.value])
+    return left < right ? -1 : left > right ? 1 : 0
+  })) {
     params.append(`filter[${filter.field}][${filter.operator}]`, filter.value)
   }
 
-  return apiFetch<ContentEntriesPage>(
+  return cachedWorkspaceRead<ContentEntriesPage>(
+    workspaceId,
     `${entriesPath(workspaceId, projectId, contentTypeKey)}?${params}`,
-    { cache: "no-store" },
   )
 }
 
