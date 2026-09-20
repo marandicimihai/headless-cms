@@ -25,6 +25,18 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
     }
 
     [Fact]
+    public async Task HealthEndpoints_AreAnonymousAndReportHealthy()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var liveResponse = await app.HttpsClient.GetAsync("/health/live", ct);
+        var readyResponse = await app.HttpsClient.GetAsync("/health/ready", ct);
+
+        liveResponse.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        readyResponse.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task SeedPlatformAdminUser_InProduction_CreatesConfiguredAdmin()
     {
         var ct = TestContext.Current.CancellationToken;

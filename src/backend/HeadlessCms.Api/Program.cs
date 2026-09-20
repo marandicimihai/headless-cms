@@ -67,6 +67,16 @@ await app.SeedPlatformAdminUser();
 
 app.UseHttpsRedirection();
 
+app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }))
+    .AllowAnonymous();
+app.MapGet(
+        "/health/ready",
+        async (ApplicationDbContext db, CancellationToken cancellationToken) =>
+            await db.Database.CanConnectAsync(cancellationToken)
+                ? Results.Ok(new { status = "healthy" })
+                : Results.StatusCode(StatusCodes.Status503ServiceUnavailable))
+    .AllowAnonymous();
+
 app.UseAuthentication()
    .UseAuthorization()
    .UseFastEndpoints(

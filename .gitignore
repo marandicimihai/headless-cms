@@ -60,3 +60,6 @@ nunit-*.xml
 # macOS metadata
 .DS_Store
 /.pnpm-store
+
+# Local Docker Compose overrides and secrets
+/.env

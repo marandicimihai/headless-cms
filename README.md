@@ -136,6 +136,77 @@ This CMS uses PostgreSQL. Typical configuration will include:
 
 Connection details should be provided through environment variables or local configuration (for example, `appsettings.Development.json`).
 
+## Local development with Docker
+
+The complete development stack runs with Docker Compose. It includes the
+Next.js frontend, .NET API with hot reload, a one-shot EF Core migration job,
+PostgreSQL, and Redis. Install Docker Desktop (or Docker Engine with Compose),
+then start everything from the repository root:
+
+```bash
+docker compose up --build
+```
+
+The migration service applies all forward migrations before the API starts.
+After the containers become healthy, the services are available at:
+
+| Service | Address |
+| --- | --- |
+| Frontend | `http://localhost:3000` |
+| API | `http://localhost:5123` |
+| API liveness | `http://localhost:5123/health/live` |
+| API readiness | `http://localhost:5123/health/ready` |
+| PostgreSQL | `localhost:55000` |
+| Redis | `localhost:6379` |
+
+The default development administrator is `admin@example.com` with password
+`password`. All included credentials are for local development only and must
+not be used for a deployment.
+
+Source directories are mounted into the frontend and API containers, so edits
+trigger their development reloaders. PostgreSQL and Redis data, restored NuGet
+packages, frontend dependencies, and build caches are stored in named volumes.
+
+Useful lifecycle commands:
+
+```bash
+# Run in the background
+docker compose up --build --detach
+
+# Follow all logs, or logs for one service
+docker compose logs --follow
+docker compose logs --follow api
+
+# Rebuild after changing a Dockerfile or dependency manifest
+docker compose up --build
+
+# Stop the stack while preserving data and caches
+docker compose down
+
+# Delete all local Docker data and caches, then recreate a clean stack
+docker compose down --volumes
+docker compose up --build
+```
+
+Copy [`.env.example`](.env.example) to `.env` to override ports, PostgreSQL
+settings, administrator credentials, or the Redis cache expiry. The root `.env`
+file is ignored by Git. Compose uses the documented development defaults when
+the file is absent.
+
+Redis is required by the Compose startup order, but it is not part of API
+readiness: the resource cache is designed to fall back to PostgreSQL during a
+Redis outage. The readiness endpoint verifies PostgreSQL connectivity.
+
+Tests continue to run on the host. With Docker running (the backend integration
+tests create their own isolated containers), use:
+
+```bash
+dotnet test src/backend/headless-cms.slnx
+pnpm --dir src/frontend test
+pnpm --dir src/frontend lint
+pnpm --dir src/frontend build
+```
+
 Apply the EF Core migrations:
 
 ```bash

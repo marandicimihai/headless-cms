@@ -1,0 +1,11 @@
+.git
+.env
+.idea
+.pnpm-store
+**/bin
+**/obj
+**/node_modules
+**/.next
+**/TestResults
+**/test-results
+**/playwright-report
