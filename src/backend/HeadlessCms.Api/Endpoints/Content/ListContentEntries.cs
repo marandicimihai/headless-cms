@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
@@ -10,7 +11,8 @@ namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class ListContentEntries(
     ContentEntryService entries,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceAccessService workspaceAccess,
+    ResourceCache cache)
     : Endpoint<ListContentEntriesRequest, ListContentEntriesResponse>
 {
     private static readonly Regex FilterPattern = new(
@@ -39,36 +41,46 @@ public sealed class ListContentEntries(
 
         try
         {
-            var page = await entries.QueryAsync(
-                request.WorkspaceId,
-                request.ProjectId,
-                request.ContentTypeKey,
-                new ContentEntryQuery(
-                    ParseFilters(HttpContext.Request.Query),
-                    request.Sort,
-                    request.Status,
-                    request.Page,
-                    request.PageSize),
-                ct);
+            var filters = ParseFilters(HttpContext.Request.Query);
+            var response = await cache.GetOrLoadAsync<ListContentEntriesResponse>(
+                request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(ListContentEntries)),
+                async ct =>
+                {
+                    var page = await entries.QueryAsync(
+                        request.WorkspaceId,
+                        request.ProjectId,
+                        request.ContentTypeKey,
+                        new ContentEntryQuery(
+                            filters,
+                            request.Sort,
+                            request.Status,
+                            request.Page,
+                            request.PageSize),
+                        ct);
 
-            if (page is null)
-            {
+                    if (page is null)
+                    {
+                        return null;
+                    }
+
+                    var result = new ListContentEntriesResponse
+                    {
+                        Items = page.Items
+                            .Select(ToResponse)
+                            .ToList(),
+                        Total = page.Total,
+                        Page = page.Page,
+                        PageSize = page.PageSize
+                    };
+
+                    foreach (var entry in page.Items)
+                        entry.Dispose();
+                    return result;
+                }, ct);
+            if (response is null)
                 await Send.NotFoundAsync(ct);
-                return;
-            }
-
-            Response = new ListContentEntriesResponse
-            {
-                Items = page.Items
-                    .Select(ToResponse)
-                    .ToList(),
-                Total = page.Total,
-                Page = page.Page,
-                PageSize = page.PageSize
-            };
-
-            foreach (var entry in page.Items)
-                entry.Dispose();
+            else
+                Response = response;
         }
         catch (ContentValidationException exception)
         {

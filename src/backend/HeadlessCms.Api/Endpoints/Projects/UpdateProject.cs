@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using FluentValidation;
 using HeadlessCms.Api.Data;
@@ -36,7 +37,8 @@ public sealed class UpdateProjectRequestValidator : Validator<UpdateProjectReque
 
 public sealed class UpdateProject(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceAccessService workspaceAccess,
+    ResourceCache cache)
     : Endpoint<UpdateProjectRequest, UpdateProjectResponse>
 {
     public override void Configure()
@@ -80,6 +82,7 @@ public sealed class UpdateProject(
         project.Name = request.Name.Trim();
         project.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+        await cache.InvalidateWorkspaceAsync(request.WorkspaceId);
 
         Response = new UpdateProjectResponse
         {

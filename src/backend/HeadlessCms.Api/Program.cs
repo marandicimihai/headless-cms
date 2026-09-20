@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HeadlessCms.Api.Auth;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddResourceCache();
 
 builder.Services
     .AddAuthentication(options =>

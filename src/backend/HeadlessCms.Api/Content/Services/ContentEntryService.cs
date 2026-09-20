@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using System.Globalization;
 using HeadlessCms.Api.Content.FieldTypes;
 using System.Text.Json;
@@ -26,7 +27,8 @@ public class ContentEntryService(
     ApplicationDbContext db,
     ContentDefinitionService definitions,
     ContentDocumentValidator documentValidator,
-    ContentFieldTypeRegistry fieldTypes)
+    ContentFieldTypeRegistry fieldTypes,
+    ResourceCache cache)
 {
     public async Task<ContentEntry?> CreateAsync(
         Guid workspaceId,
@@ -60,6 +62,7 @@ public class ContentEntryService(
 
         db.ContentEntries.Add(entry);
         await db.SaveChangesAsync(ct);
+        await cache.InvalidateWorkspaceAsync(workspaceId);
         return entry;
     }
 
@@ -116,6 +119,7 @@ public class ContentEntryService(
         entry.Status = status;
         entry.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+        await cache.InvalidateWorkspaceAsync(workspaceId);
         previousData.Dispose();
         return entry;
     }
@@ -140,6 +144,7 @@ public class ContentEntryService(
 
         db.ContentEntries.Remove(entry);
         await db.SaveChangesAsync(ct);
+        await cache.InvalidateWorkspaceAsync(workspaceId);
         entry.Dispose();
         return true;
     }

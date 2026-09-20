@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using FluentValidation;
 using HeadlessCms.Api.Content.Models;
@@ -35,7 +36,8 @@ public sealed class CreateProjectRequestValidator : Validator<CreateProjectReque
 
 public sealed class CreateProject(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceAccessService workspaceAccess,
+    ResourceCache cache)
     : Endpoint<CreateProjectRequest, CreateProjectResponse>
 {
     public override void Configure()
@@ -75,6 +77,7 @@ public sealed class CreateProject(
 
         db.Projects.Add(project);
         await db.SaveChangesAsync(ct);
+        await cache.InvalidateWorkspaceAsync(request.WorkspaceId);
 
         await Send.CreatedAtAsync<GetProject>(
             new { project.WorkspaceId, project.Id },

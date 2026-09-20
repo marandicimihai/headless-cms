@@ -1,3 +1,4 @@
+using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Services;
@@ -21,7 +22,8 @@ public sealed class ListProjectsItemResponse
 
 public sealed class ListProjects(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess)
+    WorkspaceAccessService workspaceAccess,
+    ResourceCache cache)
     : Endpoint<ListProjectsRequest, IReadOnlyList<ListProjectsItemResponse>>
 {
     public override void Configure()
@@ -42,7 +44,9 @@ public sealed class ListProjects(
             return;
         }
 
-        Response = await db.Projects
+        Response = (await cache.GetOrLoadAsync<IReadOnlyList<ListProjectsItemResponse>>(
+            request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(ListProjects)),
+            async ct => await db.Projects
             .AsNoTracking()
             .Where(project => project.WorkspaceId == request.WorkspaceId)
             .OrderBy(project => project.Name)
@@ -54,6 +58,6 @@ public sealed class ListProjects(
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt
             })
-            .ToListAsync(ct);
+            .ToListAsync(ct), ct))!;
     }
 }
