@@ -12,8 +12,37 @@ using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
+
+if (args.Contains("--initialize", StringComparer.Ordinal))
+{
+    try
+    {
+        await DatabaseInitializer.RunAsync(args.Where(arg => arg != "--initialize").ToArray());
+    }
+    catch (Exception exception)
+    {
+        Console.Error.WriteLine($"Database initialization failed: {exception.Message}");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(30));
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.ForwardLimit = 1;
+    foreach (var proxy in builder.Configuration.GetSection("Proxy:KnownProxies").Get<string[]>() ?? [])
+        o.KnownProxies.Add(IPAddress.Parse(proxy));
+});
+if (builder.Environment.IsProduction())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole();
+}
 builder.AddResourceCache();
 
 builder.Services
@@ -53,19 +82,19 @@ builder.Services.AddScoped<ContentDocumentValidator>();
 builder.Services.AddScoped<ContentDefinitionService>();
 builder.Services.AddScoped<ContentEntryService>();
 builder.Services.AddScoped<WorkspaceSearchService>();
-if (builder.Environment.IsDevelopment())
-    builder.Services.AddScoped<IInvitationEmailSender, LoggingInvitationEmailSender>();
-else
-    builder.Services.AddScoped<IInvitationEmailSender, UnconfiguredInvitationEmailSender>();
+builder.Services.AddScoped<IInvitationEmailSender, LinkOnlyInvitationEmailSender>();
+if (!builder.Environment.IsEnvironment("Testing") &&
+    (!Uri.TryCreate(builder.Configuration["Frontend:BaseUrl"], UriKind.Absolute, out var frontendUrl) ||
+     (builder.Environment.IsProduction() && frontendUrl.Scheme != "https")))
+    throw new InvalidOperationException("Frontend:BaseUrl must be a valid URL (HTTPS in production).");
 
 var app = builder.Build();
 
 // Validate handler registrations before accepting requests.
 app.Services.GetRequiredService<ContentFieldTypeRegistry>();
 
-await app.SeedPlatformAdminUser();
-
-app.UseHttpsRedirection();
+// HTTPS is enforced by Caddy. Internal HTTP and health probes must not redirect.
+app.UseForwardedHeaders();
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }))
     .AllowAnonymous();

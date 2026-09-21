@@ -1,4 +1,7 @@
 using FastEndpoints.Testing;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
@@ -56,6 +59,60 @@ public sealed class InfrastructureTests(TestApp app) : TestBase
             admin.PasswordHash,
             "admin-password");
         verification.ShouldNotBe(PasswordVerificationResult.Failed);
+    }
+
+    [Fact]
+    public async Task Initialize_SerializesConcurrentRuns_AndPreservesExistingPassword()
+    {
+        await using var first = CreateProductionSeedApp("bootstrap@example.test", "initial-password");
+        await using var second = CreateProductionSeedApp("bootstrap@example.test", "initial-password");
+        await Task.WhenAll(
+            DatabaseInitializer.InitializeAsync(first, app.PostgreSqlConnectionString),
+            DatabaseInitializer.InitializeAsync(second, app.PostgreSqlConnectionString));
+        var original = await app.WithDatabaseAsync(db => db.Users.AsNoTracking().SingleAsync());
+        await using var repeated = CreateProductionSeedApp("bootstrap@example.test", "different-password");
+        await DatabaseInitializer.InitializeAsync(repeated, app.PostgreSqlConnectionString);
+        var current = await app.WithDatabaseAsync(db => db.Users.AsNoTracking().SingleAsync());
+        current.Id.ShouldBe(original.Id);
+        current.PasswordHash.ShouldBe(original.PasswordHash);
+        current.PlatformRole.ShouldBe(PlatformRole.PlatformAdmin);
+    }
+
+    [Fact]
+    public async Task InvitationLinks_AreReturnedOnlyOnIssue_AndRegenerationInvalidatesOldLink()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owner = await app.SeedUserAsync("link-owner", "owner-password");
+        var member = await app.SeedUserAsync("link-member", "member-password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner), (member, WorkspaceRole.Member));
+        var cookie = await app.LoginAsync(owner.Email, "owner-password");
+        var path = $"/api/workspaces/{workspace.Id}/invitations";
+        using var created = await app.SendAsync(HttpMethod.Post, path, cookie,
+            new { email = "invitee@example.test", role = "member" });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        created.Headers.CacheControl!.NoStore.ShouldBeTrue();
+        var first = await created.Content.ReadFromJsonAsync<JsonElement>(ct);
+        var originalUrl = first.GetProperty("invitationUrl").GetString()!;
+        originalUrl.ShouldStartWith("http://localhost:3000/auth/invitations/accept?token=");
+        var originalToken = new Uri(originalUrl).Query.Split("=", 2)[1];
+        var id = first.GetProperty("id").GetGuid();
+        using var listed = await app.SendAsync(HttpMethod.Get, path, cookie);
+        (await listed.Content.ReadAsStringAsync(ct)).ShouldNotContain("invitationUrl");
+        var memberCookie = await app.LoginAsync(member.Email, "member-password");
+        using var forbidden = await app.SendAsync(HttpMethod.Post, $"{path}/{id}/resend", memberCookie);
+        forbidden.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        using var regenerated = await app.SendAsync(HttpMethod.Post, $"{path}/{id}/resend", cookie);
+        regenerated.StatusCode.ShouldBe(HttpStatusCode.OK);
+        regenerated.Headers.CacheControl!.NoStore.ShouldBeTrue();
+        var second = await regenerated.Content.ReadFromJsonAsync<JsonElement>(ct);
+        second.GetProperty("invitationUrl").GetString().ShouldNotBe(originalUrl);
+        using var expired = await app.HttpsClient.PostAsJsonAsync("/api/auth/invitations/preview",
+            new { token = originalToken }, ct);
+        expired.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var nextToken = new Uri(second.GetProperty("invitationUrl").GetString()!).Query.Split("=", 2)[1];
+        using var preview = await app.HttpsClient.PostAsJsonAsync("/api/auth/invitations/preview",
+            new { token = nextToken }, ct);
+        preview.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]

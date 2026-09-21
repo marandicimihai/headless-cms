@@ -63,3 +63,7 @@ nunit-*.xml
 
 # Local Docker Compose overrides and secrets
 /.env
+/.env.production
+/.env.production.*
+!/.env.production.example
+/backups/

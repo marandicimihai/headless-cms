@@ -119,7 +119,7 @@ export function WorkspaceSearch({ workspaceId }: { workspaceId: string }) {
           query: normalizedQuery,
           limit: "5",
         })
-        const response = await fetch(`/api/search?${params}`, {
+        const response = await fetch(`/bff/search?${params}`, {
           signal: controller.signal,
         })
         const body: unknown = await response.json()

@@ -23,6 +23,7 @@ export type WorkspaceInvitationStatus =
   | "revoked"
 
 export type WorkspaceInvitation = {
+  invitationUrl?: string
   id: string
   workspaceId: string
   email: string

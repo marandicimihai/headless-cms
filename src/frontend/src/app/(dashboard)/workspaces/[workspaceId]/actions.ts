@@ -20,6 +20,7 @@ import {
 import type { ApiError } from "@/lib/types/general"
 
 export type WorkspaceActionState = {
+  invitationUrl?: string
   status: "idle" | "success" | "error"
   message: string | null
   fieldErrors: Record<string, string[]>
@@ -129,7 +130,8 @@ export async function inviteWorkspaceMemberAction(
   refreshWorkspace(workspaceId)
   return {
     status: "success",
-    message: `Invitation sent to ${result.data.email}.`,
+    message: `Invitation created for ${result.data.email}. Share the link with them.`,
+    invitationUrl: result.data.invitationUrl,
     fieldErrors: {},
   }
 }
@@ -150,7 +152,8 @@ export async function resendWorkspaceInvitationAction(
   refreshWorkspace(workspaceId)
   return {
     status: "success",
-    message: `Invitation resent to ${result.data.email}.`,
+    message: `New invitation link created for ${result.data.email}. The old link no longer works.`,
+    invitationUrl: result.data.invitationUrl,
     fieldErrors: {},
   }
 }

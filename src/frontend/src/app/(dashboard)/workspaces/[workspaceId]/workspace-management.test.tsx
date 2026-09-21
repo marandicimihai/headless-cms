@@ -16,6 +16,7 @@ vi.mock("./actions", () => ({
 }))
 
 import { LeaveWorkspace, WorkspaceManagement } from "./workspace-management"
+import { inviteWorkspaceMemberAction } from "./actions"
 import type { WorkspaceInvitation, WorkspaceMember } from "@/lib/types/workspaces"
 
 const member: WorkspaceMember = {
@@ -44,6 +45,20 @@ afterEach(() => {
 })
 
 describe("WorkspaceManagement", () => {
+  it("displays a shareable link after creating an invitation", async () => {
+    const url = "https://cms.example.test/auth/invitations/accept?token=one-time-token"
+    vi.mocked(inviteWorkspaceMemberAction).mockResolvedValueOnce({
+      status: "success", message: "Invitation created", fieldErrors: {}, invitationUrl: url,
+    })
+    const view = render(
+      <WorkspaceManagement workspaceId="workspace-1" workspaceName="Workspace"
+        members={[]} invitations={[]} memberTotal={0} invitationTotal={0} />,
+    )
+    fireEvent.submit(view.getByRole("button", { name: "Create invitation" }).closest("form")!)
+    expect((await view.findByLabelText("Invitation link") as HTMLInputElement).value).toBe(url)
+    expect(view.getByRole("button", { name: "Copy link" })).toBeTruthy()
+  })
+
   it("requires an exact workspace name and clears confirmation after cancel", async () => {
     const view = render(
       <WorkspaceManagement workspaceId="workspace-1" workspaceName="Workspace"
@@ -108,7 +123,7 @@ describe("WorkspaceManagement", () => {
     ).toBe(false)
   })
 
-  it("provides resend and revoke controls inside the invitation actions menu", () => {
+  it("provides regenerate and revoke controls inside the invitation actions menu", () => {
     const view = render(
       <WorkspaceManagement
         workspaceId="workspace-1"
@@ -126,7 +141,7 @@ describe("WorkspaceManagement", () => {
       }),
     )
 
-    expect(view.getByRole("menuitem", { name: "Resend" })).toBeTruthy()
+    expect(view.getByRole("menuitem", { name: "Generate new link" })).toBeTruthy()
     expect(view.getByRole("menuitem", { name: "Revoke" })).toBeTruthy()
   })
 

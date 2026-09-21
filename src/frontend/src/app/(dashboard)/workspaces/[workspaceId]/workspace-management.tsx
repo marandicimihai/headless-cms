@@ -1,7 +1,8 @@
 "use client"
 
 import { CircleAlert, MoreHorizontal } from "lucide-react"
-import { useActionState, useState } from "react"
+import { useActionState, useId, useState } from "react"
+import { toast } from "sonner"
 
 import {
   changeWorkspaceMemberRoleAction,
@@ -131,6 +132,31 @@ function RenameWorkspaceForm({
   )
 }
 
+function InvitationLink({ url }: { url: string }) {
+  const id = useId()
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success("Invitation link copied")
+    } catch {
+      toast.error("Unable to copy. Select the link and copy it manually.")
+    }
+  }
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>Invitation link</FieldLabel>
+      <div className="flex gap-2">
+        <Input id={id} value={url} readOnly onFocus={(event) => event.target.select()} />
+        <Button type="button" variant="outline" onClick={copyLink}>Copy link</Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Share this link with the invited person. Copy it now; to retrieve a link later,
+        generate a new one from the invitation menu. Generating a new link invalidates the old one.
+      </p>
+    </Field>
+  )
+}
+
 function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
   const inviteAction = inviteWorkspaceMemberAction.bind(null, workspaceId)
   const [state, formAction, pending] = useActionState(
@@ -172,9 +198,10 @@ function InviteMemberForm({ workspaceId }: { workspaceId: string }) {
           <FieldError errors={roleErrors.map((message) => ({ message }))} />
         </Field>
         <Button type="submit" className="sm:mt-7" disabled={pending}>
-          {pending ? "Sending..." : "Send invitation"}
+          {pending ? "Creating..." : "Create invitation"}
         </Button>
       </div>
+      {state.invitationUrl && !pending ? <InvitationLink url={state.invitationUrl} /> : null}
     </form>
   )
 }
@@ -311,6 +338,7 @@ function InvitationActions({
   invitation: WorkspaceInvitation
 }) {
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
+  const [dismissedLink, setDismissedLink] = useState<string | undefined>()
   const resendAction = resendWorkspaceInvitationAction.bind(
     null,
     workspaceId,
@@ -356,7 +384,7 @@ function InvitationActions({
             disabled={resendPending}
             render={<button type="submit" form={resendFormId} />}
           >
-            {resendPending ? "Resending..." : "Resend"}
+            {resendPending ? "Generating..." : "Generate new link"}
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
@@ -367,6 +395,22 @@ function InvitationActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <AlertDialog
+        open={!!resendState.invitationUrl && resendState.invitationUrl !== dismissedLink}
+        onOpenChange={(open) => { if (!open) setDismissedLink(resendState.invitationUrl) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Share invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              A new link for {invitation.email}. The previous link no longer works.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {resendState.invitationUrl ? <InvitationLink url={resendState.invitationUrl} /> : null}
+          <AlertDialogFooter><AlertDialogCancel>Done</AlertDialogCancel></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={revokeDialogOpen}
@@ -506,7 +550,7 @@ export function WorkspaceManagement({
                     Email
                   </TableHead>
                   <TableHead>
-                    Sent
+                    Last generated
                   </TableHead>
                   <TableHead>
                     Expires

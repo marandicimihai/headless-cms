@@ -41,21 +41,22 @@ services:
       retries: 10
       start_period: 5s
 
-  migrations:
+  initialize:
     build:
       context: .
       dockerfile: src/backend/HeadlessCms.Api/Dockerfile.dev
     command:
       - dotnet
-      - ef
-      - database
-      - update
+      - run
       - --project
       - src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
-      - --startup-project
-      - src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
+      - --no-launch-profile
+      - --
+      - --initialize
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      Auth__AdminEmail: ${ADMIN_EMAIL:-admin@example.com}
+      Auth__AdminPassword: ${ADMIN_PASSWORD:-password}
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-HeadlessCms};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
     volumes:
       - .:/workspace
@@ -75,8 +76,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      Auth__AdminEmail: ${ADMIN_EMAIL:-admin@example.com}
-      Auth__AdminPassword: ${ADMIN_PASSWORD:-password}
       Frontend__BaseUrl: http://localhost:${FRONTEND_PORT:-3000}
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-HeadlessCms};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       ConnectionStrings__Redis: redis:6379
@@ -90,7 +89,7 @@ services:
       - backend_api_bin:/workspace/src/backend/HeadlessCms.Api/bin
       - backend_api_obj:/workspace/src/backend/HeadlessCms.Api/obj
     depends_on:
-      migrations:
+      initialize:
         condition: service_completed_successfully
       redis:
         condition: service_healthy

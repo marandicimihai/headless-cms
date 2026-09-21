@@ -44,6 +44,13 @@ public class WorkspaceInvitationService(
     IInvitationEmailSender emailSender,
     WorkspaceAccessService workspaceAccess)
 {
+    public string GetInvitationUrl(string token)
+    {
+        var baseUrl = configuration["Frontend:BaseUrl"]
+            ?? throw new InvalidOperationException("Frontend:BaseUrl is required.");
+        return $"{new Uri(new Uri(baseUrl), "/auth/invitations/accept")}?token={Uri.EscapeDataString(token)}";
+    }
+
     public async Task<CreatedWorkspaceInvitation> CreateInvitationAsync(
         string ownerUserId,
         Guid workspaceId,

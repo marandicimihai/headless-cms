@@ -15,6 +15,9 @@ public sealed record WorkspaceInvitationResponse(
     DateTime? AcceptedAt,
     DateTime? RevokedAt)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? InvitationUrl { get; init; }
+
     public static WorkspaceInvitationResponse FromInvitation(WorkspaceInvitation invitation) =>
         new(invitation.Id, invitation.WorkspaceId, invitation.Email, invitation.Role,
             WorkspaceInvitationService.GetStatus(invitation), invitation.CreatedAt,

@@ -28,8 +28,10 @@ public sealed class CreateWorkspaceInvitation(
                 request.Email,
                 request.Role,
                 ct);
+            HttpContext.Response.Headers.CacheControl = "no-store";
             await Send.ResponseAsync(
-                WorkspaceInvitationResponse.FromInvitation(created.Invitation),
+                WorkspaceInvitationResponse.FromInvitation(created.Invitation) with
+                { InvitationUrl = invitations.GetInvitationUrl(created.Token) },
                 StatusCodes.Status201Created,
                 ct);
         }

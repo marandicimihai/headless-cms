@@ -1,5 +1,9 @@
 .git
-.env
+**/.env*
+**/secrets/**
+**/*.dump
+**/*.sql
+**/backups/**
 .idea
 .pnpm-store
 **/bin

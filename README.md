@@ -138,8 +138,11 @@ Connection details should be provided through environment variables or local con
 
 ## Local development with Docker
 
+For single-domain production self-hosting, see [the deployment guide](src/deploy/README.md).
+Production uses `compose.prod.yaml`; this section describes development only.
+
 The complete development stack runs with Docker Compose. It includes the
-Next.js frontend, .NET API with hot reload, a one-shot EF Core migration job,
+Next.js frontend, .NET API with hot reload, a one-shot database initialization job,
 PostgreSQL, and Redis. Install Docker Desktop (or Docker Engine with Compose),
 then start everything from the repository root:
 
@@ -147,7 +150,7 @@ then start everything from the repository root:
 docker compose up --build
 ```
 
-The migration service applies all forward migrations before the API starts.
+The initialization service applies all forward migrations and seeds the admin before the API starts.
 After the containers become healthy, the services are available at:
 
 | Service | Address |
@@ -225,8 +228,13 @@ dotnet test src/backend/headless-cms.slnx
 Run the API locally:
 
 ```bash
+dotnet run --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj -- --initialize
 dotnet run --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
+
+Run initialization once before the first host-based API start and after adding
+migrations. Normal API startup no longer seeds an administrator. For dependencies
+only, use `docker compose up -d postgres redis`.
 
 Run and verify the frontend:
 
@@ -281,8 +289,10 @@ user's sessions.
 
 The workspace invitation model stores only a hash of each single-use token.
 Resending rotates the token, and accepted, expired, or revoked invitations
-cannot be reused. Development logs invitation URLs; production must register an
-`IInvitationEmailSender` implementation. Invitation URLs use
+cannot be reused. Creating or regenerating an invitation displays a copyable link
+to the workspace owner; no email server is required. The create and resend responses
+include `invitationUrl`, while invitation listings never expose the link or token.
+Invitation URLs use
 `Frontend:BaseUrl` and point to
 `/auth/invitations/accept?token={single-use-token}`. New invitees create their
 password on that page and are signed in automatically. New passwords must be

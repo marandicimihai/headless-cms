@@ -77,7 +77,7 @@ describe("WorkspaceSearch", () => {
     })
 
     expect(fetch).toHaveBeenCalledWith(
-      "/api/search?workspaceId=workspace-1&query=article&limit=5",
+      "/bff/search?workspaceId=workspace-1&query=article&limit=5",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
     expect(screen.getByRole("listbox", { name: "Search results" })).toBeTruthy()

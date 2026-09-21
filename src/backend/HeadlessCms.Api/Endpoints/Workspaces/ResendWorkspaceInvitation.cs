@@ -26,8 +26,10 @@ public sealed class ResendWorkspaceInvitation(
 
         try
         {
-            await invitations.ResendAsync(invitation, ct);
-            Response = WorkspaceInvitationResponse.FromInvitation(invitation);
+            var created = await invitations.ResendAsync(invitation, ct);
+            HttpContext.Response.Headers.CacheControl = "no-store";
+            Response = WorkspaceInvitationResponse.FromInvitation(invitation) with
+            { InvitationUrl = invitations.GetInvitationUrl(created.Token) };
         }
         catch (InvitationFlowException exception)
         {

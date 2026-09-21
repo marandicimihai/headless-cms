@@ -12,6 +12,14 @@ public interface IInvitationEmailSender
         CancellationToken ct = default);
 }
 
+// Invitations are shared manually through the owner-only create/regenerate response.
+// Keep the delivery seam for existing integrations and test fixtures; no email is sent.
+public sealed class LinkOnlyInvitationEmailSender : IInvitationEmailSender
+{
+    public Task SendAsync(string email, string workspaceName, WorkspaceRole role, string token,
+        CancellationToken ct = default) => Task.CompletedTask;
+}
+
 public sealed class LoggingInvitationEmailSender(
     ILogger<LoggingInvitationEmailSender> logger,
     IConfiguration configuration) : IInvitationEmailSender
