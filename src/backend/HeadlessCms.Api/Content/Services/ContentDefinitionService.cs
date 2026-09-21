@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
@@ -14,8 +13,7 @@ public sealed record ContentFieldInput(
 
 public class ContentDefinitionService(
     ApplicationDbContext db,
-    ContentDocumentValidator documentValidator,
-    ResourceCache cache)
+    ContentDocumentValidator documentValidator)
 {
     private static readonly JsonElement EmptySettings =
         JsonSerializer.SerializeToElement(new Dictionary<string, object?>());
@@ -65,7 +63,6 @@ public class ContentDefinitionService(
 
         db.ContentTypes.Add(contentType);
         await db.SaveChangesAsync(ct);
-        await cache.InvalidateWorkspaceAsync(workspaceId);
         return contentType;
     }
 
@@ -132,7 +129,6 @@ public class ContentDefinitionService(
 
         contentType.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
-        await cache.InvalidateWorkspaceAsync(workspaceId);
 
         contentType.Fields = contentType.Fields
             .Where(field => proposedKeys.Contains(field.Key))
@@ -175,7 +171,6 @@ public class ContentDefinitionService(
 
         db.ContentTypes.Remove(contentType);
         await db.SaveChangesAsync(ct);
-        await cache.InvalidateWorkspaceAsync(workspaceId);
         return true;
     }
 

@@ -1,7 +1,3 @@
-using HeadlessCms.Api.Caching;
-using StackExchange.Redis;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using System.Net;
 using System.Net.Http.Json;
 using FastEndpoints;
@@ -32,19 +28,12 @@ public sealed class TestApp : AppFixture<Program>
             ?? "postgres:18-alpine")
         .Build();
 
-    private readonly IContainer redisContainer = new ContainerBuilder("redis:7-alpine")
-        .WithPortBinding(6379, true)
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(6379))
-        .Build();
-    private IConnectionMultiplexer redis = null!;
     public HttpClient HttpsClient { get; private set; } = null!;
     public string PostgreSqlConnectionString => container.GetConnectionString();
 
     protected override async ValueTask PreSetupAsync()
     {
         await container.StartAsync();
-        await redisContainer.StartAsync();
-        redis = await ConnectionMultiplexer.ConnectAsync($"{redisContainer.Hostname}:{redisContainer.GetMappedPublicPort(6379)}");
     }
 
     protected override void ConfigureApp(IWebHostBuilder builder)
@@ -54,19 +43,11 @@ public sealed class TestApp : AppFixture<Program>
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        services.Configure<ResourceCacheOptions>(options =>
-        {
-            options.Enabled = true;
-            options.KeyPrefix = $"tests:{Guid.NewGuid():N}";
-        });
-        services.AddSingleton(redis);
-        services.AddSingleton<ResourceQueryCounter>();
         services.RemoveAll<ApplicationDbContext>();
         services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
         services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
         services.AddDbContext<ApplicationDbContext>(
-            (provider, options) => options.UseNpgsql(container.GetConnectionString())
-                .AddInterceptors(provider.GetRequiredService<ResourceQueryCounter>()));
+            options => options.UseNpgsql(container.GetConnectionString()));
 
         services.RemoveAll<IInvitationEmailSender>();
         services.AddSingleton<TestInvitationEmailSender>();
@@ -90,8 +71,6 @@ public sealed class TestApp : AppFixture<Program>
     protected override async ValueTask TearDownAsync()
     {
         HttpsClient?.Dispose();
-        redis.Dispose();
-        await redisContainer.DisposeAsync();
         await container.DisposeAsync();
     }
 

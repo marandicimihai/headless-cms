@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Services;
@@ -8,8 +7,7 @@ namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class DeleteWorkspace(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache) : Endpoint<DeleteWorkspaceRequest>
+    WorkspaceAccessService workspaceAccess) : Endpoint<DeleteWorkspaceRequest>
 {
     public override void Configure()
     {
@@ -65,7 +63,6 @@ public sealed class DeleteWorkspace(
         await db.SaveChangesAsync(ct);
         if (transaction is not null)
             await transaction.CommitAsync(ct);
-        await cache.InvalidateWorkspaceAsync(request.WorkspaceId);
         await Send.NoContentAsync(ct);
     }
 }

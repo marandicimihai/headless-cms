@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
@@ -9,8 +8,7 @@ namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class ListContentTypes(
     ContentDefinitionService definitions,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<ListContentTypesRequest, IReadOnlyList<ListContentTypesItemResponse>>
 {
     public override void Configure()
@@ -33,14 +31,12 @@ public sealed class ListContentTypes(
 
         try
         {
-            Response = (await cache.GetOrLoadAsync<IReadOnlyList<ListContentTypesItemResponse>>(
-                request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(ListContentTypes)),
-                async ct => (await definitions.ListCurrentAsync(
+            Response = (await definitions.ListCurrentAsync(
                     request.WorkspaceId,
                     request.ProjectId,
                     ct))
                 .Select(ToResponse)
-                .ToList(), ct))!;
+                .ToList();
         }
         catch (ContentNotFoundException)
         {

@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
@@ -9,8 +8,7 @@ namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class GetContentEntry(
     ContentEntryService entries,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<GetContentEntryRequest, GetContentEntryResponse>
 {
     public override void Configure()
@@ -33,30 +31,20 @@ public sealed class GetContentEntry(
             return;
         }
 
-        var response = await cache.GetOrLoadAsync<GetContentEntryResponse>(
-            request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(GetContentEntry)),
-            async ct =>
-            {
-                var entry = await entries.GetAsync(
-                    request.WorkspaceId,
-                    request.ProjectId,
-                    request.ContentTypeKey,
-                    request.EntryId,
-                    ct);
+        var entry = await entries.GetAsync(
+            request.WorkspaceId,
+            request.ProjectId,
+            request.ContentTypeKey,
+            request.EntryId,
+            ct);
 
-                if (entry is null)
-                {
-                    return null;
-                }
-
-                var result = ToResponse(entry);
-                entry.Dispose();
-                return result;
-            }, ct);
-        if (response is null)
+        if (entry is null)
             await Send.NotFoundAsync(ct);
         else
-            Response = response;
+        {
+            Response = ToResponse(entry);
+            entry.Dispose();
+        }
     }
 
     private static GetContentEntryResponse ToResponse(ContentEntry entry) =>

@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
@@ -15,8 +14,7 @@ public sealed class DeleteProjectRequest
 
 public sealed class DeleteProject(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<DeleteProjectRequest>
 {
     public override void Configure()
@@ -59,7 +57,6 @@ public sealed class DeleteProject(
 
         db.Projects.Remove(project);
         await db.SaveChangesAsync(ct);
-        await cache.InvalidateWorkspaceAsync(request.WorkspaceId);
         await Send.NoContentAsync(ct);
     }
 }

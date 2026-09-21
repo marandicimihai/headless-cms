@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
@@ -8,8 +7,7 @@ namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class GetContentType(
     ContentDefinitionService definitions,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<GetContentTypeRequest, GetContentTypeResponse>
 {
     public override void Configure()
@@ -32,28 +30,16 @@ public sealed class GetContentType(
             return;
         }
 
-        var response = await cache.GetOrLoadAsync<GetContentTypeResponse>(
-            request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(GetContentType)),
-            async ct =>
-            {
-                var definition = await definitions.GetCurrentAsync(
-                    request.WorkspaceId,
-                    request.ProjectId,
-                    request.ContentTypeKey,
-                    ct);
+        var definition = await definitions.GetCurrentAsync(
+            request.WorkspaceId,
+            request.ProjectId,
+            request.ContentTypeKey,
+            ct);
 
-                if (definition is null)
-                {
-                    return null;
-                }
-
-                var result = ToResponse(definition);
-                return result;
-            }, ct);
-        if (response is null)
+        if (definition is null)
             await Send.NotFoundAsync(ct);
         else
-            Response = response;
+            Response = ToResponse(definition);
     }
 
     private static GetContentTypeResponse ToResponse(ContentType definition) =>

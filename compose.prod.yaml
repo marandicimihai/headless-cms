@@ -45,9 +45,6 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${DATABASE_CONNECTION_STRING:?Set DATABASE_CONNECTION_STRING}
-      ConnectionStrings__Redis: ${REDIS_CONNECTION_STRING:?Set REDIS_CONNECTION_STRING}
-      Caching__Enabled: "true"
-      Caching__ExpirationSeconds: ${CACHE_EXPIRATION_SECONDS:-30}
       Frontend__BaseUrl: https://${APP_DOMAIN:?Set APP_DOMAIN}
       Proxy__KnownProxies__0: ${PROXY_ADDRESS:-172.30.20.2}
     depends_on:
@@ -140,27 +137,6 @@ services:
       retries: 12
     logging: *logging
 
-  redis:
-    profiles: [bundled]
-    image: redis:7.4.8-alpine
-    restart: unless-stopped
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-    command:
-      - sh
-      - -ec
-      - 'test -n "$$REDIS_PASSWORD"; exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru'
-    volumes: ["redis_data:/data"]
-    networks: [data]
-    mem_limit: ${REDIS_MEMORY_LIMIT:-256m}
-    cpus: ${REDIS_CPU_LIMIT:-0.5}
-    healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-    logging: *logging
-
   db-tools:
     profiles: [tools]
     image: postgres:18.3-alpine
@@ -176,6 +152,29 @@ services:
     command: ["pg_dump", "--version"]
     logging: *logging
 
+  load-test:
+    profiles: [load-test]
+    image: grafana/k6:2.2.0
+    environment:
+      BASE_URL: http://api:8080
+      LOAD_TEST_EMAIL: ${LOAD_TEST_EMAIL:-${ADMIN_EMAIL}}
+      LOAD_TEST_PASSWORD: ${LOAD_TEST_PASSWORD:-${ADMIN_PASSWORD}}
+      LOAD_TEST_PATH: ${LOAD_TEST_PATH:-}
+      LOAD_TEST_VUS: ${LOAD_TEST_VUS:-10}
+      LOAD_TEST_DURATION: ${LOAD_TEST_DURATION:-30s}
+      LOAD_TEST_WARMUP_REQUESTS: ${LOAD_TEST_WARMUP_REQUESTS:-1}
+    volumes:
+      - ./load-tests/k6:/scripts:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [data]
+    command: ["run", "/scripts/resource-reads.js"]
+    restart: "no"
+    mem_limit: ${LOAD_TEST_MEMORY_LIMIT:-512m}
+    cpus: ${LOAD_TEST_CPU_LIMIT:-1.0}
+    logging: *logging
+
 networks:
   proxy:
     ipam:
@@ -186,6 +185,5 @@ networks:
 
 volumes:
   postgres_data:
-  redis_data:
   caddy_data:
   caddy_config:

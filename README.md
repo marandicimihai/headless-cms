@@ -143,7 +143,7 @@ Production uses `compose.prod.yaml`; this section describes development only.
 
 The complete development stack runs with Docker Compose. It includes the
 Next.js frontend, .NET API with hot reload, a one-shot database initialization job,
-PostgreSQL, and Redis. Install Docker Desktop (or Docker Engine with Compose),
+and PostgreSQL. Install Docker Desktop (or Docker Engine with Compose),
 then start everything from the repository root:
 
 ```bash
@@ -160,14 +160,13 @@ After the containers become healthy, the services are available at:
 | API liveness | `http://localhost:5123/health/live` |
 | API readiness | `http://localhost:5123/health/ready` |
 | PostgreSQL | `localhost:55000` |
-| Redis | `localhost:6379` |
 
 The default development administrator is `admin@example.com` with password
 `password`. All included credentials are for local development only and must
 not be used for a deployment.
 
 Source directories are mounted into the frontend and API containers, so edits
-trigger their development reloaders. PostgreSQL and Redis data, restored NuGet
+trigger their development reloaders. PostgreSQL data, restored NuGet
 packages, frontend dependencies, and build caches are stored in named volumes.
 
 Useful lifecycle commands:
@@ -192,13 +191,11 @@ docker compose up --build
 ```
 
 Copy [`.env.example`](.env.example) to `.env` to override ports, PostgreSQL
-settings, administrator credentials, or the Redis cache expiry. The root `.env`
+settings, administrator credentials, or load-test settings. The root `.env`
 file is ignored by Git. Compose uses the documented development defaults when
 the file is absent.
 
-Redis is required by the Compose startup order, but it is not part of API
-readiness: the resource cache is designed to fall back to PostgreSQL during a
-Redis outage. The readiness endpoint verifies PostgreSQL connectivity.
+The readiness endpoint verifies PostgreSQL connectivity.
 
 Tests continue to run on the host. With Docker running (the backend integration
 tests create their own isolated containers), use:
@@ -233,8 +230,8 @@ dotnet run --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
 ```
 
 Run initialization once before the first host-based API start and after adding
-migrations. Normal API startup no longer seeds an administrator. For dependencies
-only, use `docker compose up -d postgres redis`.
+migrations. Normal API startup no longer seeds an administrator. For the database
+only, use `docker compose up -d postgres`.
 
 Run and verify the frontend:
 
@@ -253,6 +250,55 @@ a local mock backend. Resource reads revalidate every 30 seconds; session and
 workspace access checks stay uncached. Successful Server Actions expire the
 workspace cache immediately. Ports
 3210 and 3211 must be available; no browser installation is required.
+
+## Load testing API reads
+
+The development Compose file includes an opt-in k6 service. Choose an existing
+GET route that the load-test account can access, such as a workspace's
+project list, then run:
+
+```bash
+LOAD_TEST_PATH=/api/workspaces/WORKSPACE_ID/projects \
+docker compose --profile load-test run --rm load-test
+```
+
+The defaults run 10 virtual users for 30 seconds and warm the selected route
+once before measurements begin. Override `LOAD_TEST_VUS`,
+`LOAD_TEST_DURATION`, or `LOAD_TEST_WARMUP_REQUESTS` as needed. The test logs in
+once, reuses that session, and reports throughput, failures, and latency
+percentiles. The selected route must return HTTP 200 for the configured account.
+
+Keep the data, route, virtual-user count, duration, and host load consistent when
+using this test to compare application changes.
+
+## Architecture decision: direct PostgreSQL reads
+
+Redis response caching was implemented and measured, then removed. For this
+application's current scope and query shapes, it reduced performance while adding
+another operational dependency and cache-invalidation complexity.
+
+The decision was based on local Docker Compose A/B tests with identical data,
+authentication, concurrency, duration, and endpoint paths. Each configuration
+was run three times with 10 continuously looping virtual users for 30 seconds.
+On a representative endpoint returning 100 content entries, the median run from
+each group was:
+
+| Measurement | Redis cache | Direct PostgreSQL | Direct-read improvement |
+| --- | ---: | ---: | ---: |
+| Throughput | 1,850 requests/s | 2,076 requests/s | 12% higher |
+| Average latency | 5.33 ms | 4.65 ms | 13% lower |
+| p95 latency | 11.12 ms | 7.92 ms | 29% lower |
+| HTTP failures | 0% | 0% | Equal |
+
+A smaller project-list workload showed the same direction: direct PostgreSQL
+reads achieved approximately 5,754 requests/s versus 3,444 requests/s through
+the cache. The database queries are inexpensive at this scale, while the cache
+added network, serialization, coordination, and invalidation overhead.
+
+Consequently, the backend reads directly from PostgreSQL and the deployment has
+no Redis service, connection string, client package, or cache configuration.
+This decision can be revisited only with production-like evidence showing that
+database load or query latency has become a material bottleneck.
 
 ## Development Notes
 
@@ -525,60 +571,3 @@ or entry values. Definition validation, entry writes, and filtering or sorting
 that require the disabled handler fail with a validation error; workspace search
 excludes it. Duplicate handler registrations fail at application startup. Existing
 enum values and their serialized/database names must remain stable.
-
-### Backend Redis resource cache
-
-Project, content type, and content entry GET/list responses can be cached in
-Redis. Session authentication and workspace permission checks always query
-PostgreSQL before looking up cached resource data. Workspace reads, previews,
-search, writes, errors, and missing resources are not cached.
-
-Start a dedicated local Redis instance:
-
-```bash
-docker run --name headless-cms-redis --rm -p 127.0.0.1:6379:6379 redis:7-alpine \
-  redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
-```
-
-Enable caching when running the API:
-
-```bash
-Caching__Enabled=true ConnectionStrings__Redis=localhost:6379 \
-  dotnet run --project src/backend/HeadlessCms.Api/HeadlessCms.Api.csproj
-```
-
-Caching defaults to disabled. `Caching:ExpirationSeconds` defaults to `30`;
-`Caching:KeyPrefix` defaults to `headless-cms:{environment}`. API instances sharing
-a database must use the same Redis database and prefix. Separate deployments
-must use distinct prefixes. Prefixes cannot contain `{` or `}`. Production
-connection strings should include the Redis provider's authentication and TLS
-settings. Use a dedicated Redis instance with a memory limit and `allkeys-lru`
-eviction; responses have a TTL, while workspace generation tokens persist until
-evicted. Evicting a token safely makes earlier responses unreachable.
-
-Successful project/content mutations and committed workspace deletion rotate a
-shared workspace generation token. An atomic Redis script prevents loads that
-overlap invalidation from publishing old snapshots. Cached JSON responses are
-independent of EF entities and their disposable documents. Concurrent misses
-are coalesced per API process; separate instances may load the same miss.
-
-Redis outages do not prevent startup or fail committed writes. Reads fall back
-to PostgreSQL and cache failures are logged. Database commits and Redis
-invalidation are separate operations: failed invalidation or process termination
-between them can leave old responses visible until the 30-second TTL expires.
-Direct database edits also become visible after expiry. In-flight reads may
-return a snapshot from before a concurrent mutation.
-
-The `HeadlessCms.ResourceCache` meter exposes `cache.hits`, `cache.misses`,
-`cache.bypasses`, and `cache.invalidation_failures`. Subscribe through your .NET
-metrics collector to monitor effectiveness and outages.
-
-Run backend tests with Docker available:
-
-```bash
-dotnet test src/backend/headless-cms.slnx
-```
-
-PostgreSQL endpoint tests enable Redis to exercise cache integration. Dedicated
-Redis tests use isolated prefixes and cover cross-instance invalidation,
-generation eviction, load races, expiry, cancellation, and outage fallback.

@@ -1,7 +1,7 @@
 # Self-hosting with Docker Compose
 
-Production runs one frontend, one API, Caddy, and an initializer. PostgreSQL and
-Redis can run in the same Compose project or be supplied externally. Development
+Production runs one frontend, one API, Caddy, and an initializer. PostgreSQL can
+run in the same Compose project or be supplied externally. Development
 continues to use the root `compose.yaml`; production uses only `compose.prod.yaml`.
 The project names and volumes are separate. Do not combine these two files with
 multiple `-f` flags.
@@ -27,13 +27,11 @@ docker compose --env-file .env.production -f compose.prod.yaml --profile bundled
 
 Set `APP_DOMAIN` to a hostname only, e.g. `cms.example.com`. Choose a unique
 `RELEASE_TAG` per release (never `latest`) and an administrator email/password.
-The admin password must contain 15–64 characters. Use strong
-random database/Redis passwords. Keep the database and Redis connection strings
-consistent with the bundled service credentials:
+The admin password must contain 15–64 characters. Use a strong random database
+password and keep the connection string consistent with the bundled service credentials:
 
 ```text
 DATABASE_CONNECTION_STRING='Host=postgres;Port=5432;Database=headless_cms;Username=headless_cms;Password=YOUR_PASSWORD;Maximum Pool Size=20'
-REDIS_CONNECTION_STRING='redis:6379,password=YOUR_PASSWORD'
 ```
 
 Single-quote environment-file values containing `$`. Connection-string special
@@ -56,7 +54,7 @@ HttpOnly, host-only `cms_session` cookie with path `/`:
 - `/api` and `/api/*` go to the API without stripping the prefix.
 - `/bff/search` and all other paths go to Next.js.
 - Frontend server requests use `http://api:8080` over Docker networking.
-- No database, cache, frontend, or API port is published on the host.
+- No database, frontend, or API port is published on the host.
 
 Caddy stores certificates in its named volume. API HTTPS redirects are disabled
 because the edge enforces HTTPS; internal HTTP health probes remain functional.
@@ -78,11 +76,11 @@ regenerate a shareable link. The legacy `lastSentAt` field records last generati
 not email delivery. No invitation tokens are logged by the configured sender;
 Caddy also removes the token query parameter and Referer header from access logs.
 
-## External PostgreSQL and Redis
+## External PostgreSQL
 
-Omit `--profile bundled` from all application commands. Set both connection
-strings to the external services and configure provider TLS requirements
-(`SSL Mode=VerifyFull` for PostgreSQL, `ssl=true` for Redis, with trusted CAs).
+Omit `--profile bundled` from all application commands. Set the database connection
+string to the external service and configure its TLS requirements
+(`SSL Mode=VerifyFull` with trusted CAs).
 Use PostgreSQL 18 for compatibility with the bundled backup client; a newer
 server requires upgrading that client. The initializer requires migration/schema
 permissions. No automatic migration of existing development data takes place.
@@ -101,19 +99,39 @@ docker compose --env-file .env.production -f compose.prod.yaml --profile bundled
 ```
 
 `/health/live` and `/health/ready` are internal API paths and are not routed to the
-API publicly. Readiness checks PostgreSQL; Redis is optional at runtime and
-resource reads fall back to PostgreSQL. Docker marks unhealthy processes, but
+API publicly. Readiness checks PostgreSQL. Docker marks unhealthy processes, but
 does not restart them solely because a health check fails. Process exits restart
 automatically. Investigate unhealthy services through logs.
 
 Application roots are read-only. Frontend cache and temporary files use disposable
-tmpfs mounts; database/cache data and TLS state use named volumes. Logs rotate at
+tmpfs mounts; database data and TLS state use named volumes. Logs rotate at
 10 MB with three files per container. Tune resource limits in the example env
 file for your host; build-time memory can exceed runtime limits. API shutdown has
 30 seconds to drain within Docker's 40-second grace period.
 
 `down` preserves volumes. **`down --volumes` permanently deletes this deployment's
-database, Redis data, and certificates.** Never use it for an ordinary upgrade.
+database and certificates.** Never use it for an ordinary upgrade.
+
+## Production load testing
+
+Production Compose includes an opt-in k6 service on the private data network. It
+calls the API container directly, so measurements focus on API and PostgreSQL
+performance rather than public TLS or Caddy overhead. Set a GET path
+that already exists and is accessible to the load-test account:
+
+```bash
+LOAD_TEST_PATH=/api/workspaces/WORKSPACE_ID/projects \
+docker compose --env-file .env.production -f compose.prod.yaml \
+  --profile load-test run --rm load-test
+```
+
+`LOAD_TEST_EMAIL` and `LOAD_TEST_PASSWORD` should identify a dedicated account;
+they fall back to the configured administrator when omitted. Defaults are 10
+virtual users for 30 seconds with one warmup request. Configure the load through
+the `LOAD_TEST_*` variables in `.env.production`.
+
+Do not run a capacity test against a user-facing deployment without confirming
+that its resource limits and traffic window can tolerate the requested load.
 
 ## Upgrades and rollback
 
@@ -154,8 +172,7 @@ Restore requires an
 existing target database, an absolute dump path, and typing the target name to
 confirm overwriting its objects. It restores in one transaction and fails on
 errors. Stop application writes before restoring the real production database.
-Clear the dedicated Redis cache after a production restore to avoid stale cached
-responses. Dumps do not contain cluster roles, external secrets, or TLS volumes;
+Dumps do not contain cluster roles, external secrets, or TLS volumes;
 store deployment secrets separately and securely. Restore credentials need
 permission to recreate the dumped objects.
 

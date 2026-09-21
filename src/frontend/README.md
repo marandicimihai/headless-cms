@@ -69,7 +69,7 @@ revalidation: the first expired read may return stale data, and refresh failures
 can retain it longer, so 30 seconds is not a hard maximum age. Authentication
 and membership checks remain fresh even when resource data is stale.
 
-No TanStack Query, Redis, or Cache Components configuration is required. Shared
+No TanStack Query or Cache Components configuration is required. Shared
 cache/invalidation coordination must be configured when deploying multiple
 Next.js instances.
 

@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HeadlessCms.Api.Auth;
@@ -43,8 +42,6 @@ if (builder.Environment.IsProduction())
     builder.Logging.ClearProviders();
     builder.Logging.AddJsonConsole();
 }
-builder.AddResourceCache();
-
 builder.Services
     .AddAuthentication(options =>
     {

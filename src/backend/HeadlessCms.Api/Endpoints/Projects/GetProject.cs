@@ -1,4 +1,3 @@
-using HeadlessCms.Api.Caching;
 using FastEndpoints;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Services;
@@ -23,8 +22,7 @@ public sealed class GetProjectResponse
 
 public sealed class GetProject(
     ApplicationDbContext db,
-    WorkspaceAccessService workspaceAccess,
-    ResourceCache cache)
+    WorkspaceAccessService workspaceAccess)
     : Endpoint<GetProjectRequest, GetProjectResponse>
 {
     public override void Configure()
@@ -45,35 +43,24 @@ public sealed class GetProject(
             return;
         }
 
-        var response = await cache.GetOrLoadAsync<GetProjectResponse>(
-            request.WorkspaceId, ResourceCache.RequestKey(HttpContext.Request, nameof(GetProject)),
-            async ct =>
-            {
-                var project = await db.Projects
-                    .AsNoTracking()
-                    .SingleOrDefaultAsync(
-                        candidate =>
-                            candidate.Id == request.Id &&
-                            candidate.WorkspaceId == request.WorkspaceId,
-                        ct);
+        var project = await db.Projects
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                candidate =>
+                    candidate.Id == request.Id &&
+                    candidate.WorkspaceId == request.WorkspaceId,
+                ct);
 
-                if (project is null)
-                {
-                    return null;
-                }
-
-                return new GetProjectResponse
-                {
-                    Id = project.Id,
-                    WorkspaceId = project.WorkspaceId,
-                    Name = project.Name,
-                    CreatedAt = project.CreatedAt,
-                    UpdatedAt = project.UpdatedAt
-                };
-            }, ct);
-        if (response is null)
+        if (project is null)
             await Send.NotFoundAsync(ct);
         else
-            Response = response;
+            Response = new GetProjectResponse
+            {
+                Id = project.Id,
+                WorkspaceId = project.WorkspaceId,
+                Name = project.Name,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt
+            };
     }
 }
