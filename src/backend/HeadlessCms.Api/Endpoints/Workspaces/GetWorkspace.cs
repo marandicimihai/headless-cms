@@ -6,6 +6,8 @@ using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class GetWorkspace(
@@ -17,6 +19,18 @@ public sealed class GetWorkspace(
     {
         Get("workspaces/{workspaceId:guid}");
         Claims("sub");
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Get a workspace";
+            s.Description = "Access: PlatformAdmin or workspace Owner, Editor, or Member.\n\nReturns workspace details. currentRole is null for PlatformAdmin requests, even when the administrator is also a member. Missing or inaccessible workspaces return 404.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Response<GetWorkspaceResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Workspace;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(GetWorkspaceRequest request, CancellationToken ct)

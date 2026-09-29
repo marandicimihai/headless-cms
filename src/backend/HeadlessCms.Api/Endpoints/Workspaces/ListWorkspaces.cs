@@ -4,6 +4,8 @@ using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class ListWorkspaces(ApplicationDbContext db)
@@ -13,6 +15,19 @@ public sealed class ListWorkspaces(ApplicationDbContext db)
     {
         Get("workspaces");
         Roles(nameof(PlatformRole.PlatformAdmin));
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "List all workspaces";
+            s.Description = "Access: PlatformAdmin.\n\nLists all workspaces with pagination. currentRole is null. Page is clamped to at least 1 and pageSize to 1–100; defaults are 1 and 20.";
+            s.Params["Page"] = "Page number, starting at 1 (default 1).";
+            s.Params["PageSize"] = "Items per page (maximum 100). Default 20; values are clamped to 1–100.";
+            s.Response<ListWorkspacesResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Page(ApiExamples.AdminWorkspace);
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response<ApiProblem>(403, "The caller does not have permission.", "application/problem+json");
+        });
     }
 
     public override async Task HandleAsync(ListWorkspacesRequest request, CancellationToken ct)
@@ -39,7 +54,11 @@ public sealed class ListWorkspaces(ApplicationDbContext db)
 
 public sealed class ListWorkspacesRequest
 {
+    [System.ComponentModel.DefaultValue(1)]
+    [FastEndpoints.QueryParam]
     public int Page { get; init; } = 1;
+    [System.ComponentModel.DefaultValue(20)]
+    [FastEndpoints.QueryParam]
     public int PageSize { get; init; } = 20;
 }
 

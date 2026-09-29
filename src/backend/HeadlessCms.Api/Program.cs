@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
+using HeadlessCms.Api.Documentation;
 
 if (args.Contains("--initialize", StringComparer.Ordinal))
 {
@@ -55,6 +56,7 @@ builder.Services
 builder.Services
     .AddAuthorization()
     .AddFastEndpoints();
+builder.Services.AddApiDocumentation();
 builder.Services.ConfigureHttpJsonOptions(
     options => options.SerializerOptions.Converters.Add(
         new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false)));
@@ -113,6 +115,8 @@ app.UseAuthentication()
            c.Serializer.Options.Converters.Add(
                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
        });
+// Only Caddy's /api/* boundary is public; the frontend reads this over the service network.
+app.UseOpenApi(options => options.Path = "/openapi/{documentName}.json");
 app.Run();
 
 public partial class Program;

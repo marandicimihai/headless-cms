@@ -5,6 +5,8 @@ using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class CreateProjectRequest
@@ -42,6 +44,21 @@ public sealed class CreateProject(
     {
         Post("workspaces/{workspaceId:guid}/projects");
         Claims("sub");
+        Description(b => b.WithTags("Projects"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Create a project";
+            s.Description = "Access: Workspace Owner or Editor.\n\nCreates a project within the workspace. Name is trimmed and must contain 3–100 characters. Nonmembers receive 404; read-only members receive 403.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["Name"] = "Display name; whitespace is trimmed. Must contain 3–100 characters after trimming.";
+            s.ExampleRequest = new { Name = "Website" };
+            s.Response<CreateProjectResponse>(201, "Created.");
+            s.ResponseExamples[201] = ApiExamples.Project;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(403, "The caller does not have permission.");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(CreateProjectRequest request, CancellationToken ct)

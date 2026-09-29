@@ -43,9 +43,35 @@ request, response, validation, mapping, and endpoint-specific helpers. An
 endpoint file never contains a second endpoint. Shared domain models and
 services remain in their owning feature modules.
 
-## API and Postman
+## API documentation and Postman
 
-The hosted Postman collection makes it easy to:
+The signed-in frontend's `/documentation` page is the canonical human-readable
+API reference. Open **Documentation** in the dashboard header to search all
+product endpoints, inspect permissions and schemas, and copy cURL/JSON examples.
+It is read-only; requests are not executed from the documentation page.
+
+FastEndpoints generates the contract at `GET /openapi/v1.json` on the backend.
+The frontend fetches it server-side through `BACKEND_URL`, after checking the
+session. This route is deliberately outside Caddy's public `/api/*` proxy rule
+and is not a public frontend API route. Health checks are excluded. Only expose
+the API service through the configured proxy in production.
+
+Set the frontend's `PUBLIC_API_URL` to the externally reachable API origin for
+copyable examples. Docker Compose supplies it for development and production.
+Local `pnpm dev` defaults to `http://localhost:5123`; production otherwise uses
+the incoming public origin. `PUBLIC_API_URL` is a display URL, not a secret.
+
+Maintain endpoint descriptions alongside `Configure()` using FastEndpoints'
+`Description(b => b.WithTags(...))` and `Summary(...)` APIs. Routes and schemas
+come from the real request/response types; native summary metadata supplies
+access rules, parameter descriptions, status codes, and synthetic examples.
+Run the contract checks with
+`dotnet test src/backend/headless-cms.slnx --filter FullyQualifiedName~DocumentationTests`.
+Run frontend checks from `src/frontend` with `pnpm test`, `pnpm lint`, and
+`pnpm build`. The existing Playwright suite includes signed-in documentation
+navigation and can be run with `pnpm test:render-dedup`.
+
+The hosted Postman collection is the request-exploration companion. Use it to:
 
 - test endpoint behavior,
 - understand request/response shapes,

@@ -5,6 +5,8 @@ using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class GetWorkspacePreviewRequest
@@ -27,6 +29,18 @@ public sealed class GetWorkspacePreview(ApplicationDbContext db, WorkspaceAccess
     {
         Get("workspaces/{workspaceId:guid}/preview");
         Claims("sub");
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Get workspace overview";
+            s.Description = "Access: Workspace Owner, Editor, or Member.\n\nReturns project and entry counts plus project summaries. pendingInvitationCount is populated only for owners and null for other members.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Response<GetWorkspacePreviewResponse>(200, "Success.");
+            s.ResponseExamples[200] = new { Name = "Editorial", CurrentRole = "owner", ProjectCount = 1, EntryCount = 1, PublishedEntryCount = 0, DraftEntryCount = 1, MemberCount = 2, PendingInvitationCount = 0, Projects = new[] { new { Id = ApiExamples.ProjectId, Name = "Website", ContentTypeCount = 1, EntryCount = 1, LastContentUpdatedAt = ApiExamples.Timestamp } } };
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(GetWorkspacePreviewRequest request, CancellationToken ct)

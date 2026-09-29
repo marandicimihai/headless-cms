@@ -5,6 +5,8 @@ using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class CreateWorkspace(
@@ -16,6 +18,19 @@ public sealed class CreateWorkspace(
     {
         Post("workspaces");
         Claims("sub");
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Create a workspace";
+            s.Description = "Access: Authenticated user.\n\nCreates an owner membership for the caller. The configured ownership limit defaults to 10; reaching it returns workspace_limit_reached.";
+            s.Params["Name"] = "Display name; whitespace is trimmed. Maximum 100 characters.";
+            s.ExampleRequest = new { Name = "Editorial" };
+            s.Response<CreateWorkspaceResponse>(201, "Created.");
+            s.ResponseExamples[201] = ApiExamples.Workspace;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response<ApiProblem>(409, "The ownership limit has been reached (workspace_limit_reached).", "application/problem+json");
+        });
     }
 
     public override async Task HandleAsync(CreateWorkspaceRequest request, CancellationToken ct)

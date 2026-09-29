@@ -6,6 +6,8 @@ using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class ListContentEntries(
@@ -23,6 +25,25 @@ public sealed class ListContentEntries(
             "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
             "content-types/{contentTypeKey}/entries");
         Claims("sub");
+        Description(b => b.WithTags("Content entries"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "List entries";
+            s.Description = "Access: Workspace Owner, Editor, or Member.\n\nPaginated entries; page defaults to 1, pageSize to 25 (1–100). Both drafts and published entries are returned unless status is specified. Filters use filter[field][operator] and combine with AND. Text supports eq/contains; number eq/gt/gte/lt/lte; boolean eq. System fields: $id and $status support eq, $createdAt and $updatedAt support eq/gt/gte/lt/lte with ISO-8601 timestamps. Sort by one field or system field, prefix - for descending; default is -$updatedAt with ID as tie-breaker.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["ProjectId"] = "Project UUID within the workspace.";
+            s.Params["ContentTypeKey"] = "Immutable content-type key, for example articles.";
+            s.Params["Sort"] = "One field or system field; prefix - for descending. Defaults to -$updatedAt.";
+            s.Params["Status"] = "Optional status filter.";
+            s.Params["Page"] = "Page number, starting at 1 (default 1).";
+            s.Params["PageSize"] = "Items per page (maximum 100). Default 25; values outside 1–100 are rejected.";
+            s.Response<ListContentEntriesResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Page(ApiExamples.Entry, 25);
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(403, "The caller does not have permission.");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(ListContentEntriesRequest request, CancellationToken ct)
@@ -120,9 +141,16 @@ public sealed class ListContentEntriesRequest
     public Guid WorkspaceId { get; init; }
     public Guid ProjectId { get; init; }
     public string ContentTypeKey { get; init; } = default!;
+    [System.ComponentModel.DefaultValue("-$updatedAt")]
+    [FastEndpoints.QueryParam]
     public string? Sort { get; init; }
+    [FastEndpoints.QueryParam]
     public ContentEntryStatus? Status { get; init; }
+    [System.ComponentModel.DefaultValue(1)]
+    [FastEndpoints.QueryParam]
     public int Page { get; init; } = 1;
+    [System.ComponentModel.DefaultValue(25)]
+    [FastEndpoints.QueryParam]
     public int PageSize { get; init; } = 25;
 }
 

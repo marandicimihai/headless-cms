@@ -4,6 +4,8 @@ using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class ChangeWorkspaceMemberRole(
@@ -15,6 +17,21 @@ public sealed class ChangeWorkspaceMemberRole(
     {
         Patch("workspaces/{workspaceId:guid}/members/{userId}");
         Claims("sub");
+        Description(b => b.WithTags("Members"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Change a member's role";
+            s.Description = "Access: Workspace Owner.\n\nChanges a non-owner member to editor or member. Use ownership-transfer to change the owner.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["UserId"] = "User identifier of the target workspace member.";
+            s.Params["Role"] = "The role to assign: editor or member.";
+            s.ExampleRequest = new { Role = "editor" };
+            s.Response<ChangeWorkspaceMemberRoleResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Member;
+            s.Response<ApiProblem>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(

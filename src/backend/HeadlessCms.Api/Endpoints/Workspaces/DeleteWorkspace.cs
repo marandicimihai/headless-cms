@@ -3,6 +3,8 @@ using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class DeleteWorkspace(
@@ -13,6 +15,17 @@ public sealed class DeleteWorkspace(
     {
         Delete("workspaces/{workspaceId:guid}");
         Claims("sub");
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Delete a workspace";
+            s.Description = "Access: Workspace Owner.\n\nPermanently deletes the workspace and its projects, content types, entries, memberships, and invitations. No request body or name confirmation is required by the API.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Response(204, "No content.");
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(DeleteWorkspaceRequest request, CancellationToken ct)

@@ -6,6 +6,8 @@ using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class RenameWorkspace(
@@ -17,6 +19,20 @@ public sealed class RenameWorkspace(
     {
         Patch("workspaces/{workspaceId:guid}");
         Claims("sub");
+        Description(b => b.WithTags("Workspaces"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Rename a workspace";
+            s.Description = "Access: PlatformAdmin or workspace Owner.\n\nTrims the name; maximum 100 characters. Missing or inaccessible workspaces return 404. currentRole is null for PlatformAdmin requests.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["Name"] = "Display name; whitespace is trimmed. Maximum 100 characters.";
+            s.ExampleRequest = new { Name = "Editorial" };
+            s.Response<RenameWorkspaceResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Workspace;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(RenameWorkspaceRequest request, CancellationToken ct)

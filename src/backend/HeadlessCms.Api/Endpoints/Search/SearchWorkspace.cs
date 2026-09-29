@@ -3,6 +3,8 @@ using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Search;
 
 public sealed class SearchWorkspace(
@@ -14,6 +16,20 @@ public sealed class SearchWorkspace(
     {
         Get("workspaces/{workspaceId:guid}/search");
         Claims("sub");
+        Description(b => b.WithTags("Search"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Search a workspace";
+            s.Description = "Access: Workspace Owner, Editor, or Member.\n\nSearches project names, content-type keys, and text entry fields. Query must be 2–100 characters after trimming; limit is 1–10 results per group (default 5). Each group includes its total match count.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["Query"] = "Search text, 2–100 characters after trimming.";
+            s.Params["Limit"] = "Maximum results per group, 1–10 (default 5).";
+            s.Response<SearchWorkspaceResponse>(200, "Success.");
+            s.ResponseExamples[200] = new { Projects = new { Items = new[] { new { Id = ApiExamples.ProjectId, Name = "Website" } }, Total = 1 }, ContentTypes = new { Items = new[] { new { Id = ApiExamples.ContentTypeId, Key = "articles", ProjectId = ApiExamples.ProjectId, ProjectName = "Website" } }, Total = 1 }, Entries = new { Items = new[] { new { Id = ApiExamples.EntryId, Status = "draft", ContentTypeKey = "articles", ProjectId = ApiExamples.ProjectId, ProjectName = "Website", MatchedFieldKey = "title", Snippet = "Hello world" } }, Total = 1 } };
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(SearchWorkspaceRequest request, CancellationToken ct)
@@ -67,7 +83,10 @@ public sealed class SearchWorkspace(
 public sealed class SearchWorkspaceRequest
 {
     public Guid WorkspaceId { get; init; }
+    [FastEndpoints.QueryParam]
     public string Query { get; init; } = string.Empty;
+    [System.ComponentModel.DefaultValue(5)]
+    [FastEndpoints.QueryParam]
     public int Limit { get; init; } = 5;
 }
 

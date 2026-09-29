@@ -5,6 +5,8 @@ using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class UpdateProjectRequest
@@ -43,6 +45,22 @@ public sealed class UpdateProject(
     {
         Put("workspaces/{workspaceId:guid}/projects/{id:guid}");
         Claims("sub");
+        Description(b => b.WithTags("Projects"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Update a project";
+            s.Description = "Access: Workspace Owner or Editor.\n\nReplaces the project name. Name is trimmed and must contain 3–100 characters.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["Id"] = "Project UUID within the workspace.";
+            s.Params["Name"] = "Display name; whitespace is trimmed. Must contain 3–100 characters after trimming.";
+            s.ExampleRequest = new { Name = "Website" };
+            s.Response<UpdateProjectResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Project;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(403, "The caller does not have permission.");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(UpdateProjectRequest request, CancellationToken ct)

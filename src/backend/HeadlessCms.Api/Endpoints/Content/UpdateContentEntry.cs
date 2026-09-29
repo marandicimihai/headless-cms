@@ -5,6 +5,8 @@ using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class UpdateContentEntry(
@@ -18,6 +20,25 @@ public sealed class UpdateContentEntry(
             "workspaces/{workspaceId:guid}/projects/{projectId:guid}/" +
             "content-types/{contentTypeKey}/entries/{entryId:guid}");
         Claims("sub");
+        Description(b => b.WithTags("Content entries"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Update an entry";
+            s.Description = "Access: Workspace Owner or Editor.\n\nReplaces the entire data object and status, not a partial merge. Omitted status defaults to draft. Publish or unpublish by submitting published or draft with the complete data.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["ProjectId"] = "Project UUID within the workspace.";
+            s.Params["ContentTypeKey"] = "Immutable content-type key, for example articles.";
+            s.Params["EntryId"] = "Entry UUID within the content type.";
+            s.Params["Data"] = "Complete JSON data object matching the current content-type definition. Unknown fields are rejected.";
+            s.Params["Status"] = "draft or published; defaults to draft when omitted.";
+            s.ExampleRequest = new { Data = ApiExamples.EntryData, Status = "draft" };
+            s.Response<UpdateContentEntryResponse>(200, "Success.");
+            s.ResponseExamples[200] = ApiExamples.Entry;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(403, "The caller does not have permission.");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(UpdateContentEntryRequest request, CancellationToken ct)

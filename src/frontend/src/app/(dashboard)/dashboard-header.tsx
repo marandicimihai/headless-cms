@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useTransition } from "react"
 import {
-  Bell,
+  BookOpen,
   Boxes,
   ChevronsUpDown,
   LogOut,
@@ -74,12 +74,14 @@ export function DashboardHeader({
         />
       ) : null}
       <Button
-        aria-label="Notifications"
+        aria-label="Documentation"
         className="ml-auto"
-        size="icon"
         variant="ghost"
+        nativeButton={false}
+        render={<Link href="/documentation" />}
       >
-        <Bell />
+        <BookOpen aria-hidden="true" />
+        <span className="hidden sm:inline">Documentation</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger

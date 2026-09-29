@@ -76,6 +76,7 @@ services:
     cpus: ${FRONTEND_CPU_LIMIT:-1.0}
     environment:
       BACKEND_URL: http://api:8080
+      PUBLIC_API_URL: https://${APP_DOMAIN:?Set APP_DOMAIN}
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on:

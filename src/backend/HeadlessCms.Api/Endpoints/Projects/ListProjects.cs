@@ -3,6 +3,8 @@ using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Projects;
 
 public sealed class ListProjectsRequest
@@ -28,6 +30,18 @@ public sealed class ListProjects(
     {
         Get("workspaces/{workspaceId:guid}/projects");
         Claims("sub");
+        Description(b => b.WithTags("Projects"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "List projects";
+            s.Description = "Access: Workspace Owner, Editor, or Member.\n\nReturns an unpaginated array of projects in the workspace.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Response<IReadOnlyList<ListProjectsItemResponse>>(200, "Success.");
+            s.ResponseExamples[200] = new[] { ApiExamples.Project };
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+        });
     }
 
     public override async Task HandleAsync(ListProjectsRequest request, CancellationToken ct)

@@ -4,6 +4,8 @@ using FluentValidation;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class CreateWorkspaceInvitation(
@@ -14,6 +16,23 @@ public sealed class CreateWorkspaceInvitation(
     {
         Post("workspaces/{workspaceId:guid}/invitations");
         Claims("sub");
+        Description(b => b.WithTags("Invitations"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Create an invitation";
+            s.Description = "Access: Workspace Owner.\n\nInvites an editor or member by email. Returns invitationUrl only on creation or resend; copy the link to share it. Existing membership or a pending invitation returns 409.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["Email"] = "Email address (maximum 320 characters).";
+            s.Params["Role"] = "The role to assign: editor or member.";
+            s.ExampleRequest = new { Email = "editor@example.com", Role = "editor" };
+            s.Response<WorkspaceInvitationResponse>(201, "Created.");
+            s.ResponseExamples[201] = ApiExamples.InvitationWithLink;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response<ApiProblem>(403, "The caller does not have permission.", "application/problem+json");
+            s.Response<ApiProblem>(404, "Resource not found or inaccessible.", "application/problem+json");
+            s.Response<ApiProblem>(409, "Conflicting membership or invitation state.", "application/problem+json");
+        });
     }
 
     public override async Task HandleAsync(

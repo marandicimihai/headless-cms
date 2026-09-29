@@ -5,6 +5,8 @@ using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Workspaces.Models;
 using HeadlessCms.Api.Workspaces.Services;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Content;
 
 public sealed class CreateContentType(
@@ -18,6 +20,24 @@ public sealed class CreateContentType(
     {
         Post("workspaces/{workspaceId:guid}/projects/{projectId:guid}/content-types");
         Claims("sub");
+        Description(b => b.WithTags("Content types"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Create a content type";
+            s.Description = "Access: Workspace Owner or Editor.\n\nKeys must match ^[a-z][a-z0-9_]*$ and contain at most 64 characters. Supply at least one field. Types are text, number, and boolean. settings.default is allowed only for optional fields and must match the type.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["ProjectId"] = "Project UUID within the workspace.";
+            s.Params["Key"] = "Immutable key matching ^[a-z][a-z0-9_]*$, maximum 64 characters.";
+            s.Params["Fields"] = "Complete ordered field definitions. Each field requires a unique key and a text, number, or boolean type.";
+            s.ExampleRequest = new { Key = "articles", Fields = ApiExamples.Fields };
+            s.Response<CreateContentTypeResponse>(201, "Created.");
+            s.ResponseExamples[201] = ApiExamples.ContentType;
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(403, "The caller does not have permission.");
+            s.Response(404, "Resource not found or inaccessible.");
+            s.Response<string>(409, "The content-type key already exists.", "text/plain");
+        });
     }
 
     public override async Task HandleAsync(CreateContentTypeRequest request, CancellationToken ct)

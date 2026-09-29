@@ -6,6 +6,8 @@ using HeadlessCms.Api.Workspaces.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
+using HeadlessCms.Api.Documentation;
+
 namespace HeadlessCms.Api.Endpoints.Workspaces;
 
 public sealed class TransferWorkspaceOwnership(
@@ -19,6 +21,21 @@ public sealed class TransferWorkspaceOwnership(
     {
         Post("workspaces/{workspaceId:guid}/ownership-transfer");
         Claims("sub");
+        Description(b => b.WithTags("Members"), clearDefaults: true);
+        Summary((EndpointSummary s) =>
+        {
+            s.Summary = "Transfer ownership";
+            s.Description = "Access: Workspace Owner.\n\nTransfers ownership to an existing non-owner member; the previous owner becomes Editor. Returns both updated memberships. The recipient's ownership limit is enforced.";
+            s.Params["WorkspaceId"] = "Workspace UUID.";
+            s.Params["NewOwnerUserId"] = "User identifier of an existing non-owner member.";
+            s.ExampleRequest = new { NewOwnerUserId = "next-owner" };
+            s.Response<IReadOnlyList<TransferWorkspaceOwnershipMemberResponse>>(200, "Success.");
+            s.ResponseExamples[200] = new object[] { ApiExamples.Member, new { UserId = "next-owner", Email = "owner@example.com", Role = "owner", JoinedAt = ApiExamples.Timestamp } };
+            s.Response<FastEndpoints.ProblemDetails>(400, "Invalid request or validation failure.", "application/problem+json");
+            s.Response<ApiProblem>(401, "Authentication is required, or the session has expired.", "application/problem+json");
+            s.Response(404, "Resource not found or inaccessible.");
+            s.Response<ApiProblem>(409, "The ownership limit has been reached (workspace_limit_reached).", "application/problem+json");
+        });
     }
 
     public override async Task HandleAsync(
