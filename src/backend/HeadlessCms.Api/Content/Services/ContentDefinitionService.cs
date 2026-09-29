@@ -11,6 +11,10 @@ public sealed record ContentFieldInput(
     bool Required,
     JsonElement Settings);
 
+public sealed record ContentTypeDefinitionInput(
+    string Key,
+    IReadOnlyCollection<ContentFieldInput> Fields);
+
 public class ContentDefinitionService(
     ApplicationDbContext db,
     ContentDocumentValidator documentValidator)
@@ -64,6 +68,81 @@ public class ContentDefinitionService(
         db.ContentTypes.Add(contentType);
         await db.SaveChangesAsync(ct);
         return contentType;
+    }
+
+    public async Task<IReadOnlyList<ContentType>> CreateManyAsync(
+        Guid workspaceId,
+        Guid projectId,
+        IReadOnlyCollection<ContentTypeDefinitionInput> definitions,
+        CancellationToken ct = default)
+    {
+        if (definitions.Count == 0)
+            throw new ContentValidationException("At least one content type is required.");
+
+        if (definitions.Count > 6)
+            throw new ContentValidationException("At most six content types can be created at once.");
+
+        if (!await db.Projects.AnyAsync(
+                project => project.WorkspaceId == workspaceId && project.Id == projectId,
+                ct))
+        {
+            throw new ContentNotFoundException("Project not found.");
+        }
+
+        var duplicate = definitions
+            .GroupBy(definition => definition.Key, StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicate is not null)
+            throw new ContentConflictException(
+                $"Content type '{duplicate.Key}' occurs more than once in the proposal.");
+
+        var proposedKeys = definitions.Select(definition => definition.Key).ToArray();
+        var existingKey = await db.ContentTypes
+            .Where(type =>
+                type.WorkspaceId == workspaceId &&
+                type.ProjectId == projectId &&
+                proposedKeys.Contains(type.Key))
+            .Select(type => type.Key)
+            .FirstOrDefaultAsync(ct);
+        if (existingKey is not null)
+            throw new ContentConflictException(
+                $"Content type '{existingKey}' already exists in this project.");
+
+        var now = DateTime.UtcNow;
+        var contentTypes = definitions.Select(definition =>
+        {
+            if (definition.Fields.Count > 20)
+                throw new ContentValidationException(
+                    $"Content type '{definition.Key}' can have at most 20 fields.");
+
+            var contentType = new ContentType
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspaceId,
+                ProjectId = projectId,
+                Key = definition.Key,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            var fields = ValidateAndCreateFields(
+                workspaceId,
+                projectId,
+                definition.Fields);
+            foreach (var field in fields)
+            {
+                field.ContentTypeId = contentType.Id;
+                contentType.Fields.Add(field);
+            }
+
+            return contentType;
+        }).ToList();
+
+        db.ContentTypes.AddRange(contentTypes);
+        // EF Core wraps one relational SaveChanges call in a transaction, so the
+        // entire proposal is committed or rejected as a unit.
+        await db.SaveChangesAsync(ct);
+        return contentTypes;
     }
 
     public async Task<ContentType?> UpdateAsync(

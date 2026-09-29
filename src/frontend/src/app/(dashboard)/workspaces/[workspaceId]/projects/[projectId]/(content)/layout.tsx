@@ -25,17 +25,19 @@ export default async function ProjectContentLayout({
     workspace?.currentRole === "owner" || workspace?.currentRole === "editor"
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <ContentSidebar
-        workspaceId={workspaceId}
-        projectId={projectId}
-        contentTypes={contentTypesResult.ok ? contentTypesResult.data : []}
-        contentTypesError={
-          contentTypesResult.ok ? undefined : contentTypesResult.error.detail
-        }
-        canWrite={canWrite}
-      />
-      <div className="min-w-0 flex-1">
+    <div className="flex h-full min-h-0 flex-1">
+      <div className="sticky top-0 h-full shrink-0 self-start">
+        <ContentSidebar
+          workspaceId={workspaceId}
+          projectId={projectId}
+          contentTypes={contentTypesResult.ok ? contentTypesResult.data : []}
+          contentTypesError={
+            contentTypesResult.ok ? undefined : contentTypesResult.error.detail
+          }
+          canWrite={canWrite}
+        />
+      </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
         {children}
       </div>
     </div>

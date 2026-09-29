@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using FastEndpoints.Testing;
 using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
+using HeadlessCms.Api.Ai;
 using HeadlessCms.Api.Content.Models;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
@@ -263,5 +264,32 @@ public sealed class WorkspaceEndpointTestApp : InMemoryTestApp;
 public sealed class WorkspaceMembershipTestApp : InMemoryTestApp;
 public sealed class WorkspaceAdministrationTestApp : InMemoryTestApp;
 public sealed class ProjectEndpointTestApp : InMemoryTestApp;
-public sealed class ContentEndpointTestApp : InMemoryTestApp;
+public sealed class ContentEndpointTestApp : InMemoryTestApp
+{
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        base.ConfigureServices(services);
+        services.RemoveAll<ISchemaAssistantClient>();
+        services.AddScoped<ISchemaAssistantClient, TestSchemaAssistantClient>();
+    }
+}
+
+public sealed class TestSchemaAssistantClient : ISchemaAssistantClient
+{
+    public Task<SchemaAssistantProposal> GenerateAsync(
+        IReadOnlyList<SchemaAssistantChatMessage> messages,
+        IReadOnlyCollection<string> existingKeys,
+        CancellationToken cancellationToken)
+    {
+        var key = existingKeys.Contains("articles", StringComparer.Ordinal)
+            ? "articles"
+            : "generated_posts";
+        var proposal = new SchemaAssistantProposal(
+            "I drafted one content type for your project.",
+            [new SchemaAssistantTypeProposal(
+                key,
+                [new SchemaAssistantFieldProposal("title", "text", true, null)])]);
+        return Task.FromResult(proposal);
+    }
+}
 public sealed class RemainingEndpointTestApp : InMemoryTestApp;

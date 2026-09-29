@@ -54,6 +54,7 @@ export default async function WorkspaceLayout({
       <WorkspaceSidebar
         workspaceId={workspace.id}
         projects={projectsResult.ok ? projectsResult.data : []}
+        canWrite={workspace.currentRole === "owner" || workspace.currentRole === "editor"}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}

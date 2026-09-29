@@ -39,7 +39,7 @@ export function ContentSidebar({
     <Sidebar
       aria-label="Content types"
       collapsible="none"
-      className="shrink-0 border-r"
+      className="h-full shrink-0 border-r"
     >
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-1">

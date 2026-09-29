@@ -198,3 +198,7 @@
     @apply font-sans;
     }
 }
+html,
+body {
+  overscroll-behavior-y: none;
+}

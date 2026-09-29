@@ -7,6 +7,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   Library,
+  Sparkles,
   Settings,
 } from "lucide-react"
 
@@ -38,9 +39,11 @@ function projectIdFromPathname(pathname: string): string | null {
 export function WorkspaceSidebar({
   workspaceId,
   projects,
+  canWrite,
 }: {
   workspaceId: string
   projects: Project[]
+  canWrite: boolean
 }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile, state } = useSidebar()
@@ -56,6 +59,7 @@ export function WorkspaceSidebar({
   if (currentProject) {
     const projectHref = `${projectsHref}/${currentProject.id}`
     const contentTypesHref = `${projectHref}/content`
+    const schemaAssistantHref = `${projectHref}/schema-assistant`
     const settingsHref = `${projectHref}/manage`
     const contentTypesActive = pathname.startsWith(`${projectHref}/content`)
 
@@ -113,6 +117,17 @@ export function WorkspaceSidebar({
                     <span>Content types</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {canWrite ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={pathname === schemaAssistantHref}
+                      render={<Link href={schemaAssistantHref} onClick={closeMobileSidebar} />}
+                    >
+                      <Sparkles />
+                      <span>Schema assistant</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

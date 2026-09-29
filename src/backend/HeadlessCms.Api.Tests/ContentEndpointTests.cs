@@ -135,6 +135,81 @@ public sealed class ContentEndpointTests(ContentEndpointTestApp app) : TestBase
     }
 
     [Fact]
+    public async Task SchemaAssistant_ReturnsDraftAndBatchCreationIsAllOrNothing()
+    {
+        var owner = await app.SeedUserAsync("schema-owner", "password");
+        var workspace = await app.SeedWorkspaceAsync((owner, WorkspaceRole.Owner));
+        var token = await LoginAsync("schema-owner", "password");
+        var project = await CreateProjectAsync(workspace.Id, token);
+
+        var generated = await SendAsync(
+            HttpMethod.Post,
+            $"/api/workspaces/{workspace.Id}/projects/{project.Id}/schema-assistant/generate",
+            token,
+            new { messages = new[] { new { role = "user", content = "Create a blog schema." } } });
+        generated.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var generatedBody = JsonDocument.Parse(
+            await generated.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        generatedBody.RootElement.GetProperty("contentTypes")[0]
+            .GetProperty("key").GetString().ShouldBe("generated_posts");
+        generatedBody.RootElement.GetProperty("existingKeyConflicts").GetArrayLength().ShouldBe(0);
+        (await app.WithDatabaseAsync(db => db.ContentTypes.CountAsync())).ShouldBe(0);
+
+        var batchPath = $"/api/workspaces/{workspace.Id}/projects/{project.Id}/content-types/batch";
+        var created = await SendAsync(
+            HttpMethod.Post,
+            batchPath,
+            token,
+            new
+            {
+                contentTypes = new[]
+                {
+                    new { key = "articles", fields = new[] { new { key = "title", type = "text", required = true } } },
+                    new { key = "authors", fields = new[] { new { key = "name", type = "text", required = true } } }
+                }
+            });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var conflictingBatch = await SendAsync(
+            HttpMethod.Post,
+            batchPath,
+            token,
+            new
+            {
+                contentTypes = new[]
+                {
+                    new { key = "articles", fields = new[] { new { key = "title", type = "text", required = true } } },
+                    new { key = "new_type", fields = new[] { new { key = "name", type = "text", required = true } } }
+                }
+            });
+        conflictingBatch.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        var storedKeys = await app.WithDatabaseAsync(db =>
+            db.ContentTypes.Select(type => type.Key).OrderBy(key => key).ToListAsync());
+        storedKeys.ShouldBe(["articles", "authors"]);
+    }
+
+    [Fact]
+    public async Task SchemaAssistant_RejectsReadOnlyMembers()
+    {
+        var owner = await app.SeedUserAsync("schema-owner-readonly", "password");
+        var member = await app.SeedUserAsync("schema-member-readonly", "password");
+        var workspace = await app.SeedWorkspaceAsync(
+            (owner, WorkspaceRole.Owner),
+            (member, WorkspaceRole.Member));
+        var project = await SeedProjectAsync(workspace.Id);
+        var token = await LoginAsync("schema-member-readonly", "password");
+
+        var response = await SendAsync(
+            HttpMethod.Post,
+            $"/api/workspaces/{workspace.Id}/projects/{project.Id}/schema-assistant/generate",
+            token,
+            new { messages = new[] { new { role = "user", content = "Create a blog schema." } } });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task ContentTypeDefinition_RemovesUnsupportedFieldSettings()
     {
         var owner = await app.SeedUserAsync("owner", "owner-password");

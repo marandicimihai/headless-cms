@@ -28,9 +28,18 @@ function backendUnavailable<T>(status = 503): ApiResult<T> {
 
 export async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit & { next?: { revalidate?: number; tags?: string[] } },
+  options?: RequestInit & {
+    next?: { revalidate?: number; tags?: string[] }
+    timeoutMs?: number
+    preserveBackendError?: boolean
+  },
 ): Promise<ApiResult<T>> {
   try {
+    const {
+      timeoutMs = 10_000,
+      preserveBackendError = false,
+      ...requestOptions
+    } = options ?? {}
     const headers = new Headers(options?.headers)
     const sessionSecret = await getSessionCookie()
 
@@ -47,12 +56,12 @@ export async function apiFetch<T>(
 
     const response = await fetch(`${process.env.BACKEND_URL}` + endpoint, {
       cache: "no-store",
-      ...options,
-      signal: AbortSignal.timeout(10_000),
+      ...requestOptions,
+      signal: AbortSignal.timeout(timeoutMs),
       headers,
     })
 
-    if (response.status >= 500) {
+    if (response.status >= 500 && !preserveBackendError) {
       return backendUnavailable<T>();
     }
 

@@ -52,14 +52,13 @@ It is read-only; requests are not executed from the documentation page.
 
 FastEndpoints generates the contract at `GET /openapi/v1.json` on the backend.
 The frontend fetches it server-side through `BACKEND_URL`, after checking the
-session. This route is deliberately outside Caddy's public `/api/*` proxy rule
-and is not a public frontend API route. Health checks are excluded. Only expose
-the API service through the configured proxy in production.
+session. This route is not a public frontend API route. Health checks are
+excluded.
 
 Set the frontend's `PUBLIC_API_URL` to the externally reachable API origin for
-copyable examples. Docker Compose supplies it for development and production.
-Local `pnpm dev` defaults to `http://localhost:5123`; production otherwise uses
-the incoming public origin. `PUBLIC_API_URL` is a display URL, not a secret.
+copyable examples. Docker Compose supplies it for development. Local `pnpm dev`
+defaults to `http://localhost:5123`; otherwise the incoming public origin is
+used. `PUBLIC_API_URL` is a display URL, not a secret.
 
 Maintain endpoint descriptions alongside `Configure()` using FastEndpoints'
 `Description(b => b.WithTags(...))` and `Summary(...)` APIs. Routes and schemas
@@ -164,9 +163,6 @@ Connection details should be provided through environment variables or local con
 
 ## Local development with Docker
 
-For single-domain production self-hosting, see [the deployment guide](src/deploy/README.md).
-Production uses `compose.prod.yaml`; this section describes development only.
-
 The complete development stack runs with Docker Compose. It includes the
 Next.js frontend, .NET API with hot reload, a one-shot database initialization job,
 and PostgreSQL. Install Docker Desktop (or Docker Engine with Compose),
@@ -188,8 +184,7 @@ After the containers become healthy, the services are available at:
 | PostgreSQL | `localhost:55000` |
 
 The default development administrator is `admin@example.com` with password
-`password`. All included credentials are for local development only and must
-not be used for a deployment.
+`password`. These credentials are for local development only.
 
 Source directories are mounted into the frontend and API containers, so edits
 trigger their development reloaders. PostgreSQL data, restored NuGet
@@ -321,10 +316,10 @@ reads achieved approximately 5,754 requests/s versus 3,444 requests/s through
 the cache. The database queries are inexpensive at this scale, while the cache
 added network, serialization, coordination, and invalidation overhead.
 
-Consequently, the backend reads directly from PostgreSQL and the deployment has
-no Redis service, connection string, client package, or cache configuration.
-This decision can be revisited only with production-like evidence showing that
-database load or query latency has become a material bottleneck.
+Consequently, the backend reads directly from PostgreSQL and has no Redis
+service, connection string, client package, or cache configuration. This
+decision can be revisited if database load or query latency becomes a material
+bottleneck.
 
 ## Development Notes
 
@@ -376,7 +371,7 @@ The workspace ownership limit defaults to `10` in `appsettings.json`. Override
 `Workspaces:MaximumOwnedWorkspaces` in local configuration or with the
 `Workspaces__MaximumOwnedWorkspaces` environment variable.
 
-Required production configuration:
+Required API configuration:
 
 ```text
 Auth__AdminEmail
@@ -384,6 +379,11 @@ Auth__AdminPassword
 ConnectionStrings__DefaultConnection
 Frontend__BaseUrl
 ```
+
+The project schema assistant also accepts the optional `Ai__GroqApiKey`
+environment variable. For Docker development, set `GROQ_API_KEY` in `.env`.
+Prompts and proposed schemas are sent to Groq for inference. The assistant is
+unavailable when the key is empty.
 
 ## Dynamic content
 

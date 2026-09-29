@@ -55,6 +55,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       Frontend__BaseUrl: http://localhost:${FRONTEND_PORT:-3000}
+      Ai__GroqApiKey: ${GROQ_API_KEY:-}
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-HeadlessCms};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
     ports:
       - "127.0.0.1:${API_PORT:-5123}:8080"

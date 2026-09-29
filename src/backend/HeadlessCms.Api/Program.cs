@@ -5,6 +5,7 @@ using HeadlessCms.Api.Auth.Models;
 using HeadlessCms.Api.Auth.Services;
 using HeadlessCms.Api.Content.Services;
 using HeadlessCms.Api.Content.FieldTypes;
+using HeadlessCms.Api.Ai;
 using HeadlessCms.Api.Data;
 using HeadlessCms.Api.Endpoints.Auth;
 using HeadlessCms.Api.Workspaces.Services;
@@ -79,6 +80,11 @@ builder.Services.AddSingleton<IContentFieldTypeHandler, BooleanFieldTypeHandler>
 builder.Services.AddSingleton<ContentFieldTypeRegistry>();
 builder.Services.AddScoped<ContentDocumentValidator>();
 builder.Services.AddScoped<ContentDefinitionService>();
+builder.Services.Configure<AiOptions>(builder.Configuration.GetSection("Ai"));
+builder.Services.AddScoped<GroqSchemaAssistantClient>();
+builder.Services.AddScoped<ISchemaAssistantClient>(services =>
+    services.GetRequiredService<GroqSchemaAssistantClient>());
+builder.Services.AddSingleton<SchemaAssistantRateLimiter>();
 builder.Services.AddScoped<ContentEntryService>();
 builder.Services.AddScoped<WorkspaceSearchService>();
 builder.Services.AddScoped<IInvitationEmailSender, LinkOnlyInvitationEmailSender>();
@@ -92,7 +98,7 @@ var app = builder.Build();
 // Validate handler registrations before accepting requests.
 app.Services.GetRequiredService<ContentFieldTypeRegistry>();
 
-// HTTPS is enforced by Caddy. Internal HTTP and health probes must not redirect.
+// Internal HTTP and health probes must not redirect.
 app.UseForwardedHeaders();
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }))
@@ -115,7 +121,7 @@ app.UseAuthentication()
            c.Serializer.Options.Converters.Add(
                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
        });
-// Only Caddy's /api/* boundary is public; the frontend reads this over the service network.
+// The frontend reads this over the service network.
 app.UseOpenApi(options => options.Path = "/openapi/{documentName}.json");
 app.Run();
 

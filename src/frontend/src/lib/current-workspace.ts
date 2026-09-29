@@ -28,5 +28,13 @@ export async function setCurrentWorkspace(workspaceId: string): Promise<void> {
 export async function clearCurrentWorkspace(): Promise<void> {
   const cookieStore = await cookies()
 
-  cookieStore.delete(CURRENT_WORKSPACE_COOKIE_NAME)
+  // Match the path used when setting the preference so the root-scoped cookie
+  // is removed during workspace deletion or leave actions.
+  cookieStore.set(CURRENT_WORKSPACE_COOKIE_NAME, "", {
+    httpOnly: false,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  })
 }
