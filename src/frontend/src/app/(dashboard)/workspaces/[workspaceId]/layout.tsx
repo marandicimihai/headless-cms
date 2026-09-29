@@ -3,9 +3,7 @@ import { redirect } from "next/navigation"
 import { CircleAlert } from "lucide-react"
 
 import { BackButton } from "@/components/back-button"
-import { WorkspaceSidebar } from "@/app/(dashboard)/workspaces/[workspaceId]/workspace-sidebar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { listProjects } from "@/lib/api/projects"
 import { getSession } from "@/lib/api/session"
 import { listMyWorkspaces } from "@/lib/api/workspaces"
 
@@ -47,15 +45,8 @@ export default async function WorkspaceLayout({
 
   if (!workspace?.currentRole) redirect("/")
 
-  const projectsResult = await listProjects(workspace.id)
-
   return (
     <div className="flex min-h-0 flex-1">
-      <WorkspaceSidebar
-        workspaceId={workspace.id}
-        projects={projectsResult.ok ? projectsResult.data : []}
-        canWrite={workspace.currentRole === "owner" || workspace.currentRole === "editor"}
-      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
       </div>

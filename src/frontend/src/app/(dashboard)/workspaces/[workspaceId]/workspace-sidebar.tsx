@@ -40,14 +40,16 @@ export function WorkspaceSidebar({
   workspaceId,
   projects,
   canWrite,
+  activeProject,
 }: {
   workspaceId: string
   projects: Project[]
   canWrite: boolean
+  activeProject?: Project | null
 }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile, state } = useSidebar()
-  const currentProject = projects.find(
+  const currentProject = activeProject ?? projects.find(
     (project) =>
       project.id.toLowerCase() === projectIdFromPathname(pathname)?.toLowerCase(),
   )

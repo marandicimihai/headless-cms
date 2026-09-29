@@ -45,7 +45,7 @@ async function requireSession() {
 
 function refreshWorkspace(workspaceId: string) {
   invalidateWorkspaceCache(workspaceId)
-  revalidatePath("/")
+  revalidatePath("/", "page")
   revalidatePath(`/workspaces/${workspaceId}`, "layout")
 }
 
@@ -81,7 +81,7 @@ export async function deleteWorkspaceAction(
 
   invalidateWorkspaceCache(workspaceId)
   await clearCurrentWorkspace()
-  revalidatePath("/", "layout")
+  revalidatePath("/", "page")
   redirect("/")
 }
 
@@ -97,7 +97,7 @@ export async function leaveWorkspaceAction(
 
   invalidateWorkspaceCache(workspaceId)
   await clearCurrentWorkspace()
-  revalidatePath("/", "layout")
+  revalidatePath("/")
   redirect("/")
 }
 

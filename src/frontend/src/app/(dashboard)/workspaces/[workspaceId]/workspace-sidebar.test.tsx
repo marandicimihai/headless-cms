@@ -63,4 +63,21 @@ describe("WorkspaceSidebar", () => {
 
     expect(screen.queryByRole("link", { name: "Schema assistant" })).toBeNull()
   })
+
+  it("shows project navigation when the freshly loaded project is supplied", () => {
+    render(
+      <SidebarProvider>
+        <WorkspaceSidebar
+          {...props}
+          projects={[]}
+          activeProject={props.projects[0]}
+          canWrite
+        />
+      </SidebarProvider>,
+    )
+
+    expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe(
+      "/workspaces/workspace-1/projects/project-1",
+    )
+  })
 })

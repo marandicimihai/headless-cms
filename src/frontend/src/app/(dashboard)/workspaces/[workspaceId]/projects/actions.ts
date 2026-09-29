@@ -36,6 +36,8 @@ async function requireSession() {
 
 function refreshProjects(workspaceId: string, projectId?: string) {
   invalidateWorkspaceCache(workspaceId)
+  revalidatePath("/", "layout")
+  revalidatePath(`/workspaces/${workspaceId}`, "layout")
   revalidatePath(`/workspaces/${workspaceId}/projects`, "layout")
 
   if (projectId) {
